@@ -1495,17 +1495,22 @@ h4,
    ============================================================ */
 
 .footer {
-  padding: 58px var(--page-x) 32px;
+  padding: 54px var(--page-x) 30px;
   border-top: 1px solid var(--line);
   background: #100217;
 }
 
-.footer__grid {
-  display: grid;
-  grid-template-columns: minmax(240px, 2fr) repeat(4, minmax(120px, 1fr));
-  gap: 34px;
+.footer__inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 30px;
   max-width: var(--max-w);
   margin: 0 auto;
+}
+
+.footer__brand {
+  max-width: 540px;
 }
 
 .footer__brand-row {
@@ -1528,10 +1533,10 @@ h4,
 }
 
 .footer__about {
-  max-width: 340px;
+  max-width: 480px;
   color: var(--ink-dim);
-  font-size: 0.9rem;
-  line-height: 1.55;
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .footer__motto {
@@ -1540,38 +1545,44 @@ h4,
   font-size: 0.78rem;
 }
 
-.footer__col-title {
-  margin-bottom: 14px;
+.footer__discord {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 11px 18px;
+  border: 1px solid rgba(254, 214, 109, 0.4);
+  border-radius: 6px;
+  background: rgba(254, 214, 109, 0.08);
   color: var(--yellow);
   font-family: "Russo One", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  line-height: 1;
   text-transform: uppercase;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
-.footer__col-links {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  color: var(--ink-dim);
-  font-size: 0.86rem;
-}
-
-.footer__col-links a:hover {
+.footer__discord:hover {
+  border-color: var(--teal);
+  background: rgba(48, 236, 217, 0.1);
   color: var(--ink);
+  box-shadow: 0 0 18px rgba(48, 236, 217, 0.16);
+  transform: translateY(-1px);
 }
 
 .footer__legal {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
   max-width: var(--max-w);
-  margin: 46px auto 0;
+  margin: 38px auto 0;
   padding-top: 20px;
   border-top: 1px solid var(--line-soft);
   color: var(--ink-dim);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.76rem;
-  flex-wrap: wrap;
 }
 
 /* ============================================================
@@ -1936,9 +1947,6 @@ h4,
     font-size: 6.1rem;
   }
 
-  .footer__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 768px) {
@@ -2125,8 +2133,13 @@ h4,
     font-size: 4.25rem;
   }
 
-  .footer__grid {
-    grid-template-columns: 1fr;
+  .footer__inner {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .footer__discord {
+    align-self: flex-start;
   }
 }
 
@@ -2210,8 +2223,12 @@ h4,
     font-size: 3rem;
   }
 
+  .footer__brand-row span {
+    font-size: 1rem;
+  }
+
   .footer__legal {
-    flex-direction: column;
+    line-height: 1.5;
   }
 }
 
