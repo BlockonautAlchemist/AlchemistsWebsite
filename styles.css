@@ -25,6 +25,11 @@
   --section-y: clamp(72px, 10vw, 132px);
   --max-w: 1440px;
   --nav-h: 82px;
+  --frame-bracket-size: 26px;
+  --frame-bracket-thickness: 2px;
+  --hover-lift-y: -2px;
+  --divider-len: 48%;
+  --sweep-color: rgba(92, 251, 247, 0.18);
 }
 
 *,
@@ -186,6 +191,23 @@ h4,
   font-size: 4.7rem;
   line-height: 0.96;
   text-shadow: 3px 3px 0 rgba(173, 25, 209, 0.72);
+}
+
+.section-head--left .section-title {
+  position: relative;
+  padding-left: 22px;
+}
+
+.section-head--left .section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 14px;
+  height: 2px;
+  background: var(--teal);
+  transform: skewX(-30deg);
+  box-shadow: 0 0 8px rgba(92, 251, 247, 0.35);
 }
 
 .section-title span,
@@ -1066,6 +1088,124 @@ h4,
 .partner-chip--yellow {
   border-color: rgba(254, 214, 109, 0.46);
   color: var(--yellow);
+}
+
+/* ============================================================
+   HUD Frame — asymmetric corner brackets
+   ============================================================ */
+
+.hud-frame {
+  position: relative;
+}
+
+.hud-frame__corners {
+  position: absolute;
+  inset: 8px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hud-frame__corners > span {
+  position: absolute;
+  width: var(--frame-bracket-size);
+  height: var(--frame-bracket-size);
+  border: 0 solid var(--teal);
+}
+
+.hud-frame__corners > span:nth-child(1) {
+  top: 0;
+  right: 0;
+  border-top-width: var(--frame-bracket-thickness);
+  border-right-width: var(--frame-bracket-thickness);
+  border-color: var(--yellow);
+}
+
+.hud-frame__corners > span:nth-child(2) {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: var(--frame-bracket-thickness);
+  border-left-width: var(--frame-bracket-thickness);
+}
+
+.hero__visual.hud-frame .hud-frame__corners {
+  inset: 6%;
+  z-index: 0;
+}
+
+/* ============================================================
+   Section divider — asymmetric line + angular marker
+   ============================================================ */
+
+.section-divider {
+  display: block;
+  height: 18px;
+  padding-inline: var(--page-x);
+  max-width: var(--max-w);
+  margin: 0 auto;
+  position: relative;
+}
+
+.section-divider::before {
+  content: "";
+  position: absolute;
+  left: var(--page-x);
+  top: 50%;
+  width: var(--divider-len);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(92, 251, 247, 0.45) 30%, var(--line) 100%);
+}
+
+.section-divider::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--page-x) + var(--divider-len));
+  top: calc(50% - 5px);
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid var(--teal);
+  border-top: 1.5px solid var(--teal);
+  transform: rotate(45deg);
+}
+
+/* ============================================================
+   Card hover polish — lift + border tint + diagonal sweep
+   ============================================================ */
+
+@media (hover: hover) {
+  .identity__visual,
+  .partner-pitch__visual,
+  .pillar {
+    transition: transform 320ms ease, border-color 320ms ease, box-shadow 320ms ease;
+    isolation: isolate;
+  }
+
+  .identity__visual:hover,
+  .partner-pitch__visual:hover,
+  .pillar:hover {
+    transform: translateY(var(--hover-lift-y));
+    border-color: rgba(92, 251, 247, 0.55);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(92, 251, 247, 0.18);
+  }
+
+  .identity__visual::after,
+  .partner-pitch__visual::after,
+  .pillar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(115deg, transparent 40%, var(--sweep-color) 50%, transparent 60%);
+    transform: translateX(-110%);
+    transition: transform 600ms ease-out;
+    border-radius: inherit;
+  }
+
+  .identity__visual:hover::after,
+  .partner-pitch__visual:hover::after,
+  .pillar:hover::after {
+    transform: translateX(110%);
+  }
 }
 
 /* ============================================================
@@ -2141,6 +2281,23 @@ h4,
   .footer__discord {
     align-self: flex-start;
   }
+
+  :root {
+    --divider-len: 32%;
+  }
+
+  .hud-frame__corners > span {
+    width: 18px;
+    height: 18px;
+  }
+
+  .section-divider {
+    height: 14px;
+  }
+
+  .section-head--left .section-title::before {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2230,6 +2387,14 @@ h4,
   .footer__legal {
     line-height: 1.5;
   }
+
+  :root {
+    --divider-len: 28%;
+  }
+
+  .section-divider::after {
+    display: none;
+  }
 }
 
 @media (max-width: 430px) {
@@ -2309,5 +2474,17 @@ h4,
   .js [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+
+  .identity__visual:hover,
+  .partner-pitch__visual:hover,
+  .pillar:hover {
+    transform: none !important;
+  }
+
+  .identity__visual::after,
+  .partner-pitch__visual::after,
+  .pillar::after {
+    display: none !important;
   }
 }
