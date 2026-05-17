@@ -61,7 +61,8 @@
   function finalStatValue(el) {
     const value = Number(el.dataset.countTo || 0);
     const prefix = el.dataset.prefix || '';
-    return `${prefix}${numberFormatter.format(value)}`;
+    const suffix = el.dataset.suffix || '';
+    return `${prefix}${numberFormatter.format(value)}${suffix}`;
   }
 
   function setFinalStat(el) {
@@ -74,14 +75,15 @@
 
     const target = Number(el.dataset.countTo || 0);
     const prefix = el.dataset.prefix || '';
+    const suffix = el.dataset.suffix || '';
     const duration = 950;
     const startTime = performance.now();
 
     function frame(now) {
-      const progress = Math.min((now - startTime) / duration, 1);
+      const progress = Math.min(Math.max((now - startTime) / duration, 0), 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       const value = Math.round(target * eased);
-      el.textContent = `${prefix}${numberFormatter.format(value)}`;
+      el.textContent = `${prefix}${numberFormatter.format(value)}${suffix}`;
 
       if (progress < 1) {
         requestAnimationFrame(frame);
@@ -90,7 +92,7 @@
       }
     }
 
-    el.textContent = `${prefix}0`;
+    el.textContent = `${prefix}0${suffix}`;
     requestAnimationFrame(frame);
   }
 
