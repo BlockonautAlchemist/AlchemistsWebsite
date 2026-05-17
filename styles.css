@@ -305,6 +305,9 @@ h4,
    ============================================================ */
 
 .ticker {
+  --ticker-gap: 38px;
+  --ticker-offset: 0px;
+
   position: relative;
   z-index: 70;
   overflow: hidden;
@@ -338,13 +341,23 @@ h4,
 }
 
 .ticker__track {
-  display: inline-flex;
-  gap: 38px;
-  min-width: max-content;
-  padding: 11px 0 10px 38px;
+  display: flex;
+  width: max-content;
+  padding: 11px 0 10px var(--ticker-gap);
   white-space: nowrap;
-  animation: ticker-scroll 42s linear infinite;
+  transform: translate3d(0, 0, 0);
   will-change: transform;
+}
+
+.ticker.is-ready .ticker__track {
+  animation: ticker-scroll 42s linear infinite;
+}
+
+.ticker__group {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--ticker-gap);
+  padding-right: var(--ticker-gap);
 }
 
 .ticker__track span {
@@ -523,20 +536,11 @@ h4,
     var(--bg-deep);
 }
 
-.hero__mesh,
 .hero__grid,
 .hero__cuts {
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-
-.hero__mesh {
-  background:
-    linear-gradient(110deg, rgba(254, 214, 109, 0.12), transparent 34%),
-    linear-gradient(260deg, rgba(92, 251, 247, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(173, 25, 209, 0.24), transparent 60%);
-  animation: glow-drift 14s ease-in-out infinite alternate;
 }
 
 .hero__grid {
@@ -751,6 +755,38 @@ h4,
   border-right: 1px solid rgba(248, 237, 255, 0.12);
 }
 
+.hero__stat--focus {
+  background:
+    linear-gradient(180deg, rgba(254, 214, 109, 0.12), rgba(92, 251, 247, 0.035)),
+    linear-gradient(115deg, rgba(254, 214, 109, 0.08), transparent 58%);
+  box-shadow:
+    inset 0 0 0 1px rgba(254, 214, 109, 0.18),
+    inset 0 0 28px rgba(92, 251, 247, 0.07);
+}
+
+.hero__stat--focus::before,
+.hero__stat--focus::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.hero__stat--focus::before {
+  inset: 10px;
+  border: 1px solid rgba(254, 214, 109, 0.18);
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: 0 0 24px rgba(254, 214, 109, 0.12);
+}
+
+.hero__stat--focus::after {
+  right: 18px;
+  bottom: 12px;
+  left: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(254, 214, 109, 0.78), transparent);
+  opacity: 0.72;
+}
+
 .hero__stat:last-child {
   border-right: none;
 }
@@ -759,6 +795,14 @@ h4,
   font-family: "Russo One", sans-serif;
   font-size: clamp(1.85rem, 2.45vw, 2.4rem);
   line-height: 1;
+  white-space: nowrap;
+}
+
+.hero__stat--focus .hero__stat-num {
+  color: var(--yellow);
+  text-shadow:
+    0 0 18px rgba(254, 214, 109, 0.24),
+    0 0 28px rgba(92, 251, 247, 0.12);
 }
 
 .hero__stat-num--static {
@@ -771,6 +815,11 @@ h4,
   font-size: clamp(0.68rem, 0.78vw, 0.78rem);
   opacity: 0.82;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hero__stat--focus .hero__stat-label {
+  opacity: 0.92;
 }
 
 .hero__scroll {
@@ -1619,10 +1668,10 @@ h4,
 
 @keyframes ticker-scroll {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(var(--ticker-offset), 0, 0);
   }
 }
 
@@ -1653,17 +1702,6 @@ h4,
     opacity: 0;
   }
   to {
-    opacity: 1;
-  }
-}
-
-@keyframes glow-drift {
-  from {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.86;
-  }
-  to {
-    transform: translate3d(1.2%, -1%, 0);
     opacity: 1;
   }
 }
@@ -1980,12 +2018,9 @@ h4,
 
 @media (max-width: 768px) {
   .ticker {
-    font-size: 0.68rem;
-  }
+    --ticker-gap: 28px;
 
-  .ticker__track {
-    gap: 28px;
-    padding-left: 28px;
+    font-size: 0.68rem;
   }
 
   .nav__brand span {
@@ -2303,9 +2338,8 @@ h4,
 }
 
 @media (max-width: 360px) {
-  .ticker__track {
-    gap: 24px;
-    padding-left: 24px;
+  .ticker {
+    --ticker-gap: 24px;
   }
 
   .hero__layout {
@@ -2339,6 +2373,10 @@ h4,
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .ticker__track {
+    transform: none !important;
   }
 
   .js [data-reveal] {

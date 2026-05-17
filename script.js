@@ -55,6 +55,59 @@
     });
   });
 
+  const tickers = Array.from(document.querySelectorAll('[data-ticker]'));
+
+  function setupTicker(ticker) {
+    const track = ticker.querySelector('.ticker__track');
+    const sourceGroup = track ? track.querySelector('.ticker__group:not([data-ticker-clone])') : null;
+
+    if (!track || !sourceGroup) return;
+
+    ticker.classList.remove('is-ready');
+    track.querySelectorAll('[data-ticker-clone]').forEach((clone) => clone.remove());
+
+    const groupWidth = sourceGroup.getBoundingClientRect().width;
+    const tickerWidth = ticker.getBoundingClientRect().width;
+
+    if (!groupWidth || !tickerWidth) return;
+
+    const groupCount = Math.max(2, Math.ceil(tickerWidth / groupWidth) + 2);
+
+    for (let index = 1; index < groupCount; index += 1) {
+      const clone = sourceGroup.cloneNode(true);
+      clone.dataset.tickerClone = 'true';
+      clone.setAttribute('aria-hidden', 'true');
+      track.appendChild(clone);
+    }
+
+    ticker.style.setProperty('--ticker-offset', `${-groupWidth}px`);
+    ticker.classList.add('is-ready');
+  }
+
+  function initTickers() {
+    if (!tickers.length) return;
+
+    let frameId = 0;
+
+    function refreshTickers() {
+      tickers.forEach(setupTicker);
+    }
+
+    function scheduleRefresh() {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(refreshTickers);
+    }
+
+    refreshTickers();
+    window.addEventListener('resize', scheduleRefresh);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(scheduleRefresh).catch(() => {});
+    }
+  }
+
+  initTickers();
+
   const numberFormatter = new Intl.NumberFormat('en-US');
   const statEls = Array.from(document.querySelectorAll('[data-count-to]'));
 
