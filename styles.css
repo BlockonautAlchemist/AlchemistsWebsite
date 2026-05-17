@@ -1091,71 +1091,25 @@ h4,
 
 .identity__visual {
   position: relative;
+  display: grid;
+  place-items: center;
   min-height: 480px;
+  padding: clamp(36px, 6vw, 72px);
   overflow: hidden;
   border: 1px solid rgba(254, 214, 109, 0.3);
   border-radius: var(--radius);
   background:
-    linear-gradient(135deg, rgba(254, 214, 109, 0.11), transparent 36%),
-    linear-gradient(225deg, rgba(92, 251, 247, 0.11), transparent 36%),
+    radial-gradient(circle at 18% 18%, rgba(254, 214, 109, 0.12), transparent 34%),
+    radial-gradient(circle at 82% 80%, rgba(92, 251, 247, 0.08), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
     rgba(17, 3, 24, 0.9);
   box-shadow: var(--shadow);
 }
 
-.identity__visual::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 42px 42px;
-  opacity: 0.42;
-}
-
-.identity__visual::after {
-  content: "";
-  position: absolute;
-  left: -18%;
-  right: 12%;
-  bottom: 16%;
-  height: 18px;
-  background: var(--yellow);
-  transform: skew(-18deg);
-  box-shadow: 0 34px 0 rgba(173, 25, 209, 0.72);
-  opacity: 0.76;
-}
-
-.identity__mark {
-  position: absolute;
-  left: 8%;
-  top: 8%;
-  width: min(76%, 390px);
-  opacity: 0.9;
-}
-
-.identity__robot {
-  position: absolute;
-  right: -6%;
-  bottom: -7%;
-  width: min(50%, 260px);
-  filter: drop-shadow(0 18px 46px rgba(0, 0, 0, 0.42));
-  animation: mascot-float 8.5s ease-in-out infinite;
-}
-
-.identity__plate {
-  position: absolute;
-  left: 24px;
-  bottom: 22px;
-  z-index: 2;
-  padding: 10px 12px;
-  border: 1px solid rgba(92, 251, 247, 0.4);
-  border-radius: 6px;
-  background: rgba(17, 3, 24, 0.76);
-  color: var(--teal);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  backdrop-filter: blur(10px);
+.identity__logo {
+  width: min(100%, 420px);
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .identity__copy-wrap {
@@ -2164,12 +2118,8 @@ h4,
     min-height: 320px;
   }
 
-  .identity__mark {
-    width: min(82%, 340px);
-  }
-
-  .identity__robot {
-    width: min(48%, 190px);
+  .identity__logo {
+    width: min(100%, 340px);
   }
 
   .pillars__grid {
@@ -2287,13 +2237,6 @@ h4,
   .identity__visual,
   .partner-pitch__visual {
     min-height: 280px;
-  }
-
-  .identity__plate {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    text-align: center;
   }
 
   .final-cta__title {
