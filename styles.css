@@ -28,8 +28,11 @@
   --section-y: clamp(72px, 10vw, 132px);
   --max-w: 1440px;
   --nav-h: 82px;
-  --frame-bracket-size: 26px;
+  --frame-bracket-size: 28px;
   --frame-bracket-thickness: 2px;
+  --frame-bracket-inset: 10px;
+  --frame-bracket-opacity: 0.74;
+  --frame-bracket-glow: 0 0 14px color-mix(in srgb, currentColor 32%, transparent);
   --hover-lift-y: -4px;
   --divider-len: 48%;
   --sweep-color: rgba(92, 251, 247, 0.18);
@@ -173,6 +176,11 @@ h4,
   height: 2px;
   background: currentColor;
   opacity: 0.8;
+}
+
+.section-container {
+  width: min(calc(100% - (var(--page-x) * 2)), var(--max-w));
+  margin-inline: auto;
 }
 
 .section-head {
@@ -1158,44 +1166,73 @@ h4,
 }
 
 /* ============================================================
-   HUD Frame — asymmetric corner brackets
+   HUD Frame — four-corner bracket system
    ============================================================ */
 
 .hud-frame {
   position: relative;
+  --hud-corner-inset: var(--frame-bracket-inset);
+  --hud-corner-size: var(--frame-bracket-size);
+  --hud-corner-thickness: var(--frame-bracket-thickness);
 }
 
 .hud-frame__corners {
   position: absolute;
-  inset: 8px;
-  z-index: 1;
+  inset: var(--hud-corner-inset);
+  z-index: 3;
+  opacity: var(--frame-bracket-opacity);
   pointer-events: none;
+  transition:
+    opacity var(--motion-med),
+    filter var(--motion-med);
 }
 
 .hud-frame__corners > span {
   position: absolute;
-  width: var(--frame-bracket-size);
-  height: var(--frame-bracket-size);
-  border: 0 solid var(--teal);
+  width: var(--hud-corner-size);
+  height: var(--hud-corner-size);
+  border: 0 solid currentColor;
+  color: var(--teal);
+  filter: drop-shadow(var(--frame-bracket-glow));
+  transition:
+    opacity var(--motion-med),
+    filter var(--motion-med),
+    transform var(--motion-med);
 }
 
 .hud-frame__corners > span:nth-child(1) {
   top: 0;
-  right: 0;
-  border-top-width: var(--frame-bracket-thickness);
-  border-right-width: var(--frame-bracket-thickness);
-  border-color: var(--yellow);
+  left: 0;
+  border-top-width: var(--hud-corner-thickness);
+  border-left-width: var(--hud-corner-thickness);
 }
 
 .hud-frame__corners > span:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-top-width: var(--hud-corner-thickness);
+  border-right-width: var(--hud-corner-thickness);
+  color: var(--yellow);
+}
+
+.hud-frame__corners > span:nth-child(3) {
+  right: 0;
   bottom: 0;
+  border-right-width: var(--hud-corner-thickness);
+  border-bottom-width: var(--hud-corner-thickness);
+}
+
+.hud-frame__corners > span:nth-child(4) {
   left: 0;
-  border-bottom-width: var(--frame-bracket-thickness);
-  border-left-width: var(--frame-bracket-thickness);
+  border-bottom-width: var(--hud-corner-thickness);
+  border-left-width: var(--hud-corner-thickness);
+  bottom: 0;
+  color: var(--yellow);
 }
 
 .hero__visual.hud-frame .hud-frame__corners {
-  inset: 6%;
+  --hud-corner-inset: clamp(18px, 6%, 38px);
+
   z-index: 0;
 }
 
@@ -1307,6 +1344,15 @@ h4,
   .opp:hover::before {
     transform: translateX(110%);
   }
+
+  .hud-frame:hover .hud-frame__corners {
+    opacity: 0.92;
+  }
+
+  .hud-frame:hover .hud-frame__corners > span {
+    animation: hud-corner-shimmer 1400ms ease;
+    filter: drop-shadow(0 0 16px color-mix(in srgb, currentColor 48%, transparent));
+  }
 }
 
 /* ============================================================
@@ -1401,16 +1447,25 @@ h4,
    ============================================================ */
 
 .pillars {
-  padding: var(--section-y) var(--page-x);
+  padding-block: var(--section-y);
+  padding-inline: 0;
   background: var(--bg-deep);
+}
+
+.pillars__inner {
+  position: relative;
+  z-index: 1;
+}
+
+.pillars .section-head {
+  margin: 0 0 clamp(32px, 4vw, 54px);
 }
 
 .pillars__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-  max-width: var(--max-w);
-  margin: 0 auto;
+  gap: clamp(14px, 1.5vw, 18px);
+  margin: 0;
 }
 
 .pillar {
@@ -1978,6 +2033,16 @@ h4,
   }
 }
 
+@keyframes hud-corner-shimmer {
+  0%,
+  100% {
+    opacity: 0.86;
+  }
+  42% {
+    opacity: 1;
+  }
+}
+
 /* ============================================================
    Responsive
    ============================================================ */
@@ -2429,11 +2494,8 @@ h4,
 
   :root {
     --divider-len: 32%;
-  }
-
-  .hud-frame__corners > span {
-    width: 18px;
-    height: 18px;
+    --frame-bracket-size: 20px;
+    --frame-bracket-inset: 8px;
   }
 
   .section-divider {
