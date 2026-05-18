@@ -81,6 +81,7 @@
     }
 
     ticker.style.setProperty('--ticker-offset', `${-groupWidth}px`);
+    ticker.style.setProperty('--ticker-duration', `${Math.max(28, groupWidth / 28).toFixed(2)}s`);
     ticker.classList.add('is-ready');
   }
 
@@ -107,6 +108,45 @@
   }
 
   initTickers();
+
+  const constellationStage = document.querySelector('.constellation__stage');
+
+  if (constellationStage) {
+    const strengthCards = Array.from(constellationStage.querySelectorAll('[data-strength-card]'));
+    const strengthLines = Array.from(constellationStage.querySelectorAll('[data-strength-line]'));
+    const mascot = constellationStage.querySelector('.constellation__mascot');
+
+    function setActiveStrength(key) {
+      const hasActive = Boolean(key);
+
+      constellationStage.classList.toggle('is-strength-active', hasActive);
+      if (mascot) mascot.classList.toggle('is-active', hasActive);
+
+      strengthCards.forEach((card) => {
+        card.classList.toggle('is-active', card.dataset.strengthCard === key);
+      });
+
+      strengthLines.forEach((line) => {
+        line.classList.toggle('is-active', line.dataset.strengthLine === key);
+      });
+    }
+
+    strengthCards.forEach((card) => {
+      card.addEventListener('pointerenter', () => setActiveStrength(card.dataset.strengthCard));
+      card.addEventListener('pointerleave', () => setActiveStrength(''));
+    });
+  }
+
+  [
+    ['.strength-card[data-reveal]', 70],
+    ['.pillar[data-reveal]', 85],
+    ['.opp[data-reveal]', 75],
+    ['.value[data-reveal]', 65]
+  ].forEach(([selector, step]) => {
+    document.querySelectorAll(selector).forEach((el, index) => {
+      el.style.setProperty('--reveal-delay', `${Math.min(index * step, 420)}ms`);
+    });
+  });
 
   const numberFormatter = new Intl.NumberFormat('en-US');
   const statEls = Array.from(document.querySelectorAll('[data-count-to]'));
