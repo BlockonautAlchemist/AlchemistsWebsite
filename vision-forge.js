@@ -29,7 +29,7 @@
   const COOLDOWN_MS = 10 * 60 * 1000;
 
   const GREETING =
-    "Got an idea for The Alchemists? Drop it here, even if it is rough. I'll help you shape it into a clear proposal, make sure it fits the community, and prepare it for the #vision-forge Discord channel where members can react, vote, and help build on it.";
+    "Got an idea for The Alchemists? Drop it below, even if it is rough. I'll help you shape it into a clear proposal, make sure it fits the community, and prepare it for the #vision-forge Discord channel where members can react, vote, and help build on it.";
 
   const REFINE_CHIPS = [
     { label: 'Tighten this idea', message: 'Tighten this idea — make it sharper and more focused.' },
