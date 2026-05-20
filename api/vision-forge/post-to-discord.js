@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
     sendJson(res, 200, {
       ok: true,
       preview: publicPreview,
-      message: 'Your idea was posted to the Vision Forge channel.'
+      message: 'Your idea was posted to #vision-forge.'
     });
   } catch (error) {
     sendError(res, error);

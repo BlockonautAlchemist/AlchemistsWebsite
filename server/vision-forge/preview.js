@@ -118,7 +118,7 @@ function evaluatePreview(preview, rawClearConnection) {
 function defaultTweaks() {
   return [
     'Name the Alchemists members or partner community this would help.',
-    'Add one concrete next step that the guild could take together.'
+    'Add one concrete next step that the community could take together.'
   ];
 }
 

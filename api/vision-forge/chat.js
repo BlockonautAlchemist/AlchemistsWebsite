@@ -1,5 +1,5 @@
 const { callOpenRouter } = require('../../server/vision-forge/openRouter');
-const { buildCoachMessages } = require('../../server/vision-forge/prompts');
+const { buildCollaboratorMessages } = require('../../server/vision-forge/prompts');
 const { enforceRateLimit } = require('../../server/vision-forge/rateLimit');
 const {
   assertPost,
@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
     });
 
     const reply = await callOpenRouter({
-      messages: buildCoachMessages(payload),
+      messages: buildCollaboratorMessages(payload),
       temperature: 0.45,
       maxTokens: 650
     });

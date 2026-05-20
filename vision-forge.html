@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vision Forge - The Alchemists</title>
-  <meta name="description" content="Vision Forge helps Alchemists shape rough ideas into Discord-ready proposals with an AI idea coach and manual Discord posting." />
+  <meta name="description" content="Vision Forge helps Alchemists shape ideas into community proposals for discussion, voting, and collaboration in Discord." />
   <meta property="og:title" content="Vision Forge - The Alchemists" />
-  <meta property="og:description" content="Shape rough guild ideas into Discord-ready proposals." />
+  <meta property="og:description" content="Share ideas, refine them with an AI Collaborator, and post them to the community town board." />
   <meta property="og:image" content="assets/full-logo.png" />
   <meta name="theme-color" content="#280836" />
 
@@ -25,10 +25,10 @@
     <div class="ticker__track">
       <div class="ticker__group">
         <span>Vision Forge</span>
-        <span>Shape Ideas Before Discord</span>
-        <span>AI Coach</span>
-        <span>Manual Posting</span>
-        <span>Community Value First</span>
+        <span>COMMUNITY IDEAS</span>
+        <span>AI COLLABORATOR</span>
+        <span>Town Board</span>
+        <span>Member Credit</span>
         <span>The Alchemists</span>
       </div>
     </div>
@@ -65,14 +65,14 @@
 
       <div class="vf-hero__inner">
         <div class="vf-hero__copy" data-reveal>
-          <div class="eyebrow vf-hero__eyebrow">Vision Forge</div>
+          <div class="eyebrow vf-hero__eyebrow">COMMUNITY IDEAS</div>
           <h1 class="vf-hero__title display" id="vf-hero-title">VISION FORGE</h1>
-          <p class="vf-hero__subtitle subtitle-font">Shape rough guild ideas into Discord-ready proposals.</p>
+          <p class="vf-hero__subtitle subtitle-font">Help shape the future of The Alchemists.</p>
           <p class="vf-hero__lede">
-            Work with an AI idea coach, sharpen the Alchemists connection, preview the Discord post, then manually send only the ideas that are ready.
+            Bring your idea to Vision Forge. The AI understands The Alchemists community and will help you refine your idea, connect it to our vision, and turn it into a post the community can discuss and vote on in Discord.
           </p>
           <div class="vf-hero__ctas">
-            <a href="#forge-workspace" class="btn btn-primary">Forge an Idea</a>
+            <a href="#forge-workspace" class="btn btn-primary">Share Your Idea</a>
             <a href="#how-it-works" class="btn btn-ghost">How It Works</a>
           </div>
         </div>
@@ -81,8 +81,8 @@
           <div class="hud-frame__corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
           <img class="vf-hero__mark" src="assets/logo-mark.png" alt="" />
           <div class="vf-hero__scan mono">ALIGNMENT SCAN</div>
-          <div class="vf-hero__signal vf-hero__signal--top mono">COACHING ONLINE</div>
-          <div class="vf-hero__signal vf-hero__signal--bottom mono">DISCORD PREVIEW</div>
+          <div class="vf-hero__signal vf-hero__signal--top mono">AI COLLABORATOR</div>
+          <div class="vf-hero__signal vf-hero__signal--bottom mono">COMMUNITY VOTE</div>
         </div>
       </div>
     </section>
@@ -90,10 +90,10 @@
     <section class="vf-workspace" id="forge-workspace" aria-labelledby="forge-title">
       <div class="vf-workspace__shell">
         <div class="section-head section-head--left" data-reveal>
-          <div class="eyebrow">Forge Console</div>
-          <h2 class="section-title display" id="forge-title">Brainstorm With The Coach</h2>
+          <div class="eyebrow">AI COLLABORATOR</div>
+          <h2 class="section-title display" id="forge-title">Turn Your Idea Into a Community Proposal</h2>
           <p class="section-copy">
-            Chat with the Vision Forge AI coach to shape your idea, then generate a Discord-ready preview and post it to the community when it's ready.
+            You do not need to have every answer. Share the rough idea, talk it through with the AI, and shape it into something the community can understand, improve, and help bring to life.
           </p>
         </div>
 
@@ -101,7 +101,7 @@
           <section class="vf-chat-panel" aria-labelledby="vf-chat-title">
             <header class="vf-chat-panel__head">
               <div>
-                <span class="vf-kicker mono">AI Coach</span>
+                <span class="vf-kicker mono">AI COLLABORATOR</span>
                 <h3 class="display" id="vf-chat-title">Vision Forge Chat</h3>
               </div>
               <button class="vf-textbtn" id="vf-reset" type="button">Start over</button>
@@ -120,7 +120,7 @@
             <p class="vf-notice" id="vf-notice" role="status" aria-live="polite"></p>
 
             <form class="vf-composer" id="vf-composer" autocomplete="off">
-              <textarea id="vf-input" rows="1" maxlength="1600" placeholder="Share an idea for The Alchemists..." aria-label="Message the Vision Forge coach"></textarea>
+              <textarea id="vf-input" rows="1" maxlength="1600" placeholder="Share an idea, feature, opportunity, or vision for The Alchemists..." aria-label="Message the Vision Forge AI Collaborator"></textarea>
               <button class="btn btn-primary vf-composer__send" id="vf-send" type="submit">Send</button>
             </form>
           </section>
@@ -129,7 +129,7 @@
             <header class="vf-preview-panel__head">
               <div>
                 <span class="vf-kicker mono">Output</span>
-                <h3 class="display" id="vf-preview-title">Discord Preview</h3>
+                <h3 class="display" id="vf-preview-title">Discord Post Preview</h3>
               </div>
               <span class="vf-badge mono" id="vf-status">Needs Refinement</span>
             </header>
@@ -138,7 +138,7 @@
 
             <div class="vf-preview-actions">
               <button class="btn btn-ghost" id="vf-regenerate" type="button">Regenerate Preview</button>
-              <button class="btn btn-primary" id="vf-post" type="button" disabled>Post to Discord</button>
+              <button class="btn btn-primary" id="vf-post" type="button" disabled>Post to #vision-forge</button>
             </div>
           </aside>
         </div>
@@ -148,24 +148,40 @@
     <section class="vf-how" id="how-it-works" aria-labelledby="how-title">
       <div class="section-head" data-reveal>
         <div class="eyebrow">How It Works</div>
-        <h2 class="section-title display" id="how-title">From Spark To Signal</h2>
+        <h2 class="section-title display" id="how-title">How Vision Forge Works</h2>
       </div>
 
       <div class="vf-steps">
         <article class="vf-step" data-reveal>
           <span class="vf-step__num mono">01</span>
-          <h3>Share the rough idea</h3>
-          <p>Start with the member, community, partner, or project outcome you want to create.</p>
+          <h3>Share an idea</h3>
+          <p>Start with any idea that could help The Alchemists, support members, create opportunities, improve the community, or bring people together.</p>
         </article>
         <article class="vf-step" data-reveal>
           <span class="vf-step__num mono">02</span>
-          <h3>Sharpen the Alchemists connection</h3>
-          <p>The coach helps clarify who benefits, why it matters, and what the next step should be.</p>
+          <h3>Refine it with AI</h3>
+          <p>Vision Forge understands who The Alchemists are and helps shape your idea so it fits the community's mission, strengths, and future direction.</p>
         </article>
         <article class="vf-step" data-reveal>
           <span class="vf-step__num mono">03</span>
-          <h3>Preview and post manually</h3>
-          <p>Vision Forge only enables posting after the preview shows a clear guild connection.</p>
+          <h3>Post it to Discord</h3>
+          <p>When your idea is ready, Vision Forge turns it into a clean post and sends it to the #vision-forge channel with your name attached.</p>
+        </article>
+        <article class="vf-step" data-reveal>
+          <span class="vf-step__num mono">04</span>
+          <h3>Let the community decide</h3>
+          <p>Members can react, vote, give feedback, offer skills, and help turn the strongest ideas into real community projects.</p>
+        </article>
+      </div>
+
+      <div class="vf-notes">
+        <article class="vf-note" data-reveal>
+          <h3>Your Idea Gets Credit</h3>
+          <p>Every idea posted through Vision Forge gives credit to the member who submitted it. The goal is not to take ideas away from people. The goal is to help the community see them, improve them, vote on them, and collaborate to make them real.</p>
+        </article>
+        <article class="vf-note" data-reveal>
+          <h3>The Community Town Board</h3>
+          <p>The #vision-forge Discord channel is where ideas go after they are shaped. Members can react to vote, reply with feedback, offer their skills, and help decide which visions deserve momentum.</p>
         </article>
       </div>
     </section>
@@ -179,7 +195,7 @@
           <span>The Alchemists</span>
         </div>
         <p class="footer__about">
-          Vision Forge helps members turn sparks into practical proposals for the guild.
+          Vision Forge helps members shape ideas, get credit, and invite the community to build what comes next.
         </p>
         <p class="footer__motto subtitle-font">We strive to do good.</p>
       </div>

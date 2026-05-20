@@ -1,7 +1,7 @@
 const { ApiError } = require('./errors');
 const { sanitizeText } = require('./validation');
 
-const THREAD_PROMPT = 'Reply with feedback, improvements, or ways you could help bring this idea to life.';
+const THREAD_PROMPT = 'React to vote, reply with feedback, or offer skills that could help bring this idea to life.';
 
 function formatDiscordMessage(preview) {
   const lines = [

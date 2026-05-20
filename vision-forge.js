@@ -29,7 +29,7 @@
   const COOLDOWN_MS = 10 * 60 * 1000;
 
   const GREETING =
-    "Hey! I'm your Vision Forge coach. Tell me a rough idea you have for The Alchemists and we'll shape it together — then you can post it to Discord for the community.";
+    "Got an idea for The Alchemists? Drop it here, even if it is rough. I'll help you shape it into a clear proposal, make sure it fits the community, and prepare it for the #vision-forge Discord channel where members can react, vote, and help build on it.";
 
   const REFINE_CHIPS = [
     { label: 'Tighten this idea', message: 'Tighten this idea — make it sharper and more focused.' },
@@ -146,7 +146,7 @@
 
     const label = document.createElement('span');
     label.className = 'vf-msg__role mono';
-    label.textContent = role === 'assistant' ? 'Coach' : 'You';
+    label.textContent = role === 'assistant' ? 'AI Collaborator' : 'You';
 
     const body = document.createElement('p');
     body.className = 'vf-msg__body';
@@ -160,8 +160,8 @@
     const node = document.createElement('div');
     node.className = 'vf-msg vf-msg--assistant vf-msg--thinking';
     node.innerHTML =
-      '<span class="vf-msg__role mono">Coach</span>' +
-      '<span class="vf-typing" aria-label="Coach is thinking"><i></i><i></i><i></i></span>';
+      '<span class="vf-msg__role mono">AI Collaborator</span>' +
+      '<span class="vf-typing" aria-label="AI Collaborator is thinking"><i></i><i></i><i></i></span>';
     return node;
   }
 
@@ -191,7 +191,7 @@
     const generate = document.createElement('button');
     generate.type = 'button';
     generate.className = 'vf-chip vf-chip--accent';
-    generate.textContent = state.preview ? 'Regenerate Discord Preview' : 'Generate Discord Preview';
+    generate.textContent = state.preview ? 'Regenerate Discord Post Preview' : 'Generate Discord Post Preview';
     generate.disabled = busy;
     generate.addEventListener('click', generatePreview);
     fragment.appendChild(generate);
@@ -322,7 +322,7 @@
     } else if (remaining > 0) {
       refs.post.textContent = `${Math.ceil(remaining / 60000)}m cooldown`;
     } else {
-      refs.post.textContent = 'Post to Discord';
+      refs.post.textContent = 'Post to #vision-forge';
     }
   }
 
@@ -468,7 +468,7 @@
       state.postStatus = 'posted';
       safeSet(COOLDOWN_KEY, String(Date.now() + COOLDOWN_MS));
       renderPreview();
-      showNotice(data.message || 'Your idea was posted to the Vision Forge channel.', 'success');
+      showNotice(data.message || 'Your idea was posted to #vision-forge.', 'success');
     } catch (error) {
       if (error.data && error.data.preview) {
         state.preview = error.data.preview;
