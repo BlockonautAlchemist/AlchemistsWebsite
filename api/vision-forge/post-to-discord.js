@@ -1,5 +1,6 @@
 const { postToDiscord } = require('../../server/vision-forge/discord');
-const { clientPreview, generatePreview } = require('../../server/vision-forge/preview');
+const { clientPreview } = require('../../server/vision-forge/preview');
+const { verifyPreviewToken } = require('../../server/vision-forge/token');
 const { enforceRateLimit } = require('../../server/vision-forge/rateLimit');
 const {
   assertPost,
@@ -8,7 +9,6 @@ const {
   sendError,
   sendJson
 } = require('../../server/vision-forge/http');
-const { validateVisionPayload } = require('../../server/vision-forge/validation');
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return;
@@ -16,15 +16,16 @@ module.exports = async function handler(req, res) {
   try {
     assertPost(req);
     const body = await readJsonBody(req);
-    const payload = validateVisionPayload(body);
+
+    // Only a token signed by /post-preview is accepted. Eligibility is recomputed
+    // server-side inside verifyPreviewToken, so the client cannot forge a post.
+    const preview = verifyPreviewToken(body.token);
+    const publicPreview = clientPreview(preview);
 
     enforceRateLimit(req, 'vision-forge-post', {
       limit: 2,
       windowMs: 10 * 60 * 1000
     });
-
-    const preview = await generatePreview(payload);
-    const publicPreview = clientPreview(preview);
 
     if (!preview.can_post) {
       sendJson(res, 422, {
@@ -40,7 +41,7 @@ module.exports = async function handler(req, res) {
     sendJson(res, 200, {
       ok: true,
       preview: publicPreview,
-      message: 'Idea posted to Discord.'
+      message: 'Your idea was posted to the Vision Forge channel.'
     });
   } catch (error) {
     sendError(res, error);

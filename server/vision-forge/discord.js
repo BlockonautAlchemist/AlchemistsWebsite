@@ -22,7 +22,7 @@ function formatDiscordMessage(preview) {
     '',
     `**Suggested Next Step**\n${preview.suggested_next_step}`,
     '',
-    `**Thread Prompt**\n${THREAD_PROMPT}`
+    `**Thread Prompt**\n${preview.thread_prompt || THREAD_PROMPT}`
   ];
 
   return sanitizeText(lines.join('\n'), 1900, { preserveNewlines: true });

@@ -2,15 +2,21 @@ const { ApiError } = require('./errors');
 
 const LIMITS = {
   username: 80,
-  idea: 2400,
-  message: 1200,
-  historyItem: 1200,
+  message: 1600,
   previewField: 360,
   previewLongField: 620,
   title: 120,
   category: 80,
   tweak: 160
 };
+
+// Keep the conversation bounded: at most this many turns reach the model.
+const MAX_MESSAGES = 16;
+// Hard ceiling on the combined conversation size sent to the model.
+const MAX_CONVERSATION_CHARS = 12000;
+
+const DEFAULT_THREAD_PROMPT =
+  'Reply with feedback, improvements, or ways you could help bring this idea to life.';
 
 const REQUIRED_PREVIEW_FIELDS = [
   'title',
@@ -73,47 +79,51 @@ function validateHoneypot(body) {
   }
 }
 
-function normalizeHistory(history) {
-  if (!Array.isArray(history)) return [];
+function normalizeMessages(messages) {
+  if (!Array.isArray(messages)) return [];
 
-  return history
-    .slice(-10)
+  const cleaned = messages
     .map((item) => {
       const role = item && item.role === 'assistant' ? 'assistant' : 'user';
-      const content = sanitizeText(item && item.content, LIMITS.historyItem, {
+      const content = sanitizeText(item && item.content, LIMITS.message, {
         preserveNewlines: true
       });
 
       return content ? { role, content } : null;
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(-MAX_MESSAGES);
+
+  // Trim oldest turns until the combined size is within bounds.
+  let total = cleaned.reduce((sum, item) => sum + item.content.length, 0);
+  while (cleaned.length > 1 && total > MAX_CONVERSATION_CHARS) {
+    total -= cleaned.shift().content.length;
+  }
+
+  return cleaned;
 }
 
-function validateVisionPayload(body, options = {}) {
+function validateChatPayload(body, options = {}) {
   validateHoneypot(body);
 
-  const username = sanitizeDiscordName(body.username);
-  const idea = sanitizeText(body.idea, LIMITS.idea, { preserveNewlines: true });
-  const message = sanitizeText(body.message, LIMITS.message, { preserveNewlines: true });
-  const history = normalizeHistory(body.history);
+  const username = sanitizeDiscordName(body.discord_username || body.username);
+  const messages = normalizeMessages(body.messages);
 
   if (username.length < 2) {
     throw new ApiError(400, 'Add your Discord username before using Vision Forge.');
   }
 
-  if (idea.length < 20) {
-    throw new ApiError(400, 'Share at least 20 characters so Vision Forge has enough idea context.');
+  if (!messages.length) {
+    throw new ApiError(400, 'Share an idea so Vision Forge has something to work with.');
   }
 
-  if (options.messageRequired && message.length < 1) {
-    throw new ApiError(400, 'Add a question or note for the idea coach.');
+  if (options.requireConversation && messages[messages.length - 1].role !== 'user') {
+    throw new ApiError(400, 'The latest message must come from you.');
   }
 
   return {
     username,
-    idea,
-    message,
-    history
+    messages
   };
 }
 
@@ -151,6 +161,9 @@ function normalizePreview(raw, username) {
     community_value: sanitizeText(source.community_value, LIMITS.previewLongField),
     individual_member_value: sanitizeText(source.individual_member_value, LIMITS.previewLongField),
     suggested_next_step: sanitizeText(source.suggested_next_step, LIMITS.previewLongField),
+    thread_prompt: sanitizeText(source.thread_prompt, LIMITS.previewLongField, {
+      fallback: DEFAULT_THREAD_PROMPT
+    }),
     alignment_score: clampScore(source.alignment_score),
     relevance_status: normalizeStatus(source.relevance_status),
     suggested_tweaks: normalizeTweaks(source.suggested_tweaks)
@@ -165,9 +178,11 @@ function hasRequiredPreviewFields(preview) {
 
 module.exports = {
   LIMITS,
+  DEFAULT_THREAD_PROMPT,
   REQUIRED_PREVIEW_FIELDS,
   hasRequiredPreviewFields,
   normalizePreview,
   sanitizeText,
-  validateVisionPayload
+  sanitizeDiscordName,
+  validateChatPayload
 };

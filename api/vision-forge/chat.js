@@ -10,7 +10,7 @@ const {
 } = require('../../server/vision-forge/http');
 const {
   sanitizeText,
-  validateVisionPayload
+  validateChatPayload
 } = require('../../server/vision-forge/validation');
 
 module.exports = async function handler(req, res) {
@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   try {
     assertPost(req);
     const body = await readJsonBody(req);
-    const payload = validateVisionPayload(body, { messageRequired: true });
+    const payload = validateChatPayload(body, { requireConversation: true });
 
     enforceRateLimit(req, 'vision-forge-chat', {
       limit: 8,

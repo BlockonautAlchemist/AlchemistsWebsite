@@ -91,84 +91,57 @@
       <div class="vf-workspace__shell">
         <div class="section-head section-head--left" data-reveal>
           <div class="eyebrow">Forge Console</div>
-          <h2 class="section-title display" id="forge-title">Build The Signal</h2>
+          <h2 class="section-title display" id="forge-title">Brainstorm With The Coach</h2>
           <p class="section-copy">
-            Add your Discord name, describe the idea, use the coach to tighten the connection, then generate a post preview for manual Discord submission.
+            Chat with the Vision Forge AI coach to shape your idea, then generate a Discord-ready preview and post it to the community when it's ready.
           </p>
         </div>
 
-        <form class="vf-form" id="vision-forge-form" autocomplete="off">
-          <input class="vf-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
-
-          <div class="vf-console" data-reveal>
-            <div class="vf-panel vf-panel--input">
-              <div class="vf-panel__head">
-                <div>
-                  <span class="vf-kicker mono">Collaboration</span>
-                  <h3 class="display">Idea Console</h3>
-                </div>
-                <span class="vf-panel__chip mono">Required</span>
+        <div class="vf-app" id="vf-app" data-reveal>
+          <section class="vf-chat-panel" aria-labelledby="vf-chat-title">
+            <header class="vf-chat-panel__head">
+              <div>
+                <span class="vf-kicker mono">AI Coach</span>
+                <h3 class="display" id="vf-chat-title">Vision Forge Chat</h3>
               </div>
+              <button class="vf-textbtn" id="vf-reset" type="button">Start over</button>
+            </header>
 
-              <label class="vf-field">
-                <span>Discord Username</span>
-                <input id="vf-username" name="username" type="text" maxlength="80" placeholder="yourname" required />
-              </label>
-
-              <label class="vf-field">
-                <span>Idea / Coach Prompt</span>
-                <textarea id="vf-idea" name="idea" rows="12" maxlength="2400" placeholder="Describe your idea, opportunity, feature, or vision for The Alchemists..." required></textarea>
-              </label>
-
-              <div class="vf-input__actions">
-                <p>Use the same idea field to ask the coach for gaps, refinements, Alchemists alignment, and next steps.</p>
-                <button class="btn btn-purple vf-chat__send" id="vf-chat-submit" type="button">Ask AI Coach</button>
-              </div>
-
-              <div class="vf-chat" aria-labelledby="coach-title">
-                <div class="vf-chat__head">
-                  <div>
-                    <span class="vf-kicker mono">AI Coach</span>
-                    <h3 class="display" id="coach-title">Response Stream</h3>
-                  </div>
-                  <span class="vf-chat__count mono" id="vf-chat-count">0 notes</span>
-                </div>
-
-                <div class="vf-chat__log" id="vf-chat-log" aria-live="polite">
-                  <div class="vf-message vf-message--assistant">
-                    <span class="mono">Coach</span>
-                    <p>Send the idea above when you want sharper positioning, stronger community value, or a clearer next step.</p>
-                  </div>
-                </div>
-              </div>
+            <div class="vf-userrow">
+              <label class="vf-userrow__label mono" for="vf-username">Discord username</label>
+              <input id="vf-username" type="text" maxlength="80" placeholder="yourname" autocomplete="off" />
+              <input class="vf-honeypot" id="vf-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
             </div>
 
-            <aside class="vf-panel vf-panel--preview" aria-labelledby="preview-title">
-              <div class="vf-panel__head">
-                <div>
-                  <span class="vf-kicker mono">Output</span>
-                  <h3 class="display" id="preview-title">Discord Preview</h3>
-                </div>
-                <span class="vf-preview__status mono" id="vf-preview-status">Not generated</span>
-              </div>
+            <div class="vf-log" id="vf-log" role="log" aria-live="polite"></div>
 
-              <div class="vf-alert" id="vf-alert" role="status" aria-live="polite"></div>
+            <div class="vf-chips" id="vf-chips" hidden></div>
 
-              <div class="vf-preview" id="vf-preview">
-                <div class="vf-preview__empty">
-                  <span class="vf-kicker mono">Awaiting Preview</span>
-                  <h4>Discord proposal will appear here</h4>
-                  <p>Generate a preview after the idea has enough guild context.</p>
-                </div>
-              </div>
+            <p class="vf-notice" id="vf-notice" role="status" aria-live="polite"></p>
 
-              <div class="vf-actions">
-                <button class="btn btn-primary" id="vf-generate" type="button">Generate Discord Preview</button>
-                <button class="btn btn-dark" id="vf-post" type="button" disabled>Post Idea to Discord</button>
+            <form class="vf-composer" id="vf-composer" autocomplete="off">
+              <textarea id="vf-input" rows="1" maxlength="1600" placeholder="Share an idea for The Alchemists..." aria-label="Message the Vision Forge coach"></textarea>
+              <button class="btn btn-primary vf-composer__send" id="vf-send" type="submit">Send</button>
+            </form>
+          </section>
+
+          <aside class="vf-preview-panel" id="vf-preview-panel" aria-labelledby="vf-preview-title" hidden>
+            <header class="vf-preview-panel__head">
+              <div>
+                <span class="vf-kicker mono">Output</span>
+                <h3 class="display" id="vf-preview-title">Discord Preview</h3>
               </div>
-            </aside>
-          </div>
-        </form>
+              <span class="vf-badge mono" id="vf-status">Needs Refinement</span>
+            </header>
+
+            <div class="vf-preview-body" id="vf-preview-body"></div>
+
+            <div class="vf-preview-actions">
+              <button class="btn btn-ghost" id="vf-regenerate" type="button">Regenerate Preview</button>
+              <button class="btn btn-primary" id="vf-post" type="button" disabled>Post to Discord</button>
+            </div>
+          </aside>
+        </div>
       </div>
     </section>
 

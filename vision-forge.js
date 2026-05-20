@@ -1,32 +1,56 @@
-// Vision Forge client behavior. All model and Discord secrets stay behind /api routes.
+// Vision Forge chat client. All model and Discord secrets stay behind /api routes.
 
 (function () {
-  const form = document.getElementById('vision-forge-form');
-  if (!form) return;
-
   const refs = {
+    app: document.getElementById('vf-app'),
     username: document.getElementById('vf-username'),
-    idea: document.getElementById('vf-idea'),
-    chatLog: document.getElementById('vf-chat-log'),
-    chatCount: document.getElementById('vf-chat-count'),
-    chatSubmit: document.getElementById('vf-chat-submit'),
-    generate: document.getElementById('vf-generate'),
-    post: document.getElementById('vf-post'),
-    preview: document.getElementById('vf-preview'),
-    previewStatus: document.getElementById('vf-preview-status'),
-    alert: document.getElementById('vf-alert')
+    honeypot: document.getElementById('vf-hp'),
+    log: document.getElementById('vf-log'),
+    chips: document.getElementById('vf-chips'),
+    notice: document.getElementById('vf-notice'),
+    composer: document.getElementById('vf-composer'),
+    input: document.getElementById('vf-input'),
+    send: document.getElementById('vf-send'),
+    reset: document.getElementById('vf-reset'),
+    previewPanel: document.getElementById('vf-preview-panel'),
+    previewBody: document.getElementById('vf-preview-body'),
+    status: document.getElementById('vf-status'),
+    regenerate: document.getElementById('vf-regenerate'),
+    post: document.getElementById('vf-post')
   };
 
-  const COOLDOWN_MS = 10 * 60 * 1000;
+  if (!refs.app || !refs.composer) return;
+
+  const STORAGE = {
+    username: 'visionForge:username',
+    messages: 'visionForge:messages'
+  };
   const COOLDOWN_KEY = 'visionForgePostedUntil';
+  const COOLDOWN_MS = 10 * 60 * 1000;
 
-  let history = [];
-  let currentPreview = null;
-  let isBusy = false;
+  const GREETING =
+    "Hey! I'm your Vision Forge coach. Tell me a rough idea you have for The Alchemists and we'll shape it together — then you can post it to Discord for the community.";
 
-  function sanitizeClientText(value) {
-    return String(value || '').replace(/\s+/g, ' ').trim();
-  }
+  const REFINE_CHIPS = [
+    { label: 'Tighten this idea', message: 'Tighten this idea — make it sharper and more focused.' },
+    { label: 'Check alignment', message: 'How well does this align with The Alchemists vision? Be specific.' },
+    { label: 'Suggest next steps', message: 'What are concrete next steps to move this idea forward?' },
+    { label: 'Make it more useful to members', message: 'How can this be more useful and valuable to individual members?' }
+  ];
+
+  const state = {
+    discordUsername: '',
+    messages: [],
+    isThinking: false,
+    preview: null,
+    previewToken: null,
+    isPreviewStale: false,
+    isGeneratingPreview: false,
+    isPosting: false,
+    postStatus: 'idle' // 'idle' | 'posted'
+  };
+
+  /* ---------- helpers ---------- */
 
   function escapeHtml(value) {
     return String(value || '')
@@ -37,102 +61,301 @@
       .replace(/'/g, '&#039;');
   }
 
-  function cooldownUntil() {
-    const stored = Number(window.localStorage.getItem(COOLDOWN_KEY) || 0);
-    return Number.isFinite(stored) ? stored : 0;
+  function sanitizeClientText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function safeGet(key) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function safeSet(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (error) {
+      /* storage unavailable — continue in-memory */
+    }
+  }
+
+  function safeRemove(key) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (error) {
+      /* ignore */
+    }
   }
 
   function cooldownRemaining() {
-    return Math.max(0, cooldownUntil() - Date.now());
+    const until = Number(safeGet(COOLDOWN_KEY) || 0);
+    return Number.isFinite(until) ? Math.max(0, until - Date.now()) : 0;
   }
 
-  function cooldownLabel(ms) {
-    const minutes = Math.ceil(ms / 60000);
-    return `${minutes}m cooldown`;
+  /* ---------- persistence ---------- */
+
+  function loadState() {
+    state.discordUsername = sanitizeClientText(safeGet(STORAGE.username) || '');
+    refs.username.value = state.discordUsername;
+
+    let stored = [];
+    try {
+      const raw = safeGet(STORAGE.messages);
+      stored = raw ? JSON.parse(raw) : [];
+    } catch (error) {
+      stored = [];
+    }
+
+    if (Array.isArray(stored) && stored.length) {
+      state.messages = stored
+        .filter((m) => m && typeof m.content === 'string' && m.content.trim())
+        .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+    }
+
+    if (!state.messages.length) {
+      state.messages = [{ role: 'assistant', content: GREETING }];
+    }
   }
 
-  function setBusy(nextBusy) {
-    isBusy = nextBusy;
-    refs.chatSubmit.disabled = nextBusy;
-    refs.generate.disabled = nextBusy;
-    updatePostButton();
+  function saveMessages() {
+    safeSet(STORAGE.messages, JSON.stringify(state.messages.slice(-16)));
   }
 
-  function updatePostButton() {
-    const remaining = cooldownRemaining();
-    const hasPreview = Boolean(currentPreview);
-    const canPost = hasPreview && currentPreview.can_post && remaining === 0 && !isBusy;
+  /* ---------- rendering ---------- */
 
-    refs.post.disabled = !canPost;
+  function renderMessages() {
+    const fragment = document.createDocumentFragment();
 
-    if (remaining > 0) {
-      refs.post.textContent = cooldownLabel(remaining);
+    state.messages.forEach((message) => {
+      fragment.appendChild(messageNode(message.role, message.content));
+    });
+
+    if (state.isThinking) {
+      fragment.appendChild(thinkingNode());
+    }
+
+    refs.log.replaceChildren(fragment);
+    refs.log.scrollTop = refs.log.scrollHeight;
+  }
+
+  function messageNode(role, content) {
+    const node = document.createElement('div');
+    node.className = `vf-msg vf-msg--${role === 'assistant' ? 'assistant' : 'user'}`;
+
+    const label = document.createElement('span');
+    label.className = 'vf-msg__role mono';
+    label.textContent = role === 'assistant' ? 'Coach' : 'You';
+
+    const body = document.createElement('p');
+    body.className = 'vf-msg__body';
+    body.textContent = content;
+
+    node.append(label, body);
+    return node;
+  }
+
+  function thinkingNode() {
+    const node = document.createElement('div');
+    node.className = 'vf-msg vf-msg--assistant vf-msg--thinking';
+    node.innerHTML =
+      '<span class="vf-msg__role mono">Coach</span>' +
+      '<span class="vf-typing" aria-label="Coach is thinking"><i></i><i></i><i></i></span>';
+    return node;
+  }
+
+  function renderChips() {
+    const hasExchange =
+      state.messages.length > 1 && state.messages[state.messages.length - 1].role === 'assistant';
+    const busy = state.isThinking || state.isGeneratingPreview || state.isPosting;
+
+    if (!hasExchange) {
+      refs.chips.hidden = true;
+      refs.chips.replaceChildren();
       return;
     }
 
-    refs.post.textContent = 'Post Idea to Discord';
+    const fragment = document.createDocumentFragment();
+
+    REFINE_CHIPS.forEach((chip) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'vf-chip';
+      button.textContent = chip.label;
+      button.disabled = busy;
+      button.addEventListener('click', () => sendMessage(chip.message));
+      fragment.appendChild(button);
+    });
+
+    const generate = document.createElement('button');
+    generate.type = 'button';
+    generate.className = 'vf-chip vf-chip--accent';
+    generate.textContent = state.preview ? 'Regenerate Discord Preview' : 'Generate Discord Preview';
+    generate.disabled = busy;
+    generate.addEventListener('click', generatePreview);
+    fragment.appendChild(generate);
+
+    refs.chips.replaceChildren(fragment);
+    refs.chips.hidden = false;
   }
 
-  function showAlert(message, type) {
-    refs.alert.textContent = message || '';
-    refs.alert.className = 'vf-alert';
-
-    if (!message) return;
-
-    refs.alert.classList.add('is-visible');
-    if (type) refs.alert.classList.add(`is-${type}`);
+  function showNotice(message, type) {
+    refs.notice.textContent = message || '';
+    refs.notice.className = 'vf-notice';
+    if (message) {
+      refs.notice.classList.add('is-visible');
+      if (type) refs.notice.classList.add(`is-${type}`);
+    }
   }
 
-  function setStatus(text, state) {
-    refs.previewStatus.textContent = text;
-    refs.previewStatus.className = 'vf-preview__status mono';
-    if (state) refs.previewStatus.classList.add(`is-${state}`);
+  function setBadge(text, variant) {
+    refs.status.textContent = text;
+    refs.status.className = 'vf-badge mono';
+    if (variant) refs.status.classList.add(`is-${variant}`);
   }
 
-  function getPayload(message) {
-    const formData = new FormData(form);
-
-    return {
-      username: refs.username.value,
-      idea: refs.idea.value,
-      message: message || '',
-      history: history.slice(-10),
-      honeypot: formData.get('website') || ''
-    };
+  function field(label, value) {
+    return (
+      '<div class="vf-pv__field">' +
+      `<span class="vf-pv__label mono">${escapeHtml(label)}</span>` +
+      `<p class="vf-pv__text">${escapeHtml(value)}</p>` +
+      '</div>'
+    );
   }
 
-  function validateBase() {
-    const username = sanitizeClientText(refs.username.value);
-    const idea = sanitizeClientText(refs.idea.value);
+  function renderPreview() {
+    const preview = state.preview;
+    if (!preview) return;
 
-    if (username.length < 2) {
-      showAlert('Add your Discord username before using Vision Forge.', 'error');
+    refs.previewPanel.hidden = false;
+    refs.app.classList.add('has-preview');
+
+    const posted = state.postStatus === 'posted';
+    const stale = state.isPreviewStale;
+
+    if (posted) {
+      setBadge('Posted', 'posted');
+    } else if (stale) {
+      setBadge('Update Needed', 'stale');
+    } else if (preview.can_post) {
+      setBadge('Ready', 'ready');
+    } else {
+      setBadge(preview.relevance_status === 'Off Track' ? 'Off Track' : 'Needs Refinement', 'blocked');
+    }
+
+    const parts = [];
+
+    if (stale && !posted) {
+      parts.push(
+        '<p class="vf-pv__stale">You’ve kept chatting. Regenerate the preview to include the latest conversation.</p>'
+      );
+    }
+
+    parts.push(
+      '<div class="vf-discord-post">' +
+        '<div class="vf-discord-post__meta mono">' +
+        '<span># vision-forge</span>' +
+        `<span>By ${escapeHtml(preview.submitted_by)}</span>` +
+        '</div>' +
+        `<h4>${escapeHtml(preview.title)}</h4>` +
+        `<p>${escapeHtml(preview.summary)}</p>` +
+        '</div>'
+    );
+
+    parts.push(
+      '<div class="vf-pv__tags">' +
+        `<span class="vf-pv__tag mono">${escapeHtml(preview.category)}</span>` +
+        `<span class="vf-pv__tag mono">Alignment ${escapeHtml(String(preview.alignment_score))}/5</span>` +
+        `<span class="vf-pv__tag mono">${escapeHtml(preview.relevance_status)}</span>` +
+        '</div>'
+    );
+
+    parts.push(field('Why it matters', preview.why_it_matters));
+    parts.push(field('Community value', preview.community_value));
+    parts.push(field('Individual member value', preview.individual_member_value));
+    parts.push(field('Suggested next step', preview.suggested_next_step));
+    parts.push(field('Thread prompt', preview.thread_prompt));
+
+    if (!preview.can_post && Array.isArray(preview.suggested_tweaks) && preview.suggested_tweaks.length) {
+      const items = preview.suggested_tweaks
+        .map((tweak) => `<li>${escapeHtml(tweak)}</li>`)
+        .join('');
+      parts.push(
+        '<div class="vf-pv__tweaks">' +
+          '<span class="vf-pv__label mono">Suggested tweaks</span>' +
+          `<ul>${items}</ul>` +
+          '</div>'
+      );
+    }
+
+    if (!preview.can_post && preview.posting_blocked_reason) {
+      parts.push(`<p class="vf-pv__blocked">${escapeHtml(preview.posting_blocked_reason)}</p>`);
+    }
+
+    refs.previewBody.innerHTML = parts.join('');
+    updateControls();
+  }
+
+  /* ---------- control state ---------- */
+
+  function updateControls() {
+    const busy = state.isThinking || state.isGeneratingPreview || state.isPosting;
+    const remaining = cooldownRemaining();
+
+    refs.send.disabled = busy;
+    refs.input.disabled = state.isThinking;
+    refs.regenerate.disabled = busy;
+
+    const canPost =
+      Boolean(state.preview) &&
+      state.preview.can_post &&
+      !state.isPreviewStale &&
+      state.postStatus !== 'posted' &&
+      remaining === 0 &&
+      !busy;
+
+    refs.post.disabled = !canPost;
+
+    if (state.postStatus === 'posted') {
+      refs.post.textContent = 'Posted';
+    } else if (remaining > 0) {
+      refs.post.textContent = `${Math.ceil(remaining / 60000)}m cooldown`;
+    } else {
+      refs.post.textContent = 'Post to Discord';
+    }
+  }
+
+  /* ---------- username ---------- */
+
+  function syncUsername() {
+    state.discordUsername = sanitizeClientText(refs.username.value);
+    safeSet(STORAGE.username, state.discordUsername);
+  }
+
+  function requireUsername() {
+    syncUsername();
+    if (state.discordUsername.length < 2) {
+      showNotice('Add your Discord username first.', 'error');
       refs.username.focus();
       return false;
     }
-
-    if (idea.length < 20) {
-      showAlert('Share at least 20 characters so Vision Forge has enough idea context.', 'error');
-      refs.idea.focus();
-      return false;
-    }
-
     return true;
   }
+
+  /* ---------- networking ---------- */
 
   async function requestJson(url, payload) {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok || data.ok === false) {
-      const error = new Error(data.error || 'Vision Forge request failed.');
+      const error = new Error(data.error || 'Vision Forge request failed. Try again.');
       error.data = data;
       throw error;
     }
@@ -140,205 +363,186 @@
     return data;
   }
 
-  function addChatMessage(role, content, options = {}) {
-    const node = document.createElement('div');
-    node.className = `vf-message vf-message--${role}`;
-    if (options.pending) node.classList.add('vf-message--pending');
-
-    const label = document.createElement('span');
-    label.className = 'mono';
-    label.textContent = role === 'assistant' ? 'Coach' : 'You';
-
-    const body = document.createElement('p');
-    body.textContent = content;
-
-    node.append(label, body);
-    refs.chatLog.appendChild(node);
-    refs.chatLog.scrollTop = refs.chatLog.scrollHeight;
-
-    return node;
+  function chatPayload() {
+    return {
+      discord_username: state.discordUsername,
+      messages: state.messages.slice(-16),
+      website: refs.honeypot ? refs.honeypot.value : ''
+    };
   }
 
-  function updateChatCount() {
-    const count = history.length;
-    refs.chatCount.textContent = `${count} ${count === 1 ? 'note' : 'notes'}`;
+  /* ---------- actions ---------- */
+
+  function markPreviewStale() {
+    if (state.preview && state.postStatus !== 'posted') {
+      state.isPreviewStale = true;
+      renderPreview();
+    }
   }
 
-  function rememberExchange(userMessage, assistantReply) {
-    history.push({ role: 'user', content: userMessage });
-    history.push({ role: 'assistant', content: assistantReply });
-    history = history.slice(-10);
-    updateChatCount();
-  }
+  async function sendMessage(text) {
+    const content = String(text || '').trim();
+    if (!content || state.isThinking) return;
+    if (!requireUsername()) return;
 
-  async function askCoach() {
-    if (!validateBase() || isBusy) return;
-
-    const message = refs.idea.value.trim();
-    showAlert('');
-    addChatMessage('user', message);
-    const pending = addChatMessage('assistant', 'Thinking through the guild connection...', { pending: true });
-    setBusy(true);
+    showNotice('');
+    state.messages.push({ role: 'user', content });
+    state.isThinking = true;
+    saveMessages();
+    renderMessages();
+    renderChips();
+    updateControls();
 
     try {
-      const data = await requestJson('/api/vision-forge/chat', getPayload(message));
-      pending.remove();
-      addChatMessage('assistant', data.reply);
-      rememberExchange(message, data.reply);
-      currentPreview = null;
-      setStatus('Preview stale', 'blocked');
-      renderPreviewState(
-        'stale',
-        'Preview is stale',
-        'Generate a new Discord preview after reviewing the coach response.'
-      );
-      updatePostButton();
+      const data = await requestJson('/api/vision-forge/chat', chatPayload());
+      state.messages.push({ role: 'assistant', content: data.reply });
+      markPreviewStale();
     } catch (error) {
-      pending.remove();
-      showAlert(error.message, 'error');
+      showNotice(error.message, 'error');
     } finally {
-      setBusy(false);
+      state.isThinking = false;
+      saveMessages();
+      renderMessages();
+      renderChips();
+      updateControls();
     }
-  }
-
-  function renderPreviewState(state, title, body) {
-    refs.preview.innerHTML = `
-      <div class="vf-preview__empty vf-preview__empty--${escapeHtml(state)}">
-        <span class="vf-kicker mono">${escapeHtml(state)}</span>
-        <h4>${escapeHtml(title)}</h4>
-        <p>${escapeHtml(body)}</p>
-      </div>
-    `;
-  }
-
-  function supportField(label, value) {
-    return `
-      <div class="vf-preview__support-item">
-        <strong>${escapeHtml(label)}</strong>
-        <p>${escapeHtml(value)}</p>
-      </div>
-    `;
-  }
-
-  function renderPreview(preview) {
-    const state = preview.can_post ? 'ready' : 'blocked';
-    setStatus(preview.can_post ? 'Ready to post' : 'Needs refinement', state);
-
-    refs.preview.innerHTML = `
-      <div class="vf-preview__card">
-        <div class="vf-discord-post">
-          <div class="vf-discord-post__meta mono">
-            <span># vision-forge</span>
-            <span>By ${escapeHtml(preview.submitted_by)}</span>
-          </div>
-          <h4>${escapeHtml(preview.title)}</h4>
-          <p>${escapeHtml(preview.summary)}</p>
-        </div>
-
-        <div class="vf-preview__support">
-          ${supportField('Alignment score', `${preview.alignment_score}/5`)}
-          ${supportField('Relevance status', preview.relevance_status)}
-          ${supportField('Suggested next step', preview.suggested_next_step)}
-          ${supportField('Community value summary', preview.community_value)}
-        </div>
-      </div>
-    `;
-
-    if (preview.can_post) {
-      showAlert('Preview is eligible for manual Discord posting.', 'success');
-    } else {
-      showAlert(preview.posting_blocked_reason || 'Refine the Alchemists connection before posting.', 'error');
-    }
-
-    updatePostButton();
   }
 
   async function generatePreview() {
-    if (!validateBase() || isBusy) return;
+    if (state.isGeneratingPreview || state.isThinking) return;
+    if (!requireUsername()) return;
+    if (state.messages.filter((m) => m.role === 'user').length === 0) {
+      showNotice('Share an idea in the chat first.', 'error');
+      return;
+    }
 
-    showAlert('');
-    setStatus('Generating', 'loading');
-    renderPreviewState(
-      'generating',
-      'Building Discord preview',
-      'Checking Alchemists alignment, community value, and posting eligibility.'
-    );
-    setBusy(true);
+    showNotice('');
+    state.isGeneratingPreview = true;
+    refs.previewPanel.hidden = false;
+    refs.app.classList.add('has-preview');
+    setBadge('Generating', 'loading');
+    refs.previewBody.innerHTML = '<p class="vf-pv__loading">Building a Discord-ready preview from your conversation…</p>';
+    renderChips();
+    updateControls();
 
     try {
-      const data = await requestJson('/api/vision-forge/post-preview', getPayload(''));
-      currentPreview = data.preview;
-      renderPreview(currentPreview);
+      const data = await requestJson('/api/vision-forge/post-preview', chatPayload());
+      state.preview = data.preview;
+      state.previewToken = data.token;
+      state.isPreviewStale = false;
+      state.postStatus = 'idle';
+      renderPreview();
+
+      if (state.preview.can_post) {
+        showNotice('Preview ready — you can post it to Discord.', 'success');
+      }
     } catch (error) {
-      currentPreview = null;
-      setStatus('Preview failed', 'blocked');
-      renderPreviewState(
-        'failed',
-        'Preview failed',
-        'Vision Forge could not generate a preview from this request.'
-      );
-      showAlert(error.message, 'error');
-      updatePostButton();
+      state.preview = null;
+      state.previewToken = null;
+      setBadge('Failed', 'blocked');
+      refs.previewBody.innerHTML = `<p class="vf-pv__blocked">${escapeHtml(error.message)}</p>`;
+      showNotice(error.message, 'error');
     } finally {
-      setBusy(false);
+      state.isGeneratingPreview = false;
+      renderChips();
+      updateControls();
     }
   }
 
   async function postToDiscord() {
-    if (!validateBase() || isBusy || !currentPreview || !currentPreview.can_post) return;
+    if (state.isPosting) return;
+    if (!state.preview || !state.previewToken || !state.preview.can_post || state.isPreviewStale) return;
 
-    const remaining = cooldownRemaining();
-    if (remaining > 0) {
-      showAlert(`Posting is cooling down for ${cooldownLabel(remaining)}.`, 'error');
-      updatePostButton();
+    if (cooldownRemaining() > 0) {
+      updateControls();
       return;
     }
 
-    showAlert('');
-    setBusy(true);
+    showNotice('');
+    state.isPosting = true;
+    updateControls();
 
     try {
-      const data = await requestJson('/api/vision-forge/post-to-discord', getPayload(''));
-      currentPreview = data.preview;
-      window.localStorage.setItem(COOLDOWN_KEY, String(Date.now() + COOLDOWN_MS));
-      renderPreview(currentPreview);
-      showAlert('Idea posted to Discord.', 'success');
+      const data = await requestJson('/api/vision-forge/post-to-discord', { token: state.previewToken });
+      if (data.preview) state.preview = data.preview;
+      state.postStatus = 'posted';
+      safeSet(COOLDOWN_KEY, String(Date.now() + COOLDOWN_MS));
+      renderPreview();
+      showNotice(data.message || 'Your idea was posted to the Vision Forge channel.', 'success');
     } catch (error) {
       if (error.data && error.data.preview) {
-        currentPreview = error.data.preview;
-        renderPreview(currentPreview);
+        state.preview = error.data.preview;
+        renderPreview();
       }
-
-      showAlert(error.message, 'error');
+      showNotice(error.message, 'error');
     } finally {
-      setBusy(false);
+      state.isPosting = false;
+      updateControls();
     }
   }
 
-  refs.chatSubmit.addEventListener('click', askCoach);
-  refs.generate.addEventListener('click', generatePreview);
-  refs.post.addEventListener('click', postToDiscord);
+  function startOver() {
+    state.messages = [{ role: 'assistant', content: GREETING }];
+    state.preview = null;
+    state.previewToken = null;
+    state.isPreviewStale = false;
+    state.postStatus = 'idle';
+    safeRemove(STORAGE.messages);
+    saveMessages();
 
-  refs.idea.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    refs.previewPanel.hidden = true;
+    refs.app.classList.remove('has-preview');
+    refs.previewBody.innerHTML = '';
+    showNotice('');
+    renderMessages();
+    renderChips();
+    updateControls();
+    refs.input.focus();
+  }
+
+  /* ---------- composer ---------- */
+
+  function autoResize() {
+    refs.input.style.height = 'auto';
+    refs.input.style.height = `${Math.min(refs.input.scrollHeight, 200)}px`;
+  }
+
+  function submitComposer() {
+    const text = refs.input.value;
+    if (!text.trim()) return;
+    refs.input.value = '';
+    autoResize();
+    sendMessage(text);
+  }
+
+  /* ---------- events ---------- */
+
+  refs.composer.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submitComposer();
+  });
+
+  refs.input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      askCoach();
+      submitComposer();
     }
   });
 
-  refs.idea.addEventListener('input', () => {
-    if (!currentPreview) return;
-    currentPreview = null;
-    setStatus('Preview stale', 'blocked');
-    renderPreviewState(
-      'stale',
-      'Preview is stale',
-      'Generate a new Discord preview from the updated idea.'
-    );
-    updatePostButton();
-  });
+  refs.input.addEventListener('input', autoResize);
+  refs.username.addEventListener('input', syncUsername);
+  refs.reset.addEventListener('click', startOver);
+  refs.regenerate.addEventListener('click', generatePreview);
+  refs.post.addEventListener('click', postToDiscord);
 
-  window.addEventListener('storage', updatePostButton);
-  setInterval(updatePostButton, 30000);
-  updatePostButton();
+  window.addEventListener('storage', updateControls);
+  setInterval(updateControls, 30000);
+
+  /* ---------- init ---------- */
+
+  loadState();
+  renderMessages();
+  renderChips();
+  updateControls();
+  autoResize();
 })();

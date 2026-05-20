@@ -24,6 +24,7 @@ const previewSchema = {
         'community_value',
         'individual_member_value',
         'suggested_next_step',
+        'thread_prompt',
         'alignment_score',
         'relevance_status',
         'clear_connection',
@@ -38,6 +39,7 @@ const previewSchema = {
         community_value: { type: 'string' },
         individual_member_value: { type: 'string' },
         suggested_next_step: { type: 'string' },
+        thread_prompt: { type: 'string' },
         alignment_score: { type: 'integer', minimum: 1, maximum: 5 },
         relevance_status: {
           type: 'string',
@@ -144,6 +146,7 @@ function clientPreview(preview) {
     community_value: sanitizeText(preview.community_value, 620),
     individual_member_value: sanitizeText(preview.individual_member_value, 620),
     suggested_next_step: sanitizeText(preview.suggested_next_step, 620),
+    thread_prompt: sanitizeText(preview.thread_prompt, 620),
     alignment_score: preview.alignment_score,
     relevance_status: preview.relevance_status,
     clear_connection: Boolean(preview.clear_connection),
@@ -155,5 +158,6 @@ function clientPreview(preview) {
 
 module.exports = {
   clientPreview,
+  evaluatePreview,
   generatePreview
 };
