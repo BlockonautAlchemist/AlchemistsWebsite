@@ -104,8 +104,8 @@
             <div class="vf-panel vf-panel--input">
               <div class="vf-panel__head">
                 <div>
-                  <span class="vf-kicker mono">Input</span>
-                  <h3 class="display">Idea Signal</h3>
+                  <span class="vf-kicker mono">Collaboration</span>
+                  <h3 class="display">Idea Console</h3>
                 </div>
                 <span class="vf-panel__chip mono">Required</span>
               </div>
@@ -116,15 +116,20 @@
               </label>
 
               <label class="vf-field">
-                <span>Idea</span>
-                <textarea id="vf-idea" name="idea" rows="8" maxlength="2400" placeholder="Describe the idea, who it helps, and what The Alchemists could do next." required></textarea>
+                <span>Idea / Coach Prompt</span>
+                <textarea id="vf-idea" name="idea" rows="12" maxlength="2400" placeholder="Describe your idea, opportunity, feature, or vision for The Alchemists..." required></textarea>
               </label>
+
+              <div class="vf-input__actions">
+                <p>Use the same idea field to ask the coach for gaps, refinements, Alchemists alignment, and next steps.</p>
+                <button class="btn btn-purple vf-chat__send" id="vf-chat-submit" type="button">Ask AI Coach</button>
+              </div>
 
               <div class="vf-chat" aria-labelledby="coach-title">
                 <div class="vf-chat__head">
                   <div>
                     <span class="vf-kicker mono">AI Coach</span>
-                    <h3 class="display" id="coach-title">Strategy Chat</h3>
+                    <h3 class="display" id="coach-title">Response Stream</h3>
                   </div>
                   <span class="vf-chat__count mono" id="vf-chat-count">0 notes</span>
                 </div>
@@ -132,16 +137,8 @@
                 <div class="vf-chat__log" id="vf-chat-log" aria-live="polite">
                   <div class="vf-message vf-message--assistant">
                     <span class="mono">Coach</span>
-                    <p>Drop an idea, then ask for sharper positioning, member value, community value, or next steps.</p>
+                    <p>Send the idea above when you want sharper positioning, stronger community value, or a clearer next step.</p>
                   </div>
-                </div>
-
-                <div class="vf-chat__controls">
-                  <label class="vf-field vf-field--chat">
-                    <span>Follow-up Message</span>
-                    <textarea id="vf-message" name="message" rows="3" maxlength="1200" placeholder="Ask the coach to sharpen the idea or flag gaps."></textarea>
-                  </label>
-                  <button class="btn btn-purple vf-chat__send" id="vf-chat-submit" type="button">Ask Coach</button>
                 </div>
               </div>
             </div>
@@ -159,8 +156,9 @@
 
               <div class="vf-preview" id="vf-preview">
                 <div class="vf-preview__empty">
-                  <img src="assets/robot-small.png" alt="" loading="lazy" />
-                  <p>Generate a preview to see the Discord-ready structure and posting eligibility.</p>
+                  <span class="vf-kicker mono">Awaiting Preview</span>
+                  <h4>Discord proposal will appear here</h4>
+                  <p>Generate a preview after the idea has enough guild context.</p>
                 </div>
               </div>
 

@@ -7,7 +7,6 @@
   const refs = {
     username: document.getElementById('vf-username'),
     idea: document.getElementById('vf-idea'),
-    message: document.getElementById('vf-message'),
     chatLog: document.getElementById('vf-chat-log'),
     chatCount: document.getElementById('vf-chat-count'),
     chatSubmit: document.getElementById('vf-chat-submit'),
@@ -102,10 +101,9 @@
     };
   }
 
-  function validateBase(requireMessage) {
+  function validateBase() {
     const username = sanitizeClientText(refs.username.value);
     const idea = sanitizeClientText(refs.idea.value);
-    const message = sanitizeClientText(refs.message.value);
 
     if (username.length < 2) {
       showAlert('Add your Discord username before using Vision Forge.', 'error');
@@ -116,12 +114,6 @@
     if (idea.length < 20) {
       showAlert('Share at least 20 characters so Vision Forge has enough idea context.', 'error');
       refs.idea.focus();
-      return false;
-    }
-
-    if (requireMessage && message.length < 1) {
-      showAlert('Add a question or note for the idea coach.', 'error');
-      refs.message.focus();
       return false;
     }
 
@@ -180,9 +172,9 @@
   }
 
   async function askCoach() {
-    if (!validateBase(true) || isBusy) return;
+    if (!validateBase() || isBusy) return;
 
-    const message = refs.message.value.trim();
+    const message = refs.idea.value.trim();
     showAlert('');
     addChatMessage('user', message);
     const pending = addChatMessage('assistant', 'Thinking through the guild connection...', { pending: true });
@@ -193,9 +185,13 @@
       pending.remove();
       addChatMessage('assistant', data.reply);
       rememberExchange(message, data.reply);
-      refs.message.value = '';
       currentPreview = null;
       setStatus('Preview stale', 'blocked');
+      renderPreviewState(
+        'stale',
+        'Preview is stale',
+        'Generate a new Discord preview after reviewing the coach response.'
+      );
       updatePostButton();
     } catch (error) {
       pending.remove();
@@ -205,26 +201,21 @@
     }
   }
 
-  function previewSection(label, value) {
-    return `
-      <div class="vf-preview__section">
-        <strong>${escapeHtml(label)}</strong>
-        <p>${escapeHtml(value)}</p>
+  function renderPreviewState(state, title, body) {
+    refs.preview.innerHTML = `
+      <div class="vf-preview__empty vf-preview__empty--${escapeHtml(state)}">
+        <span class="vf-kicker mono">${escapeHtml(state)}</span>
+        <h4>${escapeHtml(title)}</h4>
+        <p>${escapeHtml(body)}</p>
       </div>
     `;
   }
 
-  function renderTweaks(preview) {
-    if (!preview.suggested_tweaks || !preview.suggested_tweaks.length) return '';
-
-    const items = preview.suggested_tweaks
-      .map((item) => `<li>${escapeHtml(item)}</li>`)
-      .join('');
-
+  function supportField(label, value) {
     return `
-      <div class="vf-tweaks">
-        <strong>Suggested tweaks</strong>
-        <ul>${items}</ul>
+      <div class="vf-preview__support-item">
+        <strong>${escapeHtml(label)}</strong>
+        <p>${escapeHtml(value)}</p>
       </div>
     `;
   }
@@ -235,21 +226,21 @@
 
     refs.preview.innerHTML = `
       <div class="vf-preview__card">
-        <div class="vf-preview__topline">
+        <div class="vf-discord-post">
+          <div class="vf-discord-post__meta mono">
+            <span># vision-forge</span>
+            <span>By ${escapeHtml(preview.submitted_by)}</span>
+          </div>
           <h4>${escapeHtml(preview.title)}</h4>
-          <span class="vf-score mono">${escapeHtml(preview.alignment_score)}/5</span>
+          <p>${escapeHtml(preview.summary)}</p>
         </div>
-        <div class="vf-preview__meta">
-          <span>${escapeHtml(preview.relevance_status)}</span>
-          <span>${escapeHtml(preview.category)}</span>
-          <span>By ${escapeHtml(preview.submitted_by)}</span>
+
+        <div class="vf-preview__support">
+          ${supportField('Alignment score', `${preview.alignment_score}/5`)}
+          ${supportField('Relevance status', preview.relevance_status)}
+          ${supportField('Suggested next step', preview.suggested_next_step)}
+          ${supportField('Community value summary', preview.community_value)}
         </div>
-        ${previewSection('Summary', preview.summary)}
-        ${previewSection('Why It Matters', preview.why_it_matters)}
-        ${previewSection('Community Value', preview.community_value)}
-        ${previewSection('Individual Member Value', preview.individual_member_value)}
-        ${previewSection('Suggested Next Step', preview.suggested_next_step)}
-        ${renderTweaks(preview)}
       </div>
     `;
 
@@ -263,10 +254,15 @@
   }
 
   async function generatePreview() {
-    if (!validateBase(false) || isBusy) return;
+    if (!validateBase() || isBusy) return;
 
     showAlert('');
-    setStatus('Generating', '');
+    setStatus('Generating', 'loading');
+    renderPreviewState(
+      'generating',
+      'Building Discord preview',
+      'Checking Alchemists alignment, community value, and posting eligibility.'
+    );
     setBusy(true);
 
     try {
@@ -276,6 +272,11 @@
     } catch (error) {
       currentPreview = null;
       setStatus('Preview failed', 'blocked');
+      renderPreviewState(
+        'failed',
+        'Preview failed',
+        'Vision Forge could not generate a preview from this request.'
+      );
       showAlert(error.message, 'error');
       updatePostButton();
     } finally {
@@ -284,7 +285,7 @@
   }
 
   async function postToDiscord() {
-    if (!validateBase(false) || isBusy || !currentPreview || !currentPreview.can_post) return;
+    if (!validateBase() || isBusy || !currentPreview || !currentPreview.can_post) return;
 
     const remaining = cooldownRemaining();
     if (remaining > 0) {
@@ -318,7 +319,7 @@
   refs.generate.addEventListener('click', generatePreview);
   refs.post.addEventListener('click', postToDiscord);
 
-  refs.message.addEventListener('keydown', (event) => {
+  refs.idea.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       askCoach();
@@ -329,6 +330,11 @@
     if (!currentPreview) return;
     currentPreview = null;
     setStatus('Preview stale', 'blocked');
+    renderPreviewState(
+      'stale',
+      'Preview is stale',
+      'Generate a new Discord preview from the updated idea.'
+    );
     updatePostButton();
   });
 
