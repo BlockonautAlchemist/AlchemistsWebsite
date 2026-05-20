@@ -1,7 +1,16 @@
 {
   "buildCommand": "npm run build",
+  "devCommand": "vite --host 127.0.0.1 --port $PORT",
   "outputDirectory": "dist",
   "rewrites": [
+    {
+      "source": "/vision-forge",
+      "destination": "/vision-forge.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vision Forge - The Alchemists</title>
+  <meta name="description" content="Vision Forge helps Alchemists shape rough ideas into Discord-ready proposals with an AI idea coach and manual Discord posting." />
+  <meta property="og:title" content="Vision Forge - The Alchemists" />
+  <meta property="og:description" content="Shape rough guild ideas into Discord-ready proposals." />
+  <meta property="og:image" content="assets/full-logo.png" />
+  <meta name="theme-color" content="#280836" />
+
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="vision-forge.css" />
+</head>
+<body class="vision-page">
+  <a class="skip-link" href="#forge-workspace">Skip to Vision Forge</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Vision Forge announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>Vision Forge</span>
+        <span>Shape Ideas Before Discord</span>
+        <span>AI Coach</span>
+        <span>Manual Posting</span>
+        <span>Community Value First</span>
+        <span>The Alchemists</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#identity">The Guild</a>
+      <a href="/#constellation">Strengths</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/vision-forge" aria-current="page">Vision Forge</a>
+      <a href="/#partners">Partners</a>
+      <a href="/#culture">Culture</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Idea Forge</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <section class="vf-hero" id="top" aria-labelledby="vf-hero-title">
+      <div class="vf-hero__grid" aria-hidden="true"></div>
+      <div class="vf-hero__cuts" aria-hidden="true"></div>
+
+      <div class="vf-hero__inner">
+        <div class="vf-hero__copy" data-reveal>
+          <div class="eyebrow vf-hero__eyebrow">Vision Forge</div>
+          <h1 class="vf-hero__title display" id="vf-hero-title">VISION FORGE</h1>
+          <p class="vf-hero__subtitle subtitle-font">Shape rough guild ideas into Discord-ready proposals.</p>
+          <p class="vf-hero__lede">
+            Work with an AI idea coach, sharpen the Alchemists connection, preview the Discord post, then manually send only the ideas that are ready.
+          </p>
+          <div class="vf-hero__ctas">
+            <a href="#forge-workspace" class="btn btn-primary">Forge an Idea</a>
+            <a href="#how-it-works" class="btn btn-ghost">How It Works</a>
+          </div>
+        </div>
+
+        <div class="vf-hero__visual hud-frame" aria-hidden="true" data-reveal>
+          <div class="hud-frame__corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <img class="vf-hero__mark" src="assets/logo-mark.png" alt="" />
+          <div class="vf-hero__scan mono">ALIGNMENT SCAN</div>
+          <div class="vf-hero__signal vf-hero__signal--top mono">COACHING ONLINE</div>
+          <div class="vf-hero__signal vf-hero__signal--bottom mono">DISCORD PREVIEW</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="vf-workspace" id="forge-workspace" aria-labelledby="forge-title">
+      <div class="vf-workspace__shell">
+        <div class="section-head section-head--left" data-reveal>
+          <div class="eyebrow">Forge Console</div>
+          <h2 class="section-title display" id="forge-title">Build The Signal</h2>
+          <p class="section-copy">
+            Add your Discord name, describe the idea, use the coach to tighten the connection, then generate a post preview for manual Discord submission.
+          </p>
+        </div>
+
+        <form class="vf-form" id="vision-forge-form" autocomplete="off">
+          <input class="vf-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+          <div class="vf-console" data-reveal>
+            <div class="vf-panel vf-panel--input">
+              <div class="vf-panel__head">
+                <div>
+                  <span class="vf-kicker mono">Input</span>
+                  <h3 class="display">Idea Signal</h3>
+                </div>
+                <span class="vf-panel__chip mono">Required</span>
+              </div>
+
+              <label class="vf-field">
+                <span>Discord Username</span>
+                <input id="vf-username" name="username" type="text" maxlength="80" placeholder="yourname" required />
+              </label>
+
+              <label class="vf-field">
+                <span>Idea</span>
+                <textarea id="vf-idea" name="idea" rows="8" maxlength="2400" placeholder="Describe the idea, who it helps, and what The Alchemists could do next." required></textarea>
+              </label>
+
+              <div class="vf-chat" aria-labelledby="coach-title">
+                <div class="vf-chat__head">
+                  <div>
+                    <span class="vf-kicker mono">AI Coach</span>
+                    <h3 class="display" id="coach-title">Strategy Chat</h3>
+                  </div>
+                  <span class="vf-chat__count mono" id="vf-chat-count">0 notes</span>
+                </div>
+
+                <div class="vf-chat__log" id="vf-chat-log" aria-live="polite">
+                  <div class="vf-message vf-message--assistant">
+                    <span class="mono">Coach</span>
+                    <p>Drop an idea, then ask for sharper positioning, member value, community value, or next steps.</p>
+                  </div>
+                </div>
+
+                <div class="vf-chat__controls">
+                  <label class="vf-field vf-field--chat">
+                    <span>Follow-up Message</span>
+                    <textarea id="vf-message" name="message" rows="3" maxlength="1200" placeholder="Ask the coach to sharpen the idea or flag gaps."></textarea>
+                  </label>
+                  <button class="btn btn-purple vf-chat__send" id="vf-chat-submit" type="button">Ask Coach</button>
+                </div>
+              </div>
+            </div>
+
+            <aside class="vf-panel vf-panel--preview" aria-labelledby="preview-title">
+              <div class="vf-panel__head">
+                <div>
+                  <span class="vf-kicker mono">Output</span>
+                  <h3 class="display" id="preview-title">Discord Preview</h3>
+                </div>
+                <span class="vf-preview__status mono" id="vf-preview-status">Not generated</span>
+              </div>
+
+              <div class="vf-alert" id="vf-alert" role="status" aria-live="polite"></div>
+
+              <div class="vf-preview" id="vf-preview">
+                <div class="vf-preview__empty">
+                  <img src="assets/robot-small.png" alt="" loading="lazy" />
+                  <p>Generate a preview to see the Discord-ready structure and posting eligibility.</p>
+                </div>
+              </div>
+
+              <div class="vf-actions">
+                <button class="btn btn-primary" id="vf-generate" type="button">Generate Discord Preview</button>
+                <button class="btn btn-dark" id="vf-post" type="button" disabled>Post Idea to Discord</button>
+              </div>
+            </aside>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="vf-how" id="how-it-works" aria-labelledby="how-title">
+      <div class="section-head" data-reveal>
+        <div class="eyebrow">How It Works</div>
+        <h2 class="section-title display" id="how-title">From Spark To Signal</h2>
+      </div>
+
+      <div class="vf-steps">
+        <article class="vf-step" data-reveal>
+          <span class="vf-step__num mono">01</span>
+          <h3>Share the rough idea</h3>
+          <p>Start with the member, community, partner, or project outcome you want to create.</p>
+        </article>
+        <article class="vf-step" data-reveal>
+          <span class="vf-step__num mono">02</span>
+          <h3>Sharpen the Alchemists connection</h3>
+          <p>The coach helps clarify who benefits, why it matters, and what the next step should be.</p>
+        </article>
+        <article class="vf-step" data-reveal>
+          <span class="vf-step__num mono">03</span>
+          <h3>Preview and post manually</h3>
+          <p>Vision Forge only enables posting after the preview shows a clear guild connection.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          Vision Forge helps members turn sparks into practical proposals for the guild.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>&copy; 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="vision-forge.js"></script>
+</body>
+</html>
