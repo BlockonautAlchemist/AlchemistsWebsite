@@ -1,4 +1,9 @@
 const { ApiError } = require('./errors');
+const {
+  DISCORD_CLOSING_LINES,
+  fittedDiscordPreview,
+  formatDiscordMessage
+} = require('./discord');
 const { callOpenRouter } = require('./openRouter');
 const { buildPreviewMessages } = require('./prompts');
 const {
@@ -18,13 +23,12 @@ const previewSchema = {
       required: [
         'title',
         'submitted_by',
-        'category',
-        'summary',
+        'hook',
+        'vision',
         'why_it_matters',
-        'community_value',
-        'individual_member_value',
-        'suggested_next_step',
-        'thread_prompt',
+        'how_it_could_work',
+        'why_it_fits_the_alchemists',
+        'first_step',
         'alignment_score',
         'relevance_status',
         'clear_connection',
@@ -33,13 +37,17 @@ const previewSchema = {
       properties: {
         title: { type: 'string' },
         submitted_by: { type: 'string' },
-        category: { type: 'string' },
-        summary: { type: 'string' },
+        hook: { type: 'string' },
+        vision: { type: 'string' },
         why_it_matters: { type: 'string' },
-        community_value: { type: 'string' },
-        individual_member_value: { type: 'string' },
-        suggested_next_step: { type: 'string' },
-        thread_prompt: { type: 'string' },
+        how_it_could_work: {
+          type: 'array',
+          minItems: 3,
+          maxItems: 3,
+          items: { type: 'string' }
+        },
+        why_it_fits_the_alchemists: { type: 'string' },
+        first_step: { type: 'string' },
         alignment_score: { type: 'integer', minimum: 1, maximum: 5 },
         relevance_status: {
           type: 'string',
@@ -127,7 +135,7 @@ async function generatePreview(payload) {
     messages: buildPreviewMessages(payload),
     responseFormat: previewSchema,
     temperature: 0.25,
-    maxTokens: 850
+    maxTokens: 1200
   });
 
   const rawPreview = parseJsonObject(content);
@@ -137,16 +145,12 @@ async function generatePreview(payload) {
 }
 
 function clientPreview(preview) {
+  const publicPreview = fittedDiscordPreview(preview);
+
   return {
-    title: sanitizeText(preview.title, 120),
-    submitted_by: sanitizeText(preview.submitted_by, 80),
-    category: sanitizeText(preview.category, 80),
-    summary: sanitizeText(preview.summary, 620),
-    why_it_matters: sanitizeText(preview.why_it_matters, 620),
-    community_value: sanitizeText(preview.community_value, 620),
-    individual_member_value: sanitizeText(preview.individual_member_value, 620),
-    suggested_next_step: sanitizeText(preview.suggested_next_step, 620),
-    thread_prompt: sanitizeText(preview.thread_prompt, 620),
+    ...publicPreview,
+    discord_post: formatDiscordMessage(preview),
+    closing_lines: DISCORD_CLOSING_LINES,
     alignment_score: preview.alignment_score,
     relevance_status: preview.relevance_status,
     clear_connection: Boolean(preview.clear_connection),

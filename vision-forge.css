@@ -595,9 +595,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   overflow-y: auto;
-  padding: clamp(16px, 2.2vw, 24px);
+  padding: clamp(18px, 2.4vw, 28px);
 }
 
 .vf-pv__loading {
@@ -618,8 +618,8 @@
 
 .vf-discord-post {
   display: grid;
-  gap: 12px;
-  padding: clamp(16px, 2vw, 22px);
+  gap: 16px;
+  padding: clamp(18px, 2.2vw, 26px);
   border: 1px solid rgba(88, 101, 242, 0.34);
   border-left: 4px solid #5865f2;
   border-radius: var(--radius);
@@ -628,50 +628,50 @@
     rgba(7, 1, 11, 0.48);
 }
 
-.vf-discord-post__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  color: var(--ink-dim);
-  font-size: 0.66rem;
+.vf-discord-post__channel {
+  color: var(--teal);
+  font-size: 0.68rem;
   text-transform: uppercase;
+}
+
+.vf-discord-post__byline {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .vf-discord-post h4 {
   color: var(--yellow);
   font-size: clamp(1.15rem, 1.5vw, 1.45rem);
-  line-height: 1.1;
-  text-transform: uppercase;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
 }
 
-.vf-discord-post p {
+.vf-discord-post p,
+.vf-pv__text {
   color: var(--ink-soft);
-  line-height: 1.55;
+  line-height: 1.62;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.vf-pv__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.vf-discord-post__hook {
+  color: var(--ink);
+  font-size: 1rem;
 }
 
-.vf-pv__tag {
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--ink-dim);
-  font-size: 0.66rem;
-  text-transform: uppercase;
+.vf-discord-post__closing {
+  display: grid;
+  gap: 5px;
+  padding-top: 2px;
+  border-top: 1px solid var(--line-soft);
 }
 
-.vf-pv__field {
+.vf-pv__section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
 }
 
 .vf-pv__label {
@@ -681,11 +681,21 @@
 }
 
 .vf-pv__text {
+  font-size: 0.92rem;
+}
+
+.vf-pv__bullets {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 19px;
+}
+
+.vf-pv__bullets li {
   color: var(--ink-soft);
   font-size: 0.92rem;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  line-height: 1.58;
+  padding-left: 2px;
 }
 
 .vf-pv__tweaks ul {
@@ -714,7 +724,7 @@
 
 .vf-preview-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
   gap: 10px;
   padding: clamp(12px, 1.6vw, 18px) clamp(16px, 2.2vw, 24px);
   border-top: 1px solid var(--line-soft);

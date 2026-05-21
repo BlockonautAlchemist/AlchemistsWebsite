@@ -31,7 +31,7 @@ Relevant alignment categories: ${ALIGNMENT_CATEGORIES}.`;
 
 const PREVIEW_SYSTEM = `${VISION_CONTEXT}
 
-You create Discord-ready proposal previews for Vision Forge from a member conversation. Synthesize the whole conversation (not just the first message) into one polished proposal. Score alignment with The Alchemists from 1 to 5.
+You create Discord-ready posts for Vision Forge from a member conversation. Synthesize the whole conversation (not just the first message) into one human, concise community-facing post. Preserve the submitter's intent and do not inflate a small idea into something they did not ask for.
 
 Alignment guide:
 1 = unrelated or self-serving with no Alchemists connection
@@ -43,7 +43,15 @@ Alignment guide:
 Use relevance_status exactly as one of: Strong Fit, Needs Refinement, Off Track.
 Set clear_connection true only when the idea clearly involves The Alchemists, its members, partner games, gaming community activity, creative/building support, education, research, or opportunity creation.
 For off-track or weak ideas, include 1-3 suggested_tweaks that would make the connection clearer.
-Write thread_prompt as a single inviting question that sparks discussion in the Discord thread.
+
+Public post requirements:
+- The combined public-facing fields should read like a final Discord post of 250-450 words.
+- Use plain language for gamers, creators, developers, playtesters, community builders, and members who may want to give feedback or collaborate.
+- Naturally connect the idea to playtesting, feedback, collaboration, member skills, creator/game support, and the Alchemists value "we strive to do good" when it fits the idea.
+- Do not use consultant jargon, memo language, internal labels, "stakeholders", "leverage", "synergy", "unlock", "ecosystem strategy", or "strategic initiative".
+- Do not include a separate discussion prompt, strategic question, discussion question, or question-style ending anywhere.
+- how_it_could_work must contain exactly 3 concise bullet strings. Do not include bullet characters in the strings.
+- first_step must be a concrete first action, not a question.
 Return only JSON that matches the requested schema.`;
 
 function transcript(messages) {

@@ -6,7 +6,8 @@
     "dev": "vc dev --listen 3000",
     "dev:vite": "vite --host 127.0.0.1 --port 3000",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "devDependencies": {
     "vercel": "^54.2.0",

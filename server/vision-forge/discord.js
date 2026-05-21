@@ -1,31 +1,112 @@
 const { ApiError } = require('./errors');
-const { sanitizeText } = require('./validation');
+const { sanitizeDiscordName, sanitizeText } = require('./validation');
 
-const THREAD_PROMPT = 'React to vote, reply with feedback, or offer skills that could help bring this idea to life.';
+const DISCORD_CLOSING_LINES = [
+  'React to vote if you want to see this move forward.',
+  'Reply with feedback, ideas, or skills you can offer.'
+];
 
-function formatDiscordMessage(preview) {
+const MAX_DISCORD_MESSAGE_LENGTH = 1900;
+const DEFAULT_FIELD_CAPS = {
+  title: 120,
+  hook: 280,
+  vision: 420,
+  why_it_matters: 360,
+  bullet: 150,
+  why_it_fits_the_alchemists: 360,
+  first_step: 260
+};
+const MIN_FIELD_CAPS = {
+  hook: 140,
+  vision: 220,
+  why_it_matters: 190,
+  bullet: 90,
+  why_it_fits_the_alchemists: 190,
+  first_step: 140
+};
+
+function displayUsername(value) {
+  return `@${sanitizeDiscordName(value) || 'unknown'}`;
+}
+
+function sanitizeBullets(value, maxLength) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => sanitizeText(String(item).replace(/^[-*•]\s*/, ''), maxLength))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function publicDiscordPreview(preview, caps = DEFAULT_FIELD_CAPS) {
+  return {
+    title: sanitizeText(preview.title, caps.title),
+    submitted_by: sanitizeDiscordName(preview.submitted_by),
+    hook: sanitizeText(preview.hook, caps.hook),
+    vision: sanitizeText(preview.vision, caps.vision),
+    why_it_matters: sanitizeText(preview.why_it_matters, caps.why_it_matters),
+    how_it_could_work: sanitizeBullets(preview.how_it_could_work, caps.bullet),
+    why_it_fits_the_alchemists: sanitizeText(
+      preview.why_it_fits_the_alchemists,
+      caps.why_it_fits_the_alchemists
+    ),
+    first_step: sanitizeText(preview.first_step, caps.first_step)
+  };
+}
+
+function buildDiscordMessage(publicPreview) {
   const lines = [
-    '## Vision Forge Submission',
+    '# VISION-FORGE',
+    `Idea from: ${displayUsername(publicPreview.submitted_by)}`,
     '',
-    `**Title:** ${preview.title}`,
-    `**Submitted by:** ${preview.submitted_by}`,
-    `**Category:** ${preview.category}`,
-    `**Alignment:** ${preview.relevance_status} (${preview.alignment_score}/5)`,
+    `**${publicPreview.title}**`,
     '',
-    `**Summary**\n${preview.summary}`,
+    publicPreview.hook,
     '',
-    `**Why It Matters**\n${preview.why_it_matters}`,
+    `**The Vision**\n${publicPreview.vision}`,
     '',
-    `**Community Value**\n${preview.community_value}`,
+    `**Why It Matters**\n${publicPreview.why_it_matters}`,
     '',
-    `**Individual Member Value**\n${preview.individual_member_value}`,
+    `**How It Could Work**\n${publicPreview.how_it_could_work.map((item) => `- ${item}`).join('\n')}`,
     '',
-    `**Suggested Next Step**\n${preview.suggested_next_step}`,
+    `**Why It Fits The Alchemists**\n${publicPreview.why_it_fits_the_alchemists}`,
     '',
-    `**Thread Prompt**\n${preview.thread_prompt || THREAD_PROMPT}`
+    `**First Step**\n${publicPreview.first_step}`,
+    '',
+    ...DISCORD_CLOSING_LINES
   ];
 
-  return sanitizeText(lines.join('\n'), 1900, { preserveNewlines: true });
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function fittedDiscordPreview(preview) {
+  const caps = { ...DEFAULT_FIELD_CAPS };
+  let publicPreview = publicDiscordPreview(preview, caps);
+  let message = buildDiscordMessage(publicPreview);
+  let guard = 0;
+
+  while (message.length > MAX_DISCORD_MESSAGE_LENGTH && guard < 20) {
+    let changed = false;
+    const overage = message.length - MAX_DISCORD_MESSAGE_LENGTH;
+    const reduction = Math.max(10, Math.ceil(overage / Object.keys(MIN_FIELD_CAPS).length));
+
+    Object.entries(MIN_FIELD_CAPS).forEach(([field, min]) => {
+      if (caps[field] > min) {
+        caps[field] = Math.max(min, caps[field] - reduction);
+        changed = true;
+      }
+    });
+
+    if (!changed) break;
+
+    publicPreview = publicDiscordPreview(preview, caps);
+    message = buildDiscordMessage(publicPreview);
+    guard += 1;
+  }
+
+  return publicPreview;
+}
+
+function formatDiscordMessage(preview) {
+  return buildDiscordMessage(fittedDiscordPreview(preview));
 }
 
 async function postToDiscord(preview) {
@@ -59,7 +140,8 @@ async function postToDiscord(preview) {
 }
 
 module.exports = {
-  THREAD_PROMPT,
+  DISCORD_CLOSING_LINES,
+  fittedDiscordPreview,
   formatDiscordMessage,
   postToDiscord
 };

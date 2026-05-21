@@ -16,6 +16,7 @@
     previewBody: document.getElementById('vf-preview-body'),
     status: document.getElementById('vf-status'),
     regenerate: document.getElementById('vf-regenerate'),
+    copy: document.getElementById('vf-copy'),
     post: document.getElementById('vf-post')
   };
 
@@ -65,6 +66,15 @@
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
+  function sanitizeClientUsername(value) {
+    return sanitizeClientText(value).replace(/[@#:`*~|>]/g, '');
+  }
+
+  function displayUsername(value) {
+    const username = sanitizeClientUsername(value);
+    return `@${username || 'unknown'}`;
+  }
+
   function safeGet(key) {
     try {
       return window.localStorage.getItem(key);
@@ -97,7 +107,7 @@
   /* ---------- persistence ---------- */
 
   function loadState() {
-    state.discordUsername = sanitizeClientText(safeGet(STORAGE.username) || '');
+    state.discordUsername = sanitizeClientUsername(safeGet(STORAGE.username) || '');
     refs.username.value = state.discordUsername;
 
     let stored = [];
@@ -215,12 +225,24 @@
     if (variant) refs.status.classList.add(`is-${variant}`);
   }
 
-  function field(label, value) {
+  function section(label, value) {
     return (
-      '<div class="vf-pv__field">' +
+      '<section class="vf-pv__section">' +
       `<span class="vf-pv__label mono">${escapeHtml(label)}</span>` +
       `<p class="vf-pv__text">${escapeHtml(value)}</p>` +
-      '</div>'
+      '</section>'
+    );
+  }
+
+  function bulletList(items) {
+    const bullets = Array.isArray(items) ? items : [];
+    return (
+      '<section class="vf-pv__section">' +
+      '<span class="vf-pv__label mono">How It Could Work</span>' +
+      '<ul class="vf-pv__bullets">' +
+      bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join('') +
+      '</ul>' +
+      '</section>'
     );
   }
 
@@ -252,30 +274,24 @@
       );
     }
 
+    const closingLines = Array.isArray(preview.closing_lines) ? preview.closing_lines : [];
+
     parts.push(
-      '<div class="vf-discord-post">' +
-        '<div class="vf-discord-post__meta mono">' +
-        '<span># vision-forge</span>' +
-        `<span>By ${escapeHtml(preview.submitted_by)}</span>` +
-        '</div>' +
+      '<article class="vf-discord-post">' +
+        '<div class="vf-discord-post__channel mono"># VISION-FORGE</div>' +
+        `<p class="vf-discord-post__byline">Idea from: ${escapeHtml(displayUsername(preview.submitted_by))}</p>` +
         `<h4>${escapeHtml(preview.title)}</h4>` +
-        `<p>${escapeHtml(preview.summary)}</p>` +
-        '</div>'
+        `<p class="vf-discord-post__hook">${escapeHtml(preview.hook)}</p>` +
+        section('The Vision', preview.vision) +
+        section('Why It Matters', preview.why_it_matters) +
+        bulletList(preview.how_it_could_work) +
+        section('Why It Fits The Alchemists', preview.why_it_fits_the_alchemists) +
+        section('First Step', preview.first_step) +
+        '<div class="vf-discord-post__closing">' +
+        closingLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('') +
+        '</div>' +
+      '</article>'
     );
-
-    parts.push(
-      '<div class="vf-pv__tags">' +
-        `<span class="vf-pv__tag mono">${escapeHtml(preview.category)}</span>` +
-        `<span class="vf-pv__tag mono">Alignment ${escapeHtml(String(preview.alignment_score))}/5</span>` +
-        `<span class="vf-pv__tag mono">${escapeHtml(preview.relevance_status)}</span>` +
-        '</div>'
-    );
-
-    parts.push(field('Why it matters', preview.why_it_matters));
-    parts.push(field('Community value', preview.community_value));
-    parts.push(field('Individual member value', preview.individual_member_value));
-    parts.push(field('Suggested next step', preview.suggested_next_step));
-    parts.push(field('Thread prompt', preview.thread_prompt));
 
     if (!preview.can_post && Array.isArray(preview.suggested_tweaks) && preview.suggested_tweaks.length) {
       const items = preview.suggested_tweaks
@@ -306,6 +322,7 @@
     refs.send.disabled = busy;
     refs.input.disabled = state.isThinking;
     refs.regenerate.disabled = busy;
+    if (refs.copy) refs.copy.disabled = busy || !state.preview || !state.preview.discord_post;
 
     const canPost =
       Boolean(state.preview) &&
@@ -329,7 +346,7 @@
   /* ---------- username ---------- */
 
   function syncUsername() {
-    state.discordUsername = sanitizeClientText(refs.username.value);
+    state.discordUsername = sanitizeClientUsername(refs.username.value);
     safeSet(STORAGE.username, state.discordUsername);
   }
 
@@ -481,6 +498,30 @@
     }
   }
 
+  async function copyFullPost() {
+    if (!state.preview || !state.preview.discord_post) return;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(state.preview.discord_post);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = state.preview.discord_post;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+      }
+
+      showNotice('Full Discord post copied.', 'success');
+    } catch (error) {
+      showNotice('Could not copy the post from this browser.', 'error');
+    }
+  }
+
   function startOver() {
     state.messages = [{ role: 'assistant', content: GREETING }];
     state.preview = null;
@@ -533,6 +574,7 @@
   refs.username.addEventListener('input', syncUsername);
   refs.reset.addEventListener('click', startOver);
   refs.regenerate.addEventListener('click', generatePreview);
+  if (refs.copy) refs.copy.addEventListener('click', copyFullPost);
   refs.post.addEventListener('click', postToDiscord);
 
   window.addEventListener('storage', updateControls);

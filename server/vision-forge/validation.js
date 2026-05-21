@@ -5,8 +5,9 @@ const LIMITS = {
   message: 1600,
   previewField: 360,
   previewLongField: 620,
+  hook: 300,
+  bullet: 180,
   title: 120,
-  category: 80,
   tweak: 160
 };
 
@@ -15,18 +16,15 @@ const MAX_MESSAGES = 16;
 // Hard ceiling on the combined conversation size sent to the model.
 const MAX_CONVERSATION_CHARS = 12000;
 
-const DEFAULT_THREAD_PROMPT =
-  'Reply with feedback, improvements, or ways you could help bring this idea to life.';
-
 const REQUIRED_PREVIEW_FIELDS = [
   'title',
   'submitted_by',
-  'category',
-  'summary',
+  'hook',
+  'vision',
   'why_it_matters',
-  'community_value',
-  'individual_member_value',
-  'suggested_next_step',
+  'how_it_could_work',
+  'why_it_fits_the_alchemists',
+  'first_step',
   'relevance_status'
 ];
 
@@ -63,7 +61,7 @@ function sanitizeText(value, maxLength = 500, options = {}) {
 
 function sanitizeDiscordName(value) {
   return sanitizeText(value, LIMITS.username)
-    .replace(/[@#:`*_~|>]/g, '')
+    .replace(/[@#:`*~|>]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -150,20 +148,30 @@ function normalizeTweaks(value) {
     .slice(0, 3);
 }
 
+function normalizeHowItCouldWork(value) {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split('\n')
+      : [];
+
+  return source
+    .map((item) => sanitizeText(String(item).replace(/^[-*•]\s*/, ''), LIMITS.bullet))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 function normalizePreview(raw, username) {
   const source = raw && typeof raw === 'object' ? raw : {};
   const preview = {
-    title: sanitizeText(source.title, LIMITS.title, { fallback: 'Untitled Vision Forge Idea' }),
-    submitted_by: sanitizeDiscordName(source.submitted_by) || username,
-    category: sanitizeText(source.category, LIMITS.category, { fallback: 'Community Idea' }),
-    summary: sanitizeText(source.summary, LIMITS.previewLongField),
+    title: sanitizeText(source.title, LIMITS.title),
+    submitted_by: sanitizeDiscordName(source.submitted_by) || sanitizeDiscordName(username),
+    hook: sanitizeText(source.hook, LIMITS.hook),
+    vision: sanitizeText(source.vision, LIMITS.previewLongField),
     why_it_matters: sanitizeText(source.why_it_matters, LIMITS.previewLongField),
-    community_value: sanitizeText(source.community_value, LIMITS.previewLongField),
-    individual_member_value: sanitizeText(source.individual_member_value, LIMITS.previewLongField),
-    suggested_next_step: sanitizeText(source.suggested_next_step, LIMITS.previewLongField),
-    thread_prompt: sanitizeText(source.thread_prompt, LIMITS.previewLongField, {
-      fallback: DEFAULT_THREAD_PROMPT
-    }),
+    how_it_could_work: normalizeHowItCouldWork(source.how_it_could_work),
+    why_it_fits_the_alchemists: sanitizeText(source.why_it_fits_the_alchemists, LIMITS.previewLongField),
+    first_step: sanitizeText(source.first_step, LIMITS.previewLongField),
     alignment_score: clampScore(source.alignment_score),
     relevance_status: normalizeStatus(source.relevance_status),
     suggested_tweaks: normalizeTweaks(source.suggested_tweaks)
@@ -173,15 +181,23 @@ function normalizePreview(raw, username) {
 }
 
 function hasRequiredPreviewFields(preview) {
-  return REQUIRED_PREVIEW_FIELDS.every((field) => Boolean(sanitizeText(preview[field], LIMITS.previewField)));
+  return REQUIRED_PREVIEW_FIELDS.every((field) => {
+    if (field === 'how_it_could_work') {
+      return Array.isArray(preview.how_it_could_work)
+        && preview.how_it_could_work.length === 3
+        && preview.how_it_could_work.every((item) => Boolean(sanitizeText(item, LIMITS.previewField)));
+    }
+
+    return Boolean(sanitizeText(preview[field], LIMITS.previewField));
+  });
 }
 
 module.exports = {
   LIMITS,
-  DEFAULT_THREAD_PROMPT,
   REQUIRED_PREVIEW_FIELDS,
   hasRequiredPreviewFields,
   normalizePreview,
+  normalizeHowItCouldWork,
   sanitizeText,
   sanitizeDiscordName,
   validateChatPayload
