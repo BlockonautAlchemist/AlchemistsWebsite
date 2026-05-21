@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Game Signal - The Alchemists</title>
+  <meta name="description" content="A published Game Signal from The Alchemists community." />
+  <meta property="og:title" content="Game Signal - The Alchemists" />
+  <meta property="og:description" content="Community-reviewed game signal from The Alchemists." />
+  <meta property="og:image" content="/assets/full-logo.png" />
+  <meta name="theme-color" content="#280836" />
+
+  <link rel="icon" type="image/png" href="/assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/game-signal-engine.css" />
+</head>
+<body class="game-page">
+  <a class="skip-link" href="#game-signal">Skip to game signal</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Game signal announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>Game Signal</span>
+        <span>Community Reviewed</span>
+        <span>Watchlist</span>
+        <span>The Alchemists</span>
+        <span>Playtest</span>
+        <span>Creator Support</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="/assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#constellation">Strengths</a>
+      <a href="/#identity">The Guild</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a>
+      <a href="/#partners">Partners</a>
+      <a href="/vision-forge">Vision Forge</a>
+      <a href="/game-signal-engine" aria-current="page">Signals</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Game Signal</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="game-main" id="game-signal">
+    <div class="game-shell" id="game-shell" data-reveal>
+      <p class="game-loading">Loading game signal...</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="/assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          Published game signals turn community interest into practical support.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>&copy; 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="/script.js"></script>
+  <script type="module" src="/game.js"></script>
+</body>
+</html>

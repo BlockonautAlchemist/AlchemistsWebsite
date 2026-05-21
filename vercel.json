@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
+  "cleanUrls": true,
   "devCommand": "vite --host 127.0.0.1 --port $PORT",
   "outputDirectory": "dist",
   "rewrites": [
@@ -8,12 +9,16 @@
       "destination": "/vision-forge.html"
     },
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "source": "/game-signal-engine",
+      "destination": "/game-signal-engine.html"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/games/(.*)",
+      "destination": "/game.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     }
   ]
 }

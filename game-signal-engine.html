@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Game Signal Engine - The Alchemists</title>
+  <meta name="description" content="Game Signal Engine helps The Alchemists submit games to watch, refine scout notes, gather Discord reactions, and publish the strongest game watch pages." />
+  <meta property="og:title" content="Game Signal Engine - The Alchemists" />
+  <meta property="og:description" content="Submit games The Alchemists should watch, collect community interest, and publish the strongest game signals." />
+  <meta property="og:image" content="assets/full-logo.png" />
+  <meta name="theme-color" content="#280836" />
+
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="game-signal-engine.css" />
+</head>
+<body class="signal-page">
+  <a class="skip-link" href="#signal-submit">Skip to Game Signal Engine</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Game Signal Engine announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>Game Signal Engine</span>
+        <span>Game Scouts</span>
+        <span>Playtest Windows</span>
+        <span>Alpha Watch</span>
+        <span>Community Watchlist</span>
+        <span>Published Game Pages</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#constellation">Strengths</a>
+      <a href="/#identity">The Guild</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a>
+      <a href="/#partners">Partners</a>
+      <a href="/vision-forge">Vision Forge</a>
+      <a href="/game-signal-engine" aria-current="page">Signals</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Signal Desk</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <section class="gs-hero" id="top" aria-labelledby="gs-hero-title">
+      <div class="gs-hero__grid" aria-hidden="true"></div>
+      <div class="gs-hero__cuts" aria-hidden="true"></div>
+
+      <div class="gs-hero__inner">
+        <div class="gs-hero__copy" data-reveal>
+          <div class="eyebrow gs-hero__eyebrow">Community Game Radar</div>
+          <h1 class="gs-hero__title display" id="gs-hero-title">GAME SIGNAL ENGINE</h1>
+          <p class="gs-hero__subtitle subtitle-font">Find the games worth rallying around.</p>
+          <p class="gs-hero__lede">
+            Submit a game The Alchemists should watch: an early discovery, alpha window, launch, update, creator moment, tournament, or community-requested title. The engine refines each scout note for Discord review, then the strongest games become public watch pages.
+          </p>
+          <div class="gs-hero__ctas">
+            <a href="#signal-submit" class="btn btn-primary">Submit Game</a>
+            <a href="#watchlist" class="btn btn-ghost">View Watchlist</a>
+          </div>
+        </div>
+
+        <div class="gs-hero__visual hud-frame" aria-hidden="true" data-reveal>
+          <div class="hud-frame__corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <img class="gs-hero__mark" src="assets/logo-mark.png" alt="" />
+          <div class="gs-hero__scan mono">SIGNAL LOCK</div>
+          <div class="gs-hero__node gs-hero__node--one mono">SUBMIT</div>
+          <div class="gs-hero__node gs-hero__node--two mono">REFINE</div>
+          <div class="gs-hero__node gs-hero__node--three mono">PUBLISH</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="gs-vision" id="vision" aria-labelledby="vision-title">
+      <div class="gs-vision__grid">
+        <div class="section-head section-head--left" data-reveal>
+          <div class="eyebrow">The Vision</div>
+          <h2 class="section-title display" id="vision-title">Turn Scattered Leads Into <span>Guild Signals.</span></h2>
+          <p class="section-copy">
+            The Alchemists already notice promising games before they are obvious. Game Signal Engine gives those discoveries a shared path from rough scout note to reviewed game watch page.
+          </p>
+        </div>
+        <div class="gs-vision__panel" data-reveal>
+          <span class="gs-panel-kicker mono">Signal Criteria</span>
+          <ul>
+            <li>A clear game, game event, launch, update, alpha, tournament, or game community request.</li>
+            <li>Practical reasons members should watch, play, test, create, compete, or form a squad.</li>
+            <li>Enough Discord reaction or watchlist interest to justify publishing a public game page.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="gs-why" id="why-it-matters" aria-labelledby="why-title">
+      <div class="section-head" data-reveal>
+        <div class="eyebrow">Why These Games Matter</div>
+        <h2 class="section-title display" id="why-title">Signal Beats Noise</h2>
+        <p class="section-copy">
+          Good games get lost when they live in one message, one DM, or one person’s memory. A shared signal loop helps members compare what is worth watching, who fits the game, and what should move forward.
+        </p>
+      </div>
+      <div class="gs-why__grid">
+        <article class="gs-metric" data-reveal>
+          <span class="gs-metric__num mono">01</span>
+          <h3>For Players</h3>
+          <p>Find games where your testing, clips, feedback, and energy can matter.</p>
+        </article>
+        <article class="gs-metric" data-reveal>
+          <span class="gs-metric__num mono">02</span>
+          <h3>For Scouts</h3>
+          <p>Turn early discoveries, alpha access, updates, and launch windows into clear game watch notes.</p>
+        </article>
+        <article class="gs-metric" data-reveal>
+          <span class="gs-metric__num mono">03</span>
+          <h3>For Squads</h3>
+          <p>Spot games where a small group can play, compete, create, or send useful feedback together.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="gs-flow" id="flow" aria-labelledby="flow-title">
+      <div class="section-head section-head--left" data-reveal>
+        <div class="eyebrow">Four Step Flow</div>
+        <h2 class="section-title display" id="flow-title">From Scout Note To Published Game</h2>
+      </div>
+      <div class="gs-steps">
+        <article class="gs-step" data-reveal>
+          <span class="gs-step__num mono">01</span>
+          <h3>Submit</h3>
+          <p>A member adds the game, link, why it is worth watching, and what Alchemists could do around it.</p>
+        </article>
+        <article class="gs-step" data-reveal>
+          <span class="gs-step__num mono">02</span>
+          <h3>Refine</h3>
+          <p>Server-side AI checks that the submission is game-related and shapes it into a concise community-ready draft.</p>
+        </article>
+        <article class="gs-step" data-reveal>
+          <span class="gs-step__num mono">03</span>
+          <h3>Review</h3>
+          <p>Discord reactions and watchlist interest show which games deserve momentum.</p>
+        </article>
+        <article class="gs-step" data-reveal>
+          <span class="gs-step__num mono">04</span>
+          <h3>Publish</h3>
+          <p>Approved signals become `/games/` pages that members can share, watch, and rally around.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="gs-desk" id="signal-submit" aria-labelledby="submit-title">
+      <div class="gs-desk__shell">
+        <div class="section-head section-head--left" data-reveal>
+          <div class="eyebrow">Signal Desk</div>
+          <h2 class="section-title display" id="submit-title">Submit A Game Signal</h2>
+          <p class="section-copy">
+            Submit one game at a time. The first version uses secure server routes, in-memory storage, and clearly marked sample game signals until persistent storage is added.
+          </p>
+        </div>
+
+        <div class="gs-workspace" data-reveal>
+          <form class="gs-form" id="signal-form" autocomplete="off">
+            <div class="gs-form__grid">
+              <label>
+                <span class="mono">Discord username</span>
+                <input name="submitted_by" type="text" maxlength="80" placeholder="yourname" required />
+              </label>
+              <label>
+                <span class="mono">Game Name</span>
+                <input name="game_title" type="text" maxlength="120" placeholder="Game title" required />
+              </label>
+              <label>
+                <span class="mono">Game Website or Main Link</span>
+                <input name="game_url" type="url" maxlength="500" placeholder="https://..." required />
+              </label>
+              <label>
+                <span class="mono">Game Signal Type</span>
+                <select name="signal_type">
+                  <option value="early-game-discovery">Early game discovery</option>
+                  <option value="upcoming-playtest">Upcoming playtest</option>
+                  <option value="alpha-beta-access">Alpha/beta access</option>
+                  <option value="new-game-launch">New game launch</option>
+                  <option value="game-update-worth-watching">Game update worth watching</option>
+                  <option value="creator-opportunity-around-a-game">Creator opportunity around a game</option>
+                  <option value="competitive-tournament-opportunity">Competitive tournament opportunity</option>
+                  <option value="web3-game-campaign">Web3 game campaign</option>
+                  <option value="community-requested-game">Community requested game</option>
+                  <option value="other-game-signal">Other game signal</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span class="mono">Why should Alchemists watch this game?</span>
+              <textarea name="summary" rows="4" maxlength="900" placeholder="What is the game, and why should members pay attention now?" required></textarea>
+            </label>
+            <label>
+              <span class="mono">What should Alchemists pay attention to?</span>
+              <textarea name="what_to_watch" rows="3" maxlength="700" placeholder="Systems, playtest timing, creator angles, community signals, tournament details..." required></textarea>
+            </label>
+            <label>
+              <span class="mono">Notes</span>
+              <textarea name="notes" rows="3" maxlength="700" placeholder="Optional context for reviewers or AI refinement."></textarea>
+            </label>
+            <input class="gs-honeypot" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+            <p class="gs-form__notice" id="signal-notice" role="status" aria-live="polite"></p>
+            <button class="btn btn-primary gs-form__submit" id="signal-submit-button" type="submit">Submit Game Signal</button>
+          </form>
+
+          <aside class="gs-watchlist" id="watchlist" aria-labelledby="watchlist-title">
+            <header class="gs-watchlist__head">
+              <div>
+                <span class="gs-panel-kicker mono">Watchlist</span>
+                <h3 class="display" id="watchlist-title">Game Watchlist</h3>
+              </div>
+              <button class="gs-refresh mono" id="signal-refresh" type="button">Refresh</button>
+            </header>
+            <div class="gs-watchlist__body" id="signal-list" aria-live="polite">
+              <p class="gs-empty">Loading signals...</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          Game Signal Engine helps members turn promising game leads into reviewed watch pages.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>&copy; 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="game-signal-engine.js"></script>
+</body>
+</html>
