@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+const chatHandler = require('../api/vision-forge/chat');
 const {
   DISCORD_CLOSING_LINES,
   formatDiscordMessage,
@@ -14,7 +15,10 @@ const {
 } = require('../server/vision-forge/preview');
 const {
   hasRequiredPreviewFields,
-  normalizePreview
+  LIMITS,
+  normalizePreview,
+  sanitizeText,
+  validateChatPayload
 } = require('../server/vision-forge/validation');
 
 const originalFetch = global.fetch;
@@ -117,6 +121,35 @@ function mockOpenRouter(body, status = 200) {
   return requests;
 }
 
+async function invokeJsonHandler(handler, body, headers = {}) {
+  const response = {
+    headers: {},
+    statusCode: 200,
+    setHeader(name, value) {
+      this.headers[name.toLowerCase()] = value;
+    },
+    end(payload) {
+      this.payload = payload;
+    }
+  };
+
+  await handler({
+    method: 'POST',
+    headers: {
+      'x-real-ip': `test-${Date.now()}-${Math.random()}`,
+      ...headers
+    },
+    socket: {},
+    body
+  }, response);
+
+  return {
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: JSON.parse(response.payload || '{}')
+  };
+}
+
 function reportedGamesRatingPreview() {
   return normalizePreview(
     {
@@ -160,6 +193,81 @@ function assertNoChoppedLineEndings(message) {
     );
   });
 }
+
+test('trims assistant replies at natural boundaries instead of chopping words', () => {
+  const source = [
+    'A Game Signal Engine could help members turn scattered community reactions into ranked collaboration leads.',
+    'It should surface playtest interest, creator needs, partner game requests, and hunting paths before the team commits energy to hunting promising opportunities across channels.'
+  ].join(' ');
+  const maxLength = source.indexOf('hunting') + 'huntin'.length;
+  const reply = sanitizeText(source, maxLength, {
+    preserveNewlines: true,
+    truncateAt: 'natural'
+  });
+
+  assert.ok(reply.length <= maxLength);
+  assert.match(reply, /[.!?]$/);
+  assert.doesNotMatch(reply, /\bhuntin$/i);
+  assert.doesNotMatch(reply, /\b\w{3,}in$/i);
+});
+
+test('keeps longer assistant history while capping user messages at the user limit', () => {
+  const assistantContent = 'Assistant context '.repeat(110);
+  const userContent = 'u'.repeat(1800);
+  const payload = validateChatPayload({
+    username: 'forge_user',
+    messages: [
+      {
+        role: 'assistant',
+        content: assistantContent
+      },
+      {
+        role: 'user',
+        content: userContent
+      }
+    ]
+  }, { requireConversation: true });
+
+  assert.equal(payload.messages[0].role, 'assistant');
+  assert.equal(payload.messages[0].content.length, assistantContent.trim().length);
+  assert.ok(payload.messages[0].content.length > LIMITS.message);
+  assert.ok(payload.messages[0].content.length <= LIMITS.assistantMessage);
+  assert.equal(payload.messages[1].role, 'user');
+  assert.equal(payload.messages[1].content.length, LIMITS.message);
+});
+
+test('chat endpoint returns a naturally capped reply with unchanged response shape', async () => {
+  const longReply = [
+    'A Game Signal Engine fits The Alchemists when it helps members turn scattered signals into practical collaboration choices.',
+    'It should help people compare playtest interest, creator needs, partner game requests, and member skill matches before energy gets spent.',
+    'Members can review signals, tag opportunities, route builders toward next steps, and keep attribution clear for the person who submitted the idea.'
+  ].join(' ').repeat(12);
+  const requests = mockOpenRouter({
+    choices: [
+      {
+        message: {
+          content: longReply
+        }
+      }
+    ]
+  });
+  const response = await invokeJsonHandler(chatHandler, {
+    username: 'forge_user',
+    messages: [
+      {
+        role: 'user',
+        content: 'Game Signal Engine: help The Alchemists spot the best community ideas to support next.'
+      }
+    ]
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(Object.keys(response.body).sort(), ['ok', 'reply']);
+  assert.equal(response.body.ok, true);
+  assert.ok(response.body.reply.length <= LIMITS.assistantMessage);
+  assert.match(response.body.reply, /[.!?]$/);
+  assert.equal(requests[0].body.max_tokens, 900);
+});
 
 test('formats the new Discord post without old memo headings', () => {
   const preview = samplePreview();

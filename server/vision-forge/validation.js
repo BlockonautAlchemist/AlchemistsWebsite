@@ -3,6 +3,7 @@ const { ApiError } = require('./errors');
 const LIMITS = {
   username: 80,
   message: 1600,
+  assistantMessage: 2600,
   previewField: 360,
   previewLongField: 620,
   hook: 300,
@@ -272,9 +273,15 @@ function normalizeMessages(messages) {
   const cleaned = messages
     .map((item) => {
       const role = item && item.role === 'assistant' ? 'assistant' : 'user';
-      const content = sanitizeText(item && item.content, LIMITS.message, {
-        preserveNewlines: true
-      });
+      const isAssistant = role === 'assistant';
+      const content = sanitizeText(
+        item && item.content,
+        isAssistant ? LIMITS.assistantMessage : LIMITS.message,
+        {
+          preserveNewlines: true,
+          truncateAt: isAssistant ? 'natural' : undefined
+        }
+      );
 
       return content ? { role, content } : null;
     })

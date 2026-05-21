@@ -9,6 +9,7 @@ const {
   sendJson
 } = require('../../server/vision-forge/http');
 const {
+  LIMITS,
   sanitizeText,
   validateChatPayload
 } = require('../../server/vision-forge/validation');
@@ -29,12 +30,15 @@ module.exports = async function handler(req, res) {
     const reply = await callOpenRouter({
       messages: buildCollaboratorMessages(payload),
       temperature: 0.45,
-      maxTokens: 650
+      maxTokens: 900
     });
 
     sendJson(res, 200, {
       ok: true,
-      reply: sanitizeText(reply, 1600, { preserveNewlines: true })
+      reply: sanitizeText(reply, LIMITS.assistantMessage, {
+        preserveNewlines: true,
+        truncateAt: 'natural'
+      })
     });
   } catch (error) {
     sendError(res, error);
