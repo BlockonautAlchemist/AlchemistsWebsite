@@ -12,15 +12,49 @@ function getReferer() {
   return 'https://thealchemistsguild.com';
 }
 
+function configuredModel() {
+  return process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+}
+
+function hasOpenRouterApiKey() {
+  return Boolean(process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.trim());
+}
+
+function emitDiagnostic(options, event, details = {}) {
+  if (typeof options.onDiagnostic !== 'function') return;
+
+  try {
+    options.onDiagnostic(event, details);
+  } catch (error) {
+    // Diagnostics must never break the user-facing API path.
+  }
+}
+
+function responseShape(data) {
+  const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
+  const message = choice && choice.message ? choice.message : null;
+  const content = message ? message.content : undefined;
+
+  return {
+    top_level_keys: data && typeof data === 'object' ? Object.keys(data).slice(0, 12) : [],
+    has_choices: Boolean(data && Array.isArray(data.choices)),
+    choice_count: data && Array.isArray(data.choices) ? data.choices.length : 0,
+    first_choice_has_message: Boolean(message),
+    content_type: content === null ? 'null' : typeof content,
+    content_length: typeof content === 'string' ? content.length : 0,
+    has_error: Boolean(data && data.error)
+  };
+}
+
 async function callOpenRouter(options) {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
-  if (!apiKey) {
+  if (!hasOpenRouterApiKey()) {
     throw new ApiError(503, 'Vision Forge AI is not configured yet. Add OPENROUTER_API_KEY in Vercel Environment Variables.');
   }
 
   const body = {
-    model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
+    model: configuredModel(),
     messages: options.messages,
     temperature: options.temperature ?? 0.35,
     max_tokens: options.maxTokens ?? 700
@@ -30,16 +64,25 @@ async function callOpenRouter(options) {
     body.response_format = options.responseFormat;
   }
 
+  emitDiagnostic(options, 'openrouter_request', {
+    model: body.model,
+    has_response_format: Boolean(body.response_format),
+    message_count: Array.isArray(body.messages) ? body.messages.length : 0
+  });
+
   const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey.trim()}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': getReferer(),
       'X-OpenRouter-Title': 'The Alchemists Vision Forge'
     },
     body: JSON.stringify(body)
   }).catch(() => {
+    emitDiagnostic(options, 'openrouter_transport_error', {
+      status_code: null
+    });
     throw new ApiError(502, 'Vision Forge AI could not be reached. Try again shortly.');
   });
 
@@ -49,14 +92,28 @@ async function callOpenRouter(options) {
   try {
     data = raw ? JSON.parse(raw) : {};
   } catch (error) {
+    emitDiagnostic(options, 'openrouter_unreadable_response', {
+      status_code: response.status,
+      response_shape: {
+        raw_length: raw.length,
+        parseable_json: false
+      }
+    });
     throw new ApiError(502, 'Vision Forge AI returned an unreadable response.');
   }
 
+  const shape = responseShape(data);
+
+  emitDiagnostic(options, 'openrouter_response', {
+    status_code: response.status,
+    ok: response.ok,
+    response_shape: shape
+  });
+
   if (!response.ok) {
-    const upstreamMessage = data.error && data.error.message ? String(data.error.message) : '';
     throw new ApiError(502, 'Vision Forge AI returned an error. Try again shortly.', {
       upstream_status: response.status,
-      upstream_message: upstreamMessage.slice(0, 180)
+      response_shape: shape
     });
   }
 
@@ -64,6 +121,10 @@ async function callOpenRouter(options) {
   const content = choice && choice.message ? choice.message.content : '';
 
   if (!content || typeof content !== 'string') {
+    if (options.allowEmptyContent) {
+      return '';
+    }
+
     throw new ApiError(502, 'Vision Forge AI returned an empty response. Try again.');
   }
 
@@ -71,5 +132,7 @@ async function callOpenRouter(options) {
 }
 
 module.exports = {
-  callOpenRouter
+  callOpenRouter,
+  configuredModel,
+  hasOpenRouterApiKey
 };

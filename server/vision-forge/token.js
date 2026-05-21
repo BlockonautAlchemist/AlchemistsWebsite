@@ -63,7 +63,9 @@ function verifyPreviewToken(token) {
 
   // Re-derive eligibility server-side; never trust can_post from the blob.
   const normalized = normalizePreview(parsed, parsed && parsed.submitted_by);
-  return evaluatePreview(normalized, parsed && parsed.clear_connection);
+  return evaluatePreview(normalized, parsed && parsed.clear_connection, {
+    requiredFieldsSynthesized: Boolean(parsed && parsed.required_fields_synthesized)
+  });
 }
 
 module.exports = {
