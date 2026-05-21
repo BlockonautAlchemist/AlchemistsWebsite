@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vc dev --listen 3000",
-    "dev:vite": "vite --host 127.0.0.1 --port 3000",
+    "dev": "vite --host 127.0.0.1 --port 3000",
+    "dev:vercel": "vc dev --listen 3000",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test"
