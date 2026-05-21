@@ -45,13 +45,15 @@ Set clear_connection true only when the idea clearly involves The Alchemists, it
 For off-track or weak ideas, include 1-3 suggested_tweaks that would make the connection clearer.
 
 Public post requirements:
-- The combined public-facing fields should read like a final Discord post of 250-450 words.
+- The combined public-facing fields should read like one final Discord post of 170-240 words and fit safely inside one Discord message.
 - Use plain language for gamers, creators, developers, playtesters, community builders, and members who may want to give feedback or collaborate.
 - Naturally connect the idea to playtesting, feedback, collaboration, member skills, creator/game support, and the Alchemists value "we strive to do good" when it fits the idea.
 - Do not use consultant jargon, memo language, internal labels, "stakeholders", "leverage", "synergy", "unlock", "ecosystem strategy", or "strategic initiative".
 - Do not include a separate discussion prompt, strategic question, discussion question, or question-style ending anywhere.
-- how_it_could_work must contain exactly 3 concise bullet strings. Do not include bullet characters in the strings.
-- first_step must be a concrete first action, not a question.
+- hook must be one short sentence or question.
+- vision, why_it_matters, and why_it_fits_the_alchemists must each be 1-2 short sentences.
+- how_it_could_work must contain exactly 3 concise bullet strings, each under 18 words. Do not include bullet characters in the strings.
+- first_step must be one concrete first action, not a question.
 Return only a JSON object with these keys: title, submitted_by, hook, vision, why_it_matters, how_it_could_work, why_it_fits_the_alchemists, first_step, alignment_score, relevance_status, clear_connection, suggested_tweaks.`;
 
 function transcript(messages) {

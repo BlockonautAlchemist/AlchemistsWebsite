@@ -3,7 +3,8 @@ const test = require('node:test');
 
 const {
   DISCORD_CLOSING_LINES,
-  formatDiscordMessage
+  formatDiscordMessage,
+  MAX_DISCORD_MESSAGE_LENGTH
 } = require('../server/vision-forge/discord');
 const {
   completePreview,
@@ -116,6 +117,50 @@ function mockOpenRouter(body, status = 200) {
   return requests;
 }
 
+function reportedGamesRatingPreview() {
+  return normalizePreview(
+    {
+      title: 'A Games Rating Page Built by Alchemists, for Alchemists',
+      submitted_by: '@blockonaut',
+      hook: 'What if The Alchemists had its own games rating page, where every review came from a verified member who actually played the game?',
+      vision: 'blockonaut is proposing a games rating page on The Alchemists website, inspired by sites like games.gg but with a clear twist: reviews come only from verified Alchemists members who have actually played the game. Partner games would get featured placement at the top of the page, along with extras like a dev blurb, links to their Discord and store page, trailers, tags, screenshots, and the best member reviews.',
+      why_it_matters: 'Most rating sites are flooded with drive-by scores and review bombs, which makes it hard for gamers to trust them and hard for devs to stand out. A rating page where every reviewer is a known member with verified playtime gives the scores real weight. Gamers find their next game with confidence and devs get signal they can use.',
+      how_it_could_work: [
+        'Member-only reviews gated by a verified Discord role, with mods manually confirming the reviewer played the game.',
+        'Discord-to-website connection (likely Discord OAuth) so member identity and roles carry over.',
+        'Two clearly separated lanes on the page, Featured Partners at the top with dev blurbs, store links, and member scores.'
+      ],
+      why_it_fits_the_alchemists: 'This sits right in the playtesting, feedback, and game support lane that The Alchemists already cares about. It gives members a way to use their gaming hours and honest opinions to help other gamers and support devs we work with. It pulls in web and tooling builders for the Discord auth layer, moderation flow, and rating design.',
+      first_step: 'blockonaut to draft a short one-pager listing the rating dimensions, the verified-role criteria, and the exact partner game info needed for a first mockup.',
+      alignment_score: 5,
+      relevance_status: 'Strong Fit',
+      clear_connection: true,
+      suggested_tweaks: []
+    },
+    'blockonaut'
+  );
+}
+
+function messageBodyLines(message) {
+  return message
+    .split('\n')
+    .map((line) => line.replace(/^- /, '').trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith('#'))
+    .filter((line) => !line.startsWith('Idea from:'))
+    .filter((line) => !/^\*\*.*\*\*$/.test(line));
+}
+
+function assertNoChoppedLineEndings(message) {
+  messageBodyLines(message).forEach((line) => {
+    assert.doesNotMatch(line, /[,;:]$/);
+    assert.doesNotMatch(
+      line,
+      /\b(?:a|an|and|are|as|at|be|but|by|for|from|in|is|of|on|or|our|so|that|the|their|to|was|were|where|which|while|who|with)$/i
+    );
+  });
+}
+
 test('formats the new Discord post without old memo headings', () => {
   const preview = samplePreview();
   const message = formatDiscordMessage(preview);
@@ -155,6 +200,38 @@ test('keeps the requested section order and fixed CTA ending', () => {
 
   assert.equal(message.split('\n').at(-1), DISCORD_CLOSING_LINES[1]);
   assert.ok(!message.trim().endsWith('?'));
+});
+
+test('fits the reported games rating preview without chopped sentences', () => {
+  const message = formatDiscordMessage(reportedGamesRatingPreview());
+
+  assert.ok(message.length <= MAX_DISCORD_MESSAGE_LENGTH);
+  assertNoChoppedLineEndings(message);
+  assert.match(message, /verified Alchemists members/i);
+  assert.match(message, /verified playtime/i);
+  assert.match(message, /Discord OAuth|Discord-to-website/i);
+  assert.doesNotMatch(message, /trailers,\n|confidenc(?:\n|$)|carry ov(?:\n|$)|store l\n|moderatio|confirming the re\n/);
+});
+
+test('compacts oversized single-sentence fields cleanly into one Discord message', () => {
+  const repeatedDetail = 'Members can test ideas, compare notes, support builders, and turn rough game feedback into practical next steps for creators and partner teams';
+  const preview = samplePreview({
+    hook: `${repeatedDetail} ${repeatedDetail} ${repeatedDetail}`,
+    vision: `${repeatedDetail} ${repeatedDetail} ${repeatedDetail} ${repeatedDetail}`,
+    why_it_matters: `${repeatedDetail} ${repeatedDetail} ${repeatedDetail} ${repeatedDetail}`,
+    how_it_could_work: [
+      `${repeatedDetail} ${repeatedDetail}`,
+      `${repeatedDetail} ${repeatedDetail}`,
+      `${repeatedDetail} ${repeatedDetail}`
+    ],
+    why_it_fits_the_alchemists: `${repeatedDetail} ${repeatedDetail} ${repeatedDetail} ${repeatedDetail}`,
+    first_step: `${repeatedDetail} ${repeatedDetail} ${repeatedDetail}`
+  });
+  const message = formatDiscordMessage(preview);
+
+  assert.ok(message.length <= MAX_DISCORD_MESSAGE_LENGTH);
+  assertNoChoppedLineEndings(message);
+  assert.doesNotMatch(message, /\b(?:practica|creato|partne|feedbac)$/i);
 });
 
 test('requires all new public fields before posting', () => {

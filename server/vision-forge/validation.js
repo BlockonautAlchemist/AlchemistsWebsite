@@ -15,6 +15,191 @@ const LIMITS = {
 const MAX_MESSAGES = 16;
 // Hard ceiling on the combined conversation size sent to the model.
 const MAX_CONVERSATION_CHARS = 12000;
+const TRAILING_WORDS = [
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'been',
+  'being',
+  'but',
+  'by',
+  'because',
+  'for',
+  'from',
+  'if',
+  'in',
+  'is',
+  'of',
+  'on',
+  'or',
+  'our',
+  'so',
+  'that',
+  'the',
+  'their',
+  'to',
+  'was',
+  'were',
+  'when',
+  'where',
+  'which',
+  'while',
+  'who',
+  'with',
+  'without'
+].join('|');
+const TRAILING_WORDS_RE = new RegExp(`\\s+\\b(?:${TRAILING_WORDS})\\b\\.?$`, 'i');
+
+function hasTerminalPunctuation(text) {
+  return /[.!?][)"'\]]*$/.test(text);
+}
+
+function stripUnclosedPair(text, open, close) {
+  const openIndex = text.lastIndexOf(open);
+  const closeIndex = text.lastIndexOf(close);
+
+  if (openIndex > closeIndex) {
+    return text.slice(0, openIndex).trim();
+  }
+
+  return text;
+}
+
+function stripDanglingEnding(text) {
+  let cleaned = String(text || '')
+    .replace(/[\s,:;]+$/g, '')
+    .trim();
+  let previous = '';
+
+  cleaned = stripUnclosedPair(cleaned, '(', ')');
+  cleaned = stripUnclosedPair(cleaned, '[', ']');
+
+  while (cleaned && cleaned !== previous) {
+    previous = cleaned;
+    cleaned = cleaned
+      .replace(TRAILING_WORDS_RE, '')
+      .replace(/[\s,:;]+$/g, '')
+      .trim();
+    cleaned = stripUnclosedPair(cleaned, '(', ')');
+    cleaned = stripUnclosedPair(cleaned, '[', ']');
+  }
+
+  return cleaned;
+}
+
+function lastSentenceBoundary(text, minLength) {
+  const matcher = /[.!?](?:[)"'\]]+)?(?=\s|$)/g;
+  let match = matcher.exec(text);
+  let best = -1;
+
+  while (match) {
+    const end = match.index + match[0].length;
+    if (end >= minLength) best = end;
+    match = matcher.exec(text);
+  }
+
+  return best;
+}
+
+function lastClauseBoundary(text, minLength) {
+  const matcher = /[,;:](?=\s|$)/g;
+  let match = matcher.exec(text);
+  let best = -1;
+
+  while (match) {
+    const end = match.index;
+    if (end >= minLength) best = end;
+    match = matcher.exec(text);
+  }
+
+  return best;
+}
+
+function lastConnectorBoundary(text, minLength) {
+  const matcher = /\s(?:and|or|but|so|with|without|for|to|from|because|while|where|which|that|who|as)\s/gi;
+  let match = matcher.exec(text);
+  let best = -1;
+
+  while (match) {
+    if (match.index >= minLength) best = match.index;
+    match = matcher.exec(text);
+  }
+
+  return best;
+}
+
+function lastWordBoundary(text, minLength) {
+  const index = text.lastIndexOf(' ');
+  return index >= minLength ? index : -1;
+}
+
+function finishNaturalTrim(text, maxLength, terminalPunctuation) {
+  const source = String(text || '').trim();
+
+  if (!source) return '';
+
+  if (hasTerminalPunctuation(source) && source.length <= maxLength) {
+    return source;
+  }
+
+  let cleaned = stripDanglingEnding(source);
+
+  if (!cleaned) return '';
+
+  if (terminalPunctuation && !hasTerminalPunctuation(cleaned)) {
+    if (cleaned.length + 1 > maxLength) {
+      cleaned = stripDanglingEnding(cleaned.slice(0, Math.max(0, maxLength - 1)));
+    }
+
+    if (cleaned && !hasTerminalPunctuation(cleaned)) {
+      cleaned = `${cleaned}.`;
+    }
+  }
+
+  if (cleaned.length <= maxLength) return cleaned;
+
+  return stripDanglingEnding(cleaned.slice(0, maxLength));
+}
+
+function truncateAtNaturalBoundary(text, maxLength, options = {}) {
+  if (text.length <= maxLength) return text;
+
+  const clipped = text.slice(0, maxLength).trim();
+  const minBoundaryLength = Math.min(
+    clipped.length - 1,
+    Math.max(24, Math.floor(maxLength * (options.minBoundaryRatio || 0.28)))
+  );
+  const terminalPunctuation = options.terminalPunctuation !== false;
+  const sentenceEnd = lastSentenceBoundary(clipped, minBoundaryLength);
+
+  if (sentenceEnd > -1) {
+    return finishNaturalTrim(clipped.slice(0, sentenceEnd), maxLength, terminalPunctuation);
+  }
+
+  const clauseEnd = lastClauseBoundary(clipped, minBoundaryLength);
+
+  if (clauseEnd > -1) {
+    return finishNaturalTrim(clipped.slice(0, clauseEnd), maxLength, terminalPunctuation);
+  }
+
+  const connectorEnd = lastConnectorBoundary(clipped, minBoundaryLength);
+
+  if (connectorEnd > -1) {
+    return finishNaturalTrim(clipped.slice(0, connectorEnd), maxLength, terminalPunctuation);
+  }
+
+  const wordEnd = lastWordBoundary(clipped, minBoundaryLength);
+
+  if (wordEnd > -1) {
+    return finishNaturalTrim(clipped.slice(0, wordEnd), maxLength, terminalPunctuation);
+  }
+
+  return finishNaturalTrim(clipped, maxLength, terminalPunctuation);
+}
 
 const REQUIRED_PREVIEW_FIELDS = [
   'title',
@@ -55,6 +240,10 @@ function sanitizeText(value, maxLength = 500, options = {}) {
   );
 
   if (!text) return fallback;
+
+  if (options.truncateAt === 'natural') {
+    return truncateAtNaturalBoundary(text, maxLength, options);
+  }
 
   return text.slice(0, maxLength).trim();
 }
@@ -156,7 +345,9 @@ function normalizeHowItCouldWork(value) {
       : [];
 
   return source
-    .map((item) => sanitizeText(String(item).replace(/^[-*•]\s*/, ''), LIMITS.bullet))
+    .map((item) => sanitizeText(String(item).replace(/^[-*•]\s*/, ''), LIMITS.bullet, {
+      truncateAt: 'natural'
+    }))
     .filter(Boolean)
     .slice(0, 3);
 }
@@ -164,14 +355,19 @@ function normalizeHowItCouldWork(value) {
 function normalizePreview(raw, username) {
   const source = raw && typeof raw === 'object' ? raw : {};
   const preview = {
-    title: sanitizeText(source.title, LIMITS.title),
+    title: sanitizeText(source.title, LIMITS.title, {
+      truncateAt: 'natural',
+      terminalPunctuation: false
+    }),
     submitted_by: sanitizeDiscordName(source.submitted_by) || sanitizeDiscordName(username),
-    hook: sanitizeText(source.hook, LIMITS.hook),
-    vision: sanitizeText(source.vision, LIMITS.previewLongField),
-    why_it_matters: sanitizeText(source.why_it_matters, LIMITS.previewLongField),
+    hook: sanitizeText(source.hook, LIMITS.hook, { truncateAt: 'natural' }),
+    vision: sanitizeText(source.vision, LIMITS.previewLongField, { truncateAt: 'natural' }),
+    why_it_matters: sanitizeText(source.why_it_matters, LIMITS.previewLongField, { truncateAt: 'natural' }),
     how_it_could_work: normalizeHowItCouldWork(source.how_it_could_work),
-    why_it_fits_the_alchemists: sanitizeText(source.why_it_fits_the_alchemists, LIMITS.previewLongField),
-    first_step: sanitizeText(source.first_step, LIMITS.previewLongField),
+    why_it_fits_the_alchemists: sanitizeText(source.why_it_fits_the_alchemists, LIMITS.previewLongField, {
+      truncateAt: 'natural'
+    }),
+    first_step: sanitizeText(source.first_step, LIMITS.previewLongField, { truncateAt: 'natural' }),
     alignment_score: clampScore(source.alignment_score),
     relevance_status: normalizeStatus(source.relevance_status),
     suggested_tweaks: normalizeTweaks(source.suggested_tweaks)
