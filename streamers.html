@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alchemist Streamers Hub - Watch The Alchemists Live</title>
+  <meta name="description" content="Watch Alchemist creators stream guild events, partner games, tournaments, playtests, and community moments live on Twitch. See who is live now and support their channels." />
+  <meta property="og:title" content="Alchemist Streamers Hub - The Alchemists" />
+  <meta property="og:description" content="Follow Alchemist creators live on Twitch. See who is live now and support their channels." />
+  <meta property="og:image" content="assets/full-logo.png" />
+  <meta name="theme-color" content="#280836" />
+
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="streamers.css" />
+</head>
+<body class="streamers-page">
+  <a class="skip-link" href="#live">Skip to live streamers</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Streamers Hub announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>Alchemist Streamers</span>
+        <span>Live On Twitch</span>
+        <span>Partner Games</span>
+        <span>Playtests</span>
+        <span>Tournaments</span>
+        <span>Community Events</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#constellation">Strengths</a>
+      <a href="/#identity">The Guild</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a>
+      <a href="/#partners">Partners</a>
+      <a href="/vision-forge">Vision Forge</a>
+      <a href="/streamers" aria-current="page">Streamers</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Live On Twitch</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer" data-action="join-discord">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- A. HERO -->
+    <section class="sh-hero" id="top" aria-labelledby="sh-hero-title">
+      <div class="sh-hero__grid" aria-hidden="true"></div>
+      <div class="sh-hero__cuts" aria-hidden="true"></div>
+
+      <div class="sh-hero__inner">
+        <div class="eyebrow sh-hero__eyebrow">Alchemist Streamers Hub</div>
+        <h1 class="sh-hero__title display" id="sh-hero-title">
+          Watch The Alchemists <span>Live</span>
+        </h1>
+        <p class="sh-hero__copy">
+          Follow Alchemist creators as they stream guild events, partner games, tournaments,
+          playtests, and community moments. When someone is live, you’ll see them here first.
+          When they’re offline, you can still visit their Twitch channel and support their content.
+        </p>
+        <div class="sh-hero__ctas">
+          <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary" target="_blank" rel="noopener noreferrer" data-action="join-discord">Join The Discord</a>
+          <a href="#live" class="btn btn-ghost">Watch Streamers</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- B. LIVE NOW -->
+    <section class="sh-section sh-live" id="live" aria-labelledby="sh-live-title">
+      <div class="section-head" data-reveal>
+        <div class="eyebrow">On Air</div>
+        <h2 class="section-title display" id="sh-live-title">Live <span>Now</span></h2>
+        <p class="section-copy">Alchemists streaming on Twitch right now. Jump straight into a stream and say hi.</p>
+      </div>
+
+      <!-- Non-blocking banner for degraded / could-not-load states (toggled by JS) -->
+      <div class="sh-notice" id="sh-notice" role="status" hidden></div>
+
+      <!-- Live cards render here; empty + loading states are toggled by streamers.js -->
+      <div class="sh-grid sh-grid--live" id="sh-live-grid" aria-live="polite"></div>
+
+      <p class="sh-empty" id="sh-live-empty" hidden>
+        No Alchemists are live right now — explore everyone’s channels below and catch the next stream.
+      </p>
+
+      <p class="sh-updated mono" id="sh-updated" aria-live="polite"></p>
+    </section>
+
+    <!-- C. OFFLINE / ALCHEMIST CREATORS -->
+    <section class="sh-section sh-creators" id="creators" aria-labelledby="sh-creators-title">
+      <div class="section-head" data-reveal>
+        <div class="eyebrow">The Roster</div>
+        <h2 class="section-title display" id="sh-creators-title">Alchemist <span>Creators</span></h2>
+        <p class="section-copy">Every approved Alchemist streamer. Follow them on Twitch so you never miss a stream.</p>
+      </div>
+
+      <div class="sh-grid sh-grid--offline" id="sh-offline-grid"></div>
+
+      <noscript>
+        <p class="sh-empty">
+          Enable JavaScript to load Alchemist streamers, or
+          <a href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">join our Discord</a>.
+        </p>
+      </noscript>
+    </section>
+
+    <!-- D. WEEKLY CHALLENGE (placeholder) -->
+    <!-- TODO(v2): wire this to a database / admin-controlled challenge calendar so
+         founders can schedule weekly spotlights (partner games, playtests, tournaments). -->
+    <section class="sh-section sh-feature" id="weekly-challenge" aria-labelledby="sh-challenge-title">
+      <div class="sh-feature__card" data-reveal>
+        <div class="eyebrow">Coming Soon</div>
+        <h2 class="sh-feature__title display" id="sh-challenge-title">This Week’s Alchemist Stream Challenge</h2>
+        <p class="sh-feature__copy">
+          Weekly challenges will spotlight partner games, playtests, tournaments, and community
+          events so creators have clear moments to rally around.
+        </p>
+      </div>
+    </section>
+
+    <!-- E. STREAMER OF THE MONTH (placeholder) -->
+    <!-- TODO(v2): connect to Discord ID-based voting with founder-weighted votes and
+         partner rewards. No public voting / leaderboards are built in v1. -->
+    <section class="sh-section sh-feature" id="streamer-of-the-month" aria-labelledby="sh-sotm-title">
+      <div class="sh-feature__card sh-feature__card--gold" data-reveal>
+        <div class="eyebrow">Coming Soon</div>
+        <h2 class="sh-feature__title display" id="sh-sotm-title">Streamer of the Month</h2>
+        <p class="sh-feature__copy">
+          Soon, the community will be able to vote on standout Alchemist creators, with
+          founder-weighted voting and partner rewards.
+        </p>
+      </div>
+    </section>
+
+    <!-- F. BECOME AN ALCHEMIST STREAMER -->
+    <section class="sh-section sh-join" id="become-streamer" aria-labelledby="sh-join-title">
+      <div class="sh-join__card" data-reveal>
+        <div class="eyebrow">Get Featured</div>
+        <h2 class="sh-join__title display" id="sh-join-title">Want to be featured here?</h2>
+        <p class="sh-join__copy">
+          Join The Alchemists Discord, get involved with the community, and apply for the
+          Alchemist Streamer role.
+        </p>
+        <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary" target="_blank" rel="noopener noreferrer" data-action="join-discord">Join The Discord</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          A community of gamers using their unique strengths to create opportunities and help each other succeed.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer" data-action="join-discord">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>© 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="streamers.js"></script>
+</body>
+</html>

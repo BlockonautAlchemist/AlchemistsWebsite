@@ -4,15 +4,23 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/vision-forge",
-      "destination": "/vision-forge.html"
+      "source": "/api/streamers",
+      "destination": "/api/streamers"
     },
     {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
     {
-      "source": "/((?!api/|.*\\.).*)",
+      "source": "/vision-forge",
+      "destination": "/vision-forge.html"
+    },
+    {
+      "source": "/streamers",
+      "destination": "/streamers.html"
+    },
+    {
+      "source": "/((?!api(?:/|$)|@vite(?:/|$)|@fs(?:/|$)|@id(?:/|$)|@react-refresh(?:/|$)|.*\\.).*)",
       "destination": "/index.html"
     }
   ]

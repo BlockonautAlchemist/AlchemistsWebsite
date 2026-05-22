@@ -1,0 +1,42 @@
+[
+  {
+    "displayName": "SciFiHighVR",
+    "twitchUsername": "scifihighvr",
+    "twitchUrl": "https://www.twitch.tv/scifihighvr",
+    "discordName": "SciFiHigh",
+    "bio": "Alchemist creator, VR horror developer, Boss Fighters competitor, and community streamer.",
+    "preferredGames": ["Boss Fighters", "VR Games", "Alchemist Events"],
+    "featured": true,
+    "avatar": null
+  },
+  {
+    "displayName": "MicroKong",
+    "twitchUsername": "microkong",
+    "twitchUrl": "https://www.twitch.tv/microkong",
+    "discordName": "MicroKong",
+    "bio": "Alchemist creator and community streamer focused on gaming, events, and community-driven content.",
+    "preferredGames": ["Partner Games", "Community Events", "Web3 Gaming"],
+    "featured": true,
+    "avatar": null
+  },
+  {
+    "displayName": "MerlinTheAlchemist",
+    "twitchUsername": "merlinthealchemist",
+    "twitchUrl": "https://www.twitch.tv/merlinthealchemist",
+    "discordName": "MerlinTheAlchemist",
+    "bio": "Alchemist creator and community member helping bring the guild’s gaming energy to Twitch.",
+    "preferredGames": ["Boss Fighters", "Alchemist Events", "Partner Games"],
+    "featured": true,
+    "avatar": null
+  },
+  {
+    "displayName": "JutyQuickZz",
+    "twitchUsername": "jutyquickzz",
+    "twitchUrl": "https://www.twitch.tv/jutyquickzz",
+    "discordName": "JutyQuickZz",
+    "bio": "Alchemist streamer and community creator highlighting gameplay, events, and guild activity.",
+    "preferredGames": ["Community Events", "Partner Games", "Web3 Gaming"],
+    "featured": true,
+    "avatar": null
+  }
+]
