@@ -122,7 +122,9 @@ function initStreamersHub() {
     const body = el('div', 'sh-card__body');
     const nameRow = el('div', 'sh-card__avatar-row');
     nameRow.appendChild(avatar(streamer));
-    nameRow.appendChild(el('h3', 'sh-card__name display', streamer.displayName));
+    const liveName = el('h3', 'sh-card__name display', streamer.displayName);
+    liveName.title = streamer.displayName; // full name on hover when truncated
+    nameRow.appendChild(liveName);
     body.appendChild(nameRow);
 
     if (streamer.streamTitle) body.appendChild(el('p', 'sh-card__title', streamer.streamTitle));
@@ -144,7 +146,9 @@ function initStreamersHub() {
     const head = el('div', 'sh-card__avatar-row');
     head.appendChild(avatar(streamer));
     const heading = el('div', 'sh-card__heading');
-    heading.appendChild(el('h3', 'sh-card__name display', streamer.displayName));
+    const offlineName = el('h3', 'sh-card__name display', streamer.displayName);
+    offlineName.title = streamer.displayName; // full name on hover when truncated
+    heading.appendChild(offlineName);
     const discord = el('p', 'sh-card__discord mono');
     discord.appendChild(el('span', 'sh-card__discord-mark', '@'));
     discord.appendChild(el('span', null, streamer.discordName));

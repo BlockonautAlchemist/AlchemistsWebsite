@@ -135,13 +135,19 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin) {
     const stream = streams.get(login);
     const user = users.get(login);
     const isLive = Boolean(stream) && stream.type === 'live';
+    // Twitch "about" text. Can be an empty string for creators who never set one,
+    // so treat empty/missing alike and fall back to the local registry bio.
+    const twitchDescription = user && user.description ? user.description : null;
 
     return {
-      displayName: streamer.displayName,
+      // Prefer Twitch's canonical display_name (proper casing) when available.
+      displayName: (user && user.display_name) || streamer.displayName,
       twitchUsername: streamer.twitchUsername,
       twitchUrl: streamer.twitchUrl,
       discordName: streamer.discordName,
-      bio: streamer.bio,
+      bio: twitchDescription || streamer.bio,
+      twitchDescription,
+      localBio: streamer.bio,
       preferredGames: Array.isArray(streamer.preferredGames) ? streamer.preferredGames : [],
       featured: Boolean(streamer.featured),
       isLive,

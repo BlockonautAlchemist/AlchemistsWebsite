@@ -7,6 +7,8 @@ export function baselineFromRegistry(registry) {
     twitchUrl: streamer.twitchUrl,
     discordName: streamer.discordName,
     bio: streamer.bio,
+    twitchDescription: null,
+    localBio: streamer.bio,
     preferredGames: Array.isArray(streamer.preferredGames) ? streamer.preferredGames : [],
     featured: Boolean(streamer.featured),
     isLive: false,

@@ -91,6 +91,12 @@ test('normalizeStreamers maps live and offline streamers correctly', () => {
   assert.equal(alpha.thumbnailUrl, 'https://cdn/a-440x248.jpg');
   assert.equal(alpha.startedAt, '2026-05-21T10:00:00Z');
 
+  // Alpha has no Get Users entry here: bio/displayName fall back to the registry.
+  assert.equal(alpha.bio, 'a');
+  assert.equal(alpha.twitchDescription, null);
+  assert.equal(alpha.localBio, 'a');
+  assert.equal(alpha.displayName, 'Alpha');
+
   // Beta is offline: stream-specific fields are null but it still appears,
   // and its avatar comes from Get Users (case-insensitive login match).
   assert.equal(beta.isLive, false);
@@ -98,6 +104,32 @@ test('normalizeStreamers maps live and offline streamers correctly', () => {
   assert.equal(beta.viewerCount, null);
   assert.equal(beta.thumbnailUrl, null);
   assert.equal(beta.avatarUrl, 'https://img/beta.png');
+});
+
+test('normalizeStreamers prefers Twitch description and display_name, with local fallback', () => {
+  const users = indexByLogin(
+    [
+      // Alpha: real Twitch about text + canonical display name.
+      { login: 'alpha', description: 'Twitch about for alpha', display_name: 'AlphaTV' },
+      // Beta: empty description and no display_name -> both fall back to registry.
+      { login: 'beta', description: '', profile_image_url: 'https://img/beta.png' }
+    ],
+    'login'
+  );
+
+  const [alpha, beta] = normalizeStreamers(REGISTRY, new Map(), users);
+
+  // Twitch description wins for the card bio; localBio always preserves the registry text.
+  assert.equal(alpha.bio, 'Twitch about for alpha');
+  assert.equal(alpha.twitchDescription, 'Twitch about for alpha');
+  assert.equal(alpha.localBio, 'a');
+  assert.equal(alpha.displayName, 'AlphaTV');
+
+  // Empty Twitch description is treated as missing: fall back to the local bio/name.
+  assert.equal(beta.bio, 'b');
+  assert.equal(beta.twitchDescription, null);
+  assert.equal(beta.localBio, 'b');
+  assert.equal(beta.displayName, 'Beta');
 });
 
 test('sortStreamers orders live > featured > registry order', () => {

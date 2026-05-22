@@ -285,10 +285,13 @@
 
 .sh-card__name {
   margin: 0;
-  font-size: 1.22rem;
+  min-width: 0; /* shrink as a flex item so ellipsis works in the live name row */
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem); /* responsive: long names like MerlinTheAlchemist fit */
   line-height: 1.1;
   color: var(--ink);
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sh-card__discord {
