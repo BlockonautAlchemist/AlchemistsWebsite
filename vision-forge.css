@@ -285,23 +285,30 @@
 .vf-textbtn {
   align-self: center;
   flex: 0 0 auto;
-  padding: 6px 11px;
-  border: 1px solid var(--line);
+  padding: 7px 14px;
+  border: 1px solid color-mix(in srgb, var(--teal) 55%, transparent);
   border-radius: 6px;
-  background: transparent;
-  color: var(--ink-dim);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  color: var(--teal);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--teal) 20%, transparent);
   transition:
     color var(--motion-fast),
-    border-color var(--motion-fast);
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 
 .vf-textbtn:hover {
-  color: var(--teal);
-  border-color: var(--panel-border-active);
+  color: var(--bg-deep, #110318);
+  background: var(--teal);
+  border-color: var(--teal);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--teal) 45%, transparent);
 }
 
 .vf-userrow {
