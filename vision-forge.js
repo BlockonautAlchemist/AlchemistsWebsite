@@ -1,12 +1,60 @@
 // Vision Forge chat client. All model and Discord secrets stay behind /api routes.
 
+function normalizePreviewIntentText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\bi['’]?m\b/g, 'i am')
+    .replace(/\bwe['’]?re\b/g, 'we are')
+    .replace(/\blet['’]?s\b/g, 'lets')
+    .replace(/#\s*/g, '')
+    .replace(/[^a-z0-9#]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isPreviewIntentMessage(value) {
+  const text = normalizePreviewIntentText(value);
+
+  if (!text || text.length > 120) return false;
+
+  const politePrefix = '(?:(?:yes|yep|yeah|sure|ok|okay)\\s+)?(?:(?:please|pls)\\s+)?(?:(?:go ahead|can you|could you|would you|will you)\\s+(?:and\\s+)?)?';
+  const action = '(?:generate|make|create|build|prepare|show)';
+  const previewTarget = '(?:(?:the\\s+)?(?:discord\\s+)?(?:post\\s+)?preview|(?:the\\s+)?preview)';
+  const discordPostTarget = '(?:(?:the\\s+)?discord\\s+post|(?:a\\s+)?discord\\s+post|(?:the\\s+)?post\\s+(?:for\\s+)?discord)';
+
+  const intentPatterns = [
+    new RegExp(`^${politePrefix}${action}\\s+${previewTarget}(?:\\s+(?:now|please|for me))?$`),
+    new RegExp(`^${politePrefix}${action}\\s+${discordPostTarget}(?:\\s+(?:preview|now|please|for me))?$`),
+    /^(?:(?:yes|yep|yeah|sure|ok|okay)\s+)?(?:please\s+)?(?:generate|make|create|build|prepare)\s+it(?:\s+(?:now|please))?$/,
+    /^(?:lets|let us)\s+(?:generate|make|create|build|prepare|preview)\s+(?:it|the preview|the discord preview|the discord post|the discord post preview)(?:\s+now)?$/,
+    /^(?:i am|we are)\s+ready(?:\s+(?:now|to go|to share|to post|to preview|to generate|to send|for preview|for the preview|for discord))?$/,
+    /^ready(?:\s+(?:now|to go|to share|to post|to preview|to generate|to send|for preview|for the preview|for discord))?$/,
+    /^(?:(?:yes|yep|yeah|sure|ok|okay)\s+)?(?:please\s+)?post\s+(?:this|it|the idea|the preview|the post)\s+(?:to|in|on)\s+(?:the\s+)?(?:discord|vision forge)(?:\s+(?:now|please))?$/,
+    /^(?:(?:yes|yep|yeah|sure|ok|okay)\s+)?(?:please\s+)?send\s+(?:this|it|the idea|the preview|the post)\s+(?:to|in|on)\s+(?:the\s+)?(?:discord|vision forge)(?:\s+(?:now|please))?$/
+  ];
+
+  return intentPatterns.some((pattern) => pattern.test(text));
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    isPreviewIntentMessage,
+    normalizePreviewIntentText
+  };
+}
+
 (function () {
+  if (typeof document === 'undefined') return;
+
   const refs = {
     app: document.getElementById('vf-app'),
     username: document.getElementById('vf-username'),
     honeypot: document.getElementById('vf-hp'),
     log: document.getElementById('vf-log'),
     chips: document.getElementById('vf-chips'),
+    readyHelp: document.getElementById('vf-ready-help'),
+    triggerHelp: document.getElementById('vf-trigger-help'),
     notice: document.getElementById('vf-notice'),
     composer: document.getElementById('vf-composer'),
     input: document.getElementById('vf-input'),
@@ -182,6 +230,8 @@
 
     if (!hasExchange) {
       refs.chips.hidden = true;
+      if (refs.readyHelp) refs.readyHelp.hidden = true;
+      if (refs.triggerHelp) refs.triggerHelp.hidden = true;
       refs.chips.replaceChildren();
       return;
     }
@@ -201,13 +251,19 @@
     const generate = document.createElement('button');
     generate.type = 'button';
     generate.className = 'vf-chip vf-chip--accent';
-    generate.textContent = state.preview ? 'Regenerate Discord Post Preview' : 'Generate Discord Post Preview';
+    generate.textContent = state.preview ? 'Regenerate Preview' : 'Generate Preview';
+    generate.setAttribute(
+      'aria-label',
+      state.preview ? 'Regenerate Discord Post Preview' : 'Generate Discord Post Preview'
+    );
     generate.disabled = busy;
     generate.addEventListener('click', generatePreview);
     fragment.appendChild(generate);
 
     refs.chips.replaceChildren(fragment);
     refs.chips.hidden = false;
+    if (refs.readyHelp) refs.readyHelp.hidden = false;
+    if (refs.triggerHelp) refs.triggerHelp.hidden = false;
   }
 
   function showNotice(message, type) {
@@ -550,10 +606,17 @@
 
   function submitComposer() {
     const text = refs.input.value;
-    if (!text.trim()) return;
+    const content = text.trim();
+    if (!content) return;
     refs.input.value = '';
     autoResize();
-    sendMessage(text);
+
+    if (isPreviewIntentMessage(content)) {
+      generatePreview();
+      return;
+    }
+
+    sendMessage(content);
   }
 
   /* ---------- events ---------- */

@@ -445,7 +445,30 @@
   display: none;
 }
 
+.vf-helper {
+  margin: 0 clamp(16px, 2.2vw, 24px);
+  color: var(--ink-dim);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.vf-helper[hidden] {
+  display: none;
+}
+
+.vf-helper--ready {
+  margin-top: 2px;
+}
+
+.vf-helper--trigger {
+  margin-top: 2px;
+  color: rgba(248, 237, 255, 0.7);
+}
+
 .vf-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 7px 12px;
   border: 1px solid rgba(92, 251, 247, 0.3);
   border-radius: 999px;
@@ -467,11 +490,19 @@
 
 .vf-chip--accent {
   border-color: rgba(254, 214, 109, 0.5);
-  background: rgba(254, 214, 109, 0.08);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(254, 214, 109, 0.2), rgba(254, 214, 109, 0.06)),
+    rgba(7, 1, 11, 0.34);
   color: var(--yellow);
+  font-weight: 700;
+  box-shadow: 0 0 18px rgba(254, 214, 109, 0.08);
 }
 
 .vf-chip--accent:hover:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgba(254, 214, 109, 0.28), rgba(254, 214, 109, 0.08)),
+    rgba(7, 1, 11, 0.42);
   border-color: var(--yellow);
   color: var(--yellow);
 }
@@ -781,6 +812,13 @@
 
   .vf-preview-actions {
     grid-template-columns: 1fr;
+  }
+
+  .vf-chip--accent {
+    flex: 1 0 100%;
+    justify-content: center;
+    min-height: 42px;
+    text-align: center;
   }
 }
 

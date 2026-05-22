@@ -2,11 +2,13 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const chatHandler = require('../api/vision-forge/chat');
+const { isPreviewIntentMessage } = require('../vision-forge');
 const {
   DISCORD_CLOSING_LINES,
   formatDiscordMessage,
   MAX_DISCORD_MESSAGE_LENGTH
 } = require('../server/vision-forge/discord');
+const { buildCollaboratorMessages } = require('../server/vision-forge/prompts');
 const {
   completePreview,
   evaluatePreview,
@@ -193,6 +195,58 @@ function assertNoChoppedLineEndings(message) {
     );
   });
 }
+
+test('collaborator prompt routes preview generation to the explicit button flow', () => {
+  const messages = buildCollaboratorMessages({ messages: [] });
+  const systemPrompt = messages[0].content;
+
+  assert.match(systemPrompt, /Use the Generate Discord Post Preview button when you’re ready\./);
+  assert.match(systemPrompt, /Chat is only for refining the idea/i);
+  assert.match(systemPrompt, /Do NOT produce a long structured proposal, full Discord-ready post, or final Discord preview in chat\./);
+  assert.doesNotMatch(systemPrompt, /explicitly ask to generate a Discord preview/i);
+  assert.doesNotMatch(systemPrompt, /reply.*(?:generate|preview|post).*chat/i);
+  assert.doesNotMatch(systemPrompt, /ask.*(?:generate|preview|post).*chat/i);
+});
+
+test('detects clear preview intent messages before chat submission', () => {
+  [
+    'generate the preview',
+    'Generate Discord Post Preview',
+    'please generate the discord post preview',
+    'make the discord post',
+    'make a discord post please',
+    'post this to discord',
+    'post it to the Discord',
+    'post this to discord please',
+    'post this to #vision-forge',
+    'send it to Discord',
+    'yes generate it',
+    'yeah generate it now',
+    "I'm ready",
+    'I’m ready',
+    'im ready to share',
+    "we're ready for preview",
+    "let's generate the preview",
+    'can you create the preview for me?'
+  ].forEach((message) => {
+    assert.equal(isPreviewIntentMessage(message), true, message);
+  });
+});
+
+test('does not treat normal refinement messages as preview intent', () => {
+  [
+    'Tighten this idea and make it more useful to members.',
+    'How well does this align with The Alchemists vision?',
+    'Can you make it more focused before we preview anything?',
+    'I am ready to brainstorm a few more details.',
+    'Help me write a better hook for a future Discord post.',
+    'What are concrete next steps to move this idea forward?',
+    'Maybe this could become a Discord event later.',
+    'Please do not post this yet.'
+  ].forEach((message) => {
+    assert.equal(isPreviewIntentMessage(message), false, message);
+  });
+});
 
 test('trims assistant replies at natural boundaries instead of chopping words', () => {
   const source = [
