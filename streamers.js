@@ -256,15 +256,16 @@ function initStreamersHub() {
     const viewers = el('p', 'sh-card__viewers mono');
     info.appendChild(viewers);
 
-    const actions = el('div', 'sh-card__actions');
-    const watch = el('a', 'btn btn-primary', 'Watch on Twitch');
+    node.appendChild(info);
+
+    // Visually hidden link to the streamer's Twitch channel — keeps an explicit path for
+    // screen readers / crawlers now that the visible CTA is gone. The embedded player is the
+    // primary way sighted users reach Twitch. Lives outside the info grid so it adds no gap.
+    const watch = el('a', 'sh-card__watch-sr', 'Watch on Twitch');
     watch.target = '_blank';
     watch.rel = 'noopener noreferrer';
     watch.setAttribute('data-action', 'watch-twitch');
-    actions.appendChild(watch);
-    info.appendChild(actions);
-
-    node.appendChild(info);
+    node.appendChild(watch);
 
     const card = { node, media, avatarHost, name, handle, badgeHost, title, viewers, watch, mediaKey: null };
 
@@ -294,6 +295,7 @@ function initStreamersHub() {
     card.viewers.hidden = !viewers;
 
     card.watch.href = streamer.twitchUrl;
+    card.watch.textContent = `Watch ${streamer.displayName} on Twitch`;
     card.watch.setAttribute('data-login', loginOf(streamer));
   }
 

@@ -411,16 +411,31 @@
   display: none;
 }
 
-.sh-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+/* Screen-reader-only link to the streamer's Twitch channel. No visible CTA — the embedded
+   player is the path to Twitch for sighted users — but the link stays for a11y/SEO and is
+   revealed on keyboard focus. */
+.sh-card__watch-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.sh-card__actions .btn {
-  min-width: 0;
-  white-space: normal;
+.sh-card__watch-sr:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  clip: auto;
+  clip-path: none;
+  color: var(--sh-gold);
+  text-decoration: underline;
 }
 
 /* --------------------------------------------------- Branded fallback --- */
@@ -741,17 +756,27 @@
   }
 }
 
-@media (max-width: 760px) {
+/* Mobile: one dominant, centred card with a subtle neighbour peek, calmer hero, and the
+   arrows in a centred row BELOW the card (never overlapping the player controls). */
+@media (max-width: 768px) {
   .streamers-page {
-    --sh-shift: 64vw;
+    /* Push neighbours almost fully off-screen — only a thin sliver peeks past the active
+       card. vw-based so it scales down to small mobile; tuned for ~16-20px of peek. */
+    --sh-shift: calc(93vw - 36px);
   }
 
   .sh-live {
-    padding-top: 24px;
+    padding-top: 22px;
+  }
+
+  .sh-live__eyebrow {
+    font-size: 0.74rem;
   }
 
   .sh-live__title {
-    font-size: clamp(2rem, 10vw, 3.15rem);
+    margin-top: 8px;
+    font-size: clamp(2.4rem, 9vw, 3.4rem);
+    line-height: 1;
   }
 
   .sh-live__title span {
@@ -762,31 +787,51 @@
     font-size: 0.96rem;
   }
 
-  .sh-carousel__arrow {
-    top: 30%;
-    width: 44px;
-    height: 44px;
-    font-size: 2rem;
+  /* Arrows drop below the card: the viewport claims the full first line, the two arrows
+     wrap to a centred second line. */
+  .sh-carousel {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    row-gap: 16px;
+    column-gap: 20px;
   }
 
-  .sh-carousel__arrow--prev {
-    left: -8px;
-  }
-
-  .sh-carousel__arrow--next {
-    right: -8px;
-  }
-
-  .sh-card {
+  .sh-carousel__viewport {
+    flex: 1 1 100%;
     width: 100%;
   }
 
+  .sh-carousel__arrow {
+    position: static;
+    order: 1;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: 46px;
+    height: 46px;
+    font-size: 1.8rem;
+  }
+
+  .sh-card {
+    width: min(100%, calc(100vw - 32px));
+  }
+
+  /* Subtle peek: flat (no 3D tilt), slightly smaller and dimmed; sliver clipped by the
+     section/page overflow so there is no horizontal scroll. */
+  .sh-card.is-prev,
+  .sh-card.is-next {
+    opacity: 0.5;
+    filter: blur(1px) brightness(0.7);
+  }
+
   .sh-card.is-prev {
-    transform: translate(calc(-50% - var(--sh-shift)), -50%) scale(0.66) rotateY(0deg);
+    transform: translate(calc(-50% - var(--sh-shift)), -50%) scale(0.86);
   }
 
   .sh-card.is-next {
-    transform: translate(calc(-50% + var(--sh-shift)), -50%) scale(0.66) rotateY(0deg);
+    transform: translate(calc(-50% + var(--sh-shift)), -50%) scale(0.86);
   }
 
   .sh-card.is-far-prev,
@@ -797,71 +842,36 @@
   .sh-card__name {
     overflow-wrap: anywhere;
   }
-
-  .sh-card__actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .sh-card__actions .btn {
-    width: 100%;
-  }
 }
 
-@media (max-width: 520px) {
-  .sh-live__head {
-    max-width: min(100%, 342px);
-    margin-left: 0;
-    margin-right: 0;
-    text-align: left;
+/* Small mobile: keep everything centred (inherits the base margin:auto / text-align:center —
+   the old left-aligned 342px overrides were the off-centre bug) and just tighten spacing. */
+@media (max-width: 480px) {
+  .sh-live__title {
+    font-size: clamp(2.2rem, 11vw, 3rem);
   }
 
-  .sh-live__copy,
-  .sh-notice,
-  .sh-carousel {
-    max-width: min(100%, 342px);
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .sh-live__eyebrow {
-    justify-content: flex-start;
-  }
-
-  .sh-live__eyebrow::before {
-    display: none;
-  }
-
-  .sh-card.is-prev,
-  .sh-card.is-next,
-  .sh-card.is-far-prev,
-  .sh-card.is-far-next {
-    display: none;
-  }
-
-  .sh-carousel__arrow {
-    top: clamp(74px, 24vw, 96px);
-  }
-
-  .sh-carousel__arrow--prev {
-    left: 0;
-  }
-
-  .sh-carousel__arrow--next {
-    right: 0;
+  .sh-live__copy {
+    font-size: 0.92rem;
   }
 
   .sh-card__info {
     padding: 16px;
+    gap: 10px;
   }
 
   .sh-card__id {
     grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
   }
 
   .sh-card__badge-host {
     grid-column: 1 / -1;
     justify-self: start;
+  }
+
+  .sh-card__name {
+    overflow-wrap: anywhere;
   }
 
   .sh-feature__card,
