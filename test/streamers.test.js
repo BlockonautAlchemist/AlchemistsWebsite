@@ -6,9 +6,13 @@ const {
   normalizeStreamers,
   sortStreamers,
   templateThumbnail,
+  resolveTwitchThumbnail,
+  buildEmbedUrl,
+  fetchLatestVideo,
   indexByLogin,
   indexByUserId,
   getStreamersData,
+  EMBED_DOMAIN_PLACEHOLDER,
   _resetCachesForTests
 } = require('../server/streamers/twitch');
 
@@ -20,6 +24,7 @@ let buildTwitchEmbedUrl;
 let compactStreamerTags;
 let formatViewers;
 let monogram;
+let resolveEmbedUrl;
 let selectActiveStreamer;
 let streamCategoryLabel;
 let streamStatusLabel;
@@ -32,6 +37,7 @@ test.before(async () => {
     compactStreamerTags,
     formatViewers,
     monogram,
+    resolveEmbedUrl,
     selectActiveStreamer,
     streamCategoryLabel,
     streamStatusLabel,
@@ -190,6 +196,151 @@ test('normalizeStreamers attaches the latest video via user id, null when absent
   assert.equal(beta.latestVideoUrl, null);
   assert.equal(beta.latestVideoThumbnailUrl, null);
   assert.equal(beta.latestVideoCreatedAt, null);
+});
+
+test('normalizeStreamers resolves live media: type, cache-busted preview, channel embed', () => {
+  const streams = indexByLogin(
+    [{ user_login: 'alpha', type: 'live', title: 'Live', thumbnail_url: 'https://cdn/a-{width}x{height}.jpg' }],
+    'user_login'
+  );
+  const users = indexByLogin([{ login: 'alpha', id: '1', offline_image_url: 'https://img/a-offline.png' }], 'login');
+
+  const [alpha] = normalizeStreamers(REGISTRY, streams, users);
+
+  assert.equal(alpha.mediaType, 'live');
+  assert.equal(alpha.liveThumbnailUrl, 'https://cdn/a-440x248.jpg');
+  // Live preview = resolved thumbnail + a cache-busting query param (refreshes each poll).
+  assert.match(alpha.mediaPreviewUrl, /^https:\/\/cdn\/a-440x248\.jpg\?t=\d+$/);
+  assert.equal(
+    alpha.embedUrl,
+    `https://player.twitch.tv/?channel=alpha&parent=${EMBED_DOMAIN_PLACEHOLDER}&muted=true&autoplay=true`
+  );
+  assert.equal(alpha.offlineImageUrl, 'https://img/a-offline.png');
+});
+
+test('normalizeStreamers resolves vod media from the latest video', () => {
+  const users = indexByLogin([{ login: 'alpha', id: '1', profile_image_url: 'https://img/a.png' }], 'login');
+  const videos = indexByUserId([
+    {
+      user_id: '1',
+      id: '987654321',
+      alchemistType: 'highlight',
+      title: 'Best moments',
+      url: 'https://www.twitch.tv/videos/987654321',
+      thumbnail_url: 'https://cdn/v-%{width}x%{height}.jpg',
+      created_at: '2026-05-20T18:00:00Z'
+    }
+  ]);
+
+  const [alpha] = normalizeStreamers(REGISTRY, new Map(), users, videos);
+
+  assert.equal(alpha.mediaType, 'vod');
+  assert.equal(alpha.latestVideoId, '987654321');
+  assert.equal(alpha.latestVideoType, 'highlight');
+  assert.equal(alpha.mediaPreviewUrl, 'https://cdn/v-440x248.jpg');
+  assert.equal(
+    alpha.embedUrl,
+    `https://player.twitch.tv/?video=987654321&parent=${EMBED_DOMAIN_PLACEHOLDER}&muted=true&autoplay=true`
+  );
+});
+
+test('normalizeStreamers falls back to offline/profile image when no live or video', () => {
+  const users = indexByLogin(
+    [
+      { login: 'alpha', id: '1', offline_image_url: 'https://img/a-offline.png', profile_image_url: 'https://img/a.png' },
+      { login: 'beta', id: '2', profile_image_url: 'https://img/b.png' }
+    ],
+    'login'
+  );
+
+  const [alpha, beta] = normalizeStreamers(REGISTRY, new Map(), users);
+
+  assert.equal(alpha.mediaType, 'fallback');
+  assert.equal(alpha.embedUrl, null);
+  // offline_image_url wins over the profile image for the fallback preview.
+  assert.equal(alpha.mediaPreviewUrl, 'https://img/a-offline.png');
+  // Beta has no offline image: fall back to the profile image.
+  assert.equal(beta.mediaPreviewUrl, 'https://img/b.png');
+});
+
+test('resolveTwitchThumbnail aliases the shared thumbnail templating helper', () => {
+  assert.equal(resolveTwitchThumbnail, templateThumbnail);
+  assert.equal(resolveTwitchThumbnail('https://cdn/x-%{width}x%{height}.jpg'), 'https://cdn/x-440x248.jpg');
+});
+
+test('buildEmbedUrl builds channel/video player URLs with a domain placeholder', () => {
+  assert.equal(
+    buildEmbedUrl({ channel: 'Alpha' }),
+    `https://player.twitch.tv/?channel=alpha&parent=${EMBED_DOMAIN_PLACEHOLDER}&muted=true&autoplay=true`
+  );
+  assert.equal(
+    buildEmbedUrl({ video: '555' }),
+    `https://player.twitch.tv/?video=555&parent=${EMBED_DOMAIN_PLACEHOLDER}&muted=true&autoplay=true`
+  );
+  assert.equal(buildEmbedUrl({}), null);
+});
+
+test('fetchLatestVideo tries archive then highlight then upload, returning the first hit', async () => {
+  const auth = { clientId: 'cid', token: 't' };
+
+  const calls = [];
+  global.fetch = (url) => {
+    const type = new URL(String(url)).searchParams.get('type');
+    calls.push(type);
+    const data = type === 'upload' ? [{ id: '9', user_id: '1', title: 'Upload' }] : [];
+    return jsonResponse({ data });
+  };
+  const video = await fetchLatestVideo('1', auth);
+  assert.deepEqual(calls, ['archive', 'highlight', 'upload']);
+  assert.equal(video.id, '9');
+  assert.equal(video.alchemistType, 'upload');
+
+  // No videos of any type -> null after trying all three.
+  const empties = [];
+  global.fetch = (url) => {
+    empties.push(new URL(String(url)).searchParams.get('type'));
+    return jsonResponse({ data: [] });
+  };
+  assert.equal(await fetchLatestVideo('1', auth), null);
+  assert.deepEqual(empties, ['archive', 'highlight', 'upload']);
+});
+
+test('getStreamersData isolates a per-streamer video failure', async () => {
+  _resetCachesForTests();
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CLIENT_SECRET = 'secret';
+  global.fetch = (url) => {
+    const target = String(url);
+    if (target.includes('oauth2/token')) return jsonResponse({ access_token: 't', expires_in: 3600 });
+    if (target.includes('helix/streams')) return jsonResponse({ data: [] });
+    if (target.includes('helix/users')) {
+      return jsonResponse({
+        data: [
+          { login: 'scifihighvr', id: '101', profile_image_url: 'https://img/s.png' },
+          { login: 'microkong', id: '102', profile_image_url: 'https://img/m.png' }
+        ]
+      });
+    }
+    if (target.includes('helix/videos')) {
+      const params = new URL(target).searchParams;
+      if (params.get('user_id') === '101') return jsonResponse({}, { ok: false, status: 500 });
+      const data = params.get('type') === 'archive'
+        ? [{ user_id: '102', id: '77', title: 'MK VOD', url: 'https://www.twitch.tv/videos/77', thumbnail_url: 'https://cdn/m-%{width}x%{height}.jpg', created_at: '2026-05-19T00:00:00Z' }]
+        : [];
+      return jsonResponse({ data });
+    }
+    throw new Error(`Unexpected fetch to ${target}`);
+  };
+
+  const data = await getStreamersData();
+  assert.equal(data.degraded, false);
+  const scifi = data.streamers.find((s) => s.twitchUsername === 'scifihighvr');
+  const mk = data.streamers.find((s) => s.twitchUsername === 'microkong');
+  // The failing creator degrades to a branded fallback; the healthy one still gets its VOD.
+  assert.equal(scifi.mediaType, 'fallback');
+  assert.equal(scifi.latestVideoUrl, null);
+  assert.equal(mk.mediaType, 'vod');
+  assert.equal(mk.latestVideoId, '77');
 });
 
 test('sortStreamers orders live > featured > registry order', () => {
@@ -401,6 +552,16 @@ test('client buildTwitchEmbedUrl plays a VOD when given a video id', () => {
     'https://player.twitch.tv/?video=555&parent=example.com&muted=false&autoplay=false'
   );
   assert.equal(buildTwitchEmbedUrl({ video: '555', parent: '' }), null);
+});
+
+test('client resolveEmbedUrl swaps the domain placeholder for the current host', () => {
+  const url = `https://player.twitch.tv/?channel=alpha&parent=${EMBED_DOMAIN_PLACEHOLDER}&muted=true&autoplay=true`;
+  assert.equal(
+    resolveEmbedUrl(url, 'localhost'),
+    'https://player.twitch.tv/?channel=alpha&parent=localhost&muted=true&autoplay=true'
+  );
+  assert.equal(resolveEmbedUrl(url, ''), null);
+  assert.equal(resolveEmbedUrl(null, 'localhost'), null);
 });
 
 test('client monogram derives initials', () => {

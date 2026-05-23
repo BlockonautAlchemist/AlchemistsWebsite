@@ -192,10 +192,12 @@
   color: var(--ink);
   box-shadow: 0 28px 90px rgba(8, 0, 14, 0.5);
   will-change: transform, opacity, filter;
+  /* Longer eased glide so a side card slides into centre and the centre card slides
+     out to the side — a seamless swipe rather than a hard swap. */
   transition:
-    transform var(--motion-med),
-    opacity var(--motion-med),
-    filter var(--motion-med);
+    transform 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 480ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .sh-card.is-active {
@@ -223,8 +225,10 @@
 .sh-card.is-prev,
 .sh-card.is-next {
   z-index: 3;
-  opacity: 0.42;
-  filter: blur(2px) saturate(0.82) brightness(0.62);
+  /* Background cards stay fully visible — depth comes from scale + blur + brightness,
+     never from fading them out. The active card dominates via size, z-index and glow. */
+  opacity: 1;
+  filter: blur(1.5px) saturate(0.95) brightness(0.82);
   cursor: pointer;
   pointer-events: auto;
 }
@@ -240,8 +244,8 @@
 .sh-card.is-far-prev,
 .sh-card.is-far-next {
   z-index: 2;
-  opacity: 0.16;
-  filter: blur(3px) saturate(0.7) brightness(0.5);
+  opacity: 1;
+  filter: blur(2.5px) saturate(0.85) brightness(0.66);
   pointer-events: none;
 }
 
@@ -263,8 +267,7 @@
 @media (hover: hover) {
   .sh-card.is-prev:hover,
   .sh-card.is-next:hover {
-    opacity: 0.72;
-    filter: blur(0) saturate(1) brightness(0.86);
+    filter: blur(0) saturate(1) brightness(0.96);
     border-color: rgba(92, 251, 247, 0.5);
   }
 }
@@ -280,8 +283,7 @@
 }
 
 .sh-card__media > .sh-preview-visual,
-.sh-card__media > .sh-fallback,
-.sh-card__media > .sh-vod {
+.sh-card__media > .sh-fallback {
   position: absolute;
   inset: 0;
 }
@@ -491,98 +493,6 @@
   margin-top: 6px;
 }
 
-/* ---------------------------------------------------------- VOD poster --- */
-.sh-vod {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.sh-vod__image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.sh-vod > .sh-brand-art {
-  position: absolute;
-  inset: 0;
-}
-
-.sh-vod__shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(8, 0, 14, 0.1), rgba(8, 0, 14, 0.92));
-}
-
-.sh-vod__content {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-  width: 100%;
-  padding: clamp(16px, 2.4vw, 30px);
-}
-
-.sh-vod__kicker {
-  color: var(--sh-gold);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-}
-
-.sh-vod__title {
-  color: var(--ink);
-  font-size: clamp(1.15rem, 0.9rem + 1.6vw, 2rem);
-  line-height: 1.05;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  text-shadow: 2px 2px 0 rgba(8, 0, 14, 0.6);
-}
-
-.sh-vod__meta {
-  color: var(--ink-dim);
-  font-size: 0.72rem;
-}
-
-.sh-vod__play {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 10px 16px;
-  border: 2px solid var(--sh-gold);
-  border-radius: 999px;
-  background: rgba(8, 0, 14, 0.55);
-  color: var(--ink);
-  font-family: "Russo One", sans-serif;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast),
-    transform var(--motion-fast);
-}
-
-.sh-vod__play-icon {
-  color: var(--sh-gold);
-  font-size: 0.9rem;
-}
-
-@media (hover: hover) {
-  .sh-vod__play:hover {
-    background: rgba(254, 214, 109, 0.16);
-    transform: translateY(-2px);
-  }
-}
-
 /* ------------------------------------------------------ Visual fallback --- */
 .sh-preview-visual {
   position: relative;
@@ -608,56 +518,30 @@
     linear-gradient(90deg, rgba(173, 25, 209, 0.24), transparent 58%);
 }
 
+/* Branded gradient panel — the local fallback art. Pure Alchemists styling with a
+   subtle ambient drift; no floating avatar/logo circle and no large initials. */
 .sh-brand-art {
   position: relative;
-  display: grid;
-  place-items: center;
+  width: 100%;
+  height: 100%;
   min-height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(circle at 48% 42%, rgba(254, 214, 109, 0.24), transparent 0 16%, rgba(92, 251, 247, 0.12) 17%, transparent 40%),
+    radial-gradient(120% 90% at 22% 18%, rgba(92, 251, 247, 0.16), transparent 52%),
+    radial-gradient(120% 100% at 82% 92%, rgba(173, 25, 209, 0.34), transparent 58%),
     linear-gradient(135deg, rgba(48, 16, 70, 0.96), rgba(17, 3, 24, 0.98));
-  background-size: 180% 180%, 200% 200%;
+  background-size: 200% 200%, 200% 200%, 100% 100%;
   animation: sh-drift 20s ease-in-out infinite;
 }
 
+/* Diagonal brand accent lines for texture (no circle / logo / initials). */
 .sh-brand-art::before {
   content: "";
   position: absolute;
-  inset: 11%;
-  border: 1px solid rgba(92, 251, 247, 0.24);
-  transform: skewX(-12deg);
-}
-
-.sh-brand-art__logo,
-.sh-brand-art__avatar {
-  position: relative;
-  z-index: 1;
-  width: clamp(82px, 15vw, 170px);
-  height: clamp(82px, 15vw, 170px);
-  object-fit: contain;
-  filter: drop-shadow(0 0 24px rgba(92, 251, 247, 0.28));
-}
-
-.sh-brand-art__avatar {
-  border: 1px solid rgba(92, 251, 247, 0.34);
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.sh-brand-art__mono {
-  position: absolute;
-  right: clamp(18px, 4vw, 42px);
-  bottom: clamp(14px, 3vw, 34px);
-  color: rgba(248, 237, 255, 0.12);
-  font-size: clamp(3.4rem, 11vw, 8rem);
-  line-height: 0.8;
-}
-
-.sh-brand-art--compact .sh-brand-art__logo,
-.sh-brand-art--compact .sh-brand-art__avatar {
-  width: clamp(58px, 10vw, 112px);
-  height: clamp(58px, 10vw, 112px);
+  inset: 0;
+  background:
+    linear-gradient(112deg, transparent 0 6%, rgba(254, 214, 109, 0.22) 6% 6.4%, transparent 6.4% 100%),
+    linear-gradient(112deg, transparent 0 84%, rgba(92, 251, 247, 0.18) 84% 84.5%, transparent 84.5% 100%);
 }
 
 /* -------------------------------------------------------- Status badge --- */
@@ -899,12 +783,10 @@
 
   .sh-card.is-prev {
     transform: translate(calc(-50% - var(--sh-shift)), -50%) scale(0.66) rotateY(0deg);
-    opacity: 0.24;
   }
 
   .sh-card.is-next {
     transform: translate(calc(-50% + var(--sh-shift)), -50%) scale(0.66) rotateY(0deg);
-    opacity: 0.24;
   }
 
   .sh-card.is-far-prev,

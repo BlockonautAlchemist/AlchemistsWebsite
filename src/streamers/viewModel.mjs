@@ -16,13 +16,30 @@ export function baselineFromRegistry(registry) {
     gameName: null,
     viewerCount: null,
     thumbnailUrl: null,
+    liveThumbnailUrl: null,
     startedAt: null,
     avatarUrl: streamer.avatar || null,
+    offlineImageUrl: null,
+    latestVideoId: null,
+    latestVideoType: null,
     latestVideoTitle: null,
     latestVideoUrl: null,
     latestVideoThumbnailUrl: null,
-    latestVideoCreatedAt: null
+    latestVideoCreatedAt: null,
+    // Pre-API baseline: everyone is offline with no recent video -> branded fallback.
+    mediaType: 'fallback',
+    mediaPreviewUrl: streamer.avatar || null,
+    embedUrl: null
   }));
+}
+
+// Server-side embed URLs carry a REPLACE_WITH_DOMAIN placeholder for the Twitch
+// `parent` (which must match the host serving the page). Swap in the live hostname
+// here so the same payload works on localhost, Vercel previews, and production.
+export function resolveEmbedUrl(embedUrl, hostname) {
+  const host = String(hostname || '').trim();
+  if (!embedUrl || !host) return null;
+  return String(embedUrl).replace('REPLACE_WITH_DOMAIN', host);
 }
 
 export function sortStreamers(list) {

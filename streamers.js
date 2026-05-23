@@ -13,12 +13,10 @@
 import alchemistStreamers from './src/data/streamers.json';
 import {
   baselineFromRegistry,
-  buildTwitchEmbedUrl,
   monogram,
-  relativeTimeLabel,
+  resolveEmbedUrl,
   selectActiveStreamer,
   sortStreamers,
-  twitchVideoId,
   viewerCountLabel
 } from './src/streamers/viewModel.mjs';
 
@@ -27,7 +25,6 @@ const REFRESH_MS = 90 * 1000;
 const ROTATION_MS = 8 * 1000;
 const TRANSITION_MS = 520;
 const SWIPE_THRESHOLD = 48;
-const LOGO_MARK = 'assets/logo-mark.png';
 
 if (typeof document !== 'undefined') {
   initStreamersHub();
@@ -89,6 +86,7 @@ function initStreamersHub() {
 
   function statusText(streamer) {
     if (streamer.isLive) return streamer.streamTitle || `${streamer.displayName} is live now`;
+    if (streamer.latestVideoTitle) return `Latest: ${streamer.latestVideoTitle}`;
     if (streamer.latestVideoUrl) return 'Catch the latest stream replay.';
     return 'Offline — follow for the next stream.';
   }
@@ -114,41 +112,34 @@ function initStreamersHub() {
     return el('span', `${className} ${className}--mono`, monogram(streamer.displayName));
   }
 
-  function createBrandArt(streamer, modifier = '') {
-    const art = el('div', `sh-brand-art${modifier ? ` ${modifier}` : ''}`);
+  // Branded gradient backdrop — the "local fallback art". No avatar/logo/initials:
+  // the media area focuses on real stream/VOD imagery or this clean branded panel.
+  function createBrandBackdrop(modifier = '') {
+    return el('div', `sh-brand-art${modifier ? ` ${modifier}` : ''}`);
+  }
 
-    if (streamer.avatarUrl) {
-      const avatar = el('img', 'sh-brand-art__avatar');
-      avatar.src = streamer.avatarUrl;
-      avatar.alt = '';
-      avatar.loading = 'lazy';
-      avatar.decoding = 'async';
-      art.appendChild(avatar);
-    } else {
-      const logo = el('img', 'sh-brand-art__logo');
-      logo.src = LOGO_MARK;
-      logo.alt = '';
-      logo.loading = 'lazy';
-      logo.decoding = 'async';
-      art.appendChild(logo);
-    }
-
-    art.appendChild(el('span', 'sh-brand-art__mono display', monogram(streamer.displayName)));
-    return art;
+  // <img> whose load failure (e.g. a 404'd Twitch VOD thumbnail) swaps in the
+  // branded backdrop, so a card never shows a broken image.
+  function createThumbImage(src, className, { compact = false } = {}) {
+    const img = el('img', className);
+    img.src = src;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.addEventListener('error', () => {
+      const parent = img.parentNode;
+      if (parent) parent.replaceChild(createBrandBackdrop(compact ? 'sh-brand-art--compact' : ''), img);
+    });
+    return img;
   }
 
   function createPreviewVisual(streamer, { compact = false } = {}) {
     const visual = el('div', compact ? 'sh-preview-visual sh-preview-visual--compact' : 'sh-preview-visual');
 
-    if (streamer.thumbnailUrl) {
-      const img = el('img', 'sh-preview-visual__image');
-      img.src = streamer.thumbnailUrl;
-      img.alt = '';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      visual.appendChild(img);
+    if (streamer.mediaPreviewUrl) {
+      visual.appendChild(createThumbImage(streamer.mediaPreviewUrl, 'sh-preview-visual__image', { compact }));
     } else {
-      visual.appendChild(createBrandArt(streamer, compact ? 'sh-brand-art--compact' : ''));
+      visual.appendChild(createBrandBackdrop(compact ? 'sh-brand-art--compact' : ''));
     }
 
     visual.appendChild(el('span', 'sh-preview-visual__shade'));
@@ -180,72 +171,27 @@ function initStreamersHub() {
   }
 
   // -------------------------------------------------------- media content ---
-  function createLiveIframe(streamer) {
-    const src = buildTwitchEmbedUrl({
-      channel: streamer.twitchUsername,
-      parent: getEmbedParent(),
-      autoplay: true,
-      muted: true
-    });
-    if (!src) return createFallback(streamer, { mode: 'live' });
-    return makeEmbedIframe(src, `${streamer.displayName} Twitch player`, () => createFallback(streamer, { mode: 'live' }));
+  // Mounts the live/VOD Twitch player for the ACTIVE card. The embed `parent` is
+  // resolved to the current hostname here, so it works on localhost, Vercel
+  // previews, and production. On any failure it swaps to the branded fallback so
+  // the media area is never empty.
+  function createEmbed(streamer, mode) {
+    const src = resolveEmbedUrl(streamer.embedUrl, getEmbedParent());
+    if (!src) return createFallback(streamer, { mode });
+    const label = mode === 'live'
+      ? `${streamer.displayName} live Twitch player`
+      : `${streamer.displayName} recent stream`;
+    return makeEmbedIframe(src, label, () => createFallback(streamer, { mode }));
   }
 
-  function createVodPoster(streamer, card) {
-    const wrap = el('div', 'sh-vod');
-
-    if (streamer.latestVideoThumbnailUrl) {
-      const img = el('img', 'sh-vod__image');
-      img.src = streamer.latestVideoThumbnailUrl;
-      img.alt = '';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      wrap.appendChild(img);
-    } else {
-      wrap.appendChild(createBrandArt(streamer));
-    }
-
-    wrap.appendChild(el('span', 'sh-vod__shade'));
-
-    const content = el('div', 'sh-vod__content');
-    content.appendChild(el('span', 'sh-vod__kicker mono', 'Latest stream'));
-    const title = el('p', 'sh-vod__title display', streamer.latestVideoTitle || streamer.displayName);
-    title.title = title.textContent;
-    content.appendChild(title);
-    const when = relativeTimeLabel(streamer.latestVideoCreatedAt);
-    if (when) content.appendChild(el('span', 'sh-vod__meta mono', when));
-
-    const play = el('button', 'sh-vod__play');
-    play.type = 'button';
-    play.setAttribute('aria-label', `Play ${streamer.displayName}'s latest stream`);
-    play.appendChild(el('span', 'sh-vod__play-icon', '▶'));
-    play.appendChild(el('span', 'sh-vod__play-label', 'Play recent stream'));
-    play.addEventListener('click', (event) => {
-      event.stopPropagation();
-      state.manualSelection = true;
-      stopRotation();
-      const id = twitchVideoId(streamer.latestVideoUrl);
-      const src = id && canEmbedTwitch()
-        ? buildTwitchEmbedUrl({ video: id, parent: getEmbedParent(), autoplay: true, muted: true })
-        : null;
-      if (!src) {
-        window.open(streamer.latestVideoUrl || streamer.twitchUrl, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      card.media.replaceChildren(
-        makeEmbedIframe(src, `${streamer.displayName} recent stream`, () => createVodPoster(streamer, card))
-      );
-    });
-    content.appendChild(play);
-
-    wrap.appendChild(content);
-    return wrap;
-  }
-
+  // Polished branded fallback: no live stream and no recent video (or an embed that
+  // could not load). Branded gradient + ambient glow + short copy. The display name
+  // and the single "Watch on Twitch" CTA live in the card info area below — no
+  // floating avatar/logo/initials in the media area.
   function createFallback(streamer, { mode = 'offline' } = {}) {
     const live = mode === 'live';
     const wrap = el('div', `sh-fallback${live ? ' sh-fallback--live' : ''}`);
-    wrap.appendChild(createBrandArt(streamer));
+    wrap.appendChild(createBrandBackdrop());
     wrap.appendChild(el('span', 'sh-fallback__glow'));
 
     const content = el('div', 'sh-fallback__content');
@@ -256,17 +202,12 @@ function initStreamersHub() {
     content.appendChild(el(
       'p',
       'sh-fallback__copy',
-      live ? 'This stream is live — tap to watch on Twitch.' : 'Latest content coming soon. Follow for the next stream.'
+      live
+        ? 'This stream is live — watch it on Twitch.'
+        : (streamer.latestVideoUrl
+          ? 'Catch the latest stream. Follow for the next one.'
+          : 'Latest content coming soon. Follow for the next stream.')
     ));
-
-    if (streamer.twitchUrl) {
-      const cta = el('a', 'btn btn-primary', 'Watch on Twitch');
-      cta.href = streamer.twitchUrl;
-      cta.target = '_blank';
-      cta.rel = 'noopener noreferrer';
-      cta.setAttribute('data-action', 'watch-twitch');
-      content.appendChild(cta);
-    }
 
     wrap.appendChild(content);
     return wrap;
@@ -356,31 +297,39 @@ function initStreamersHub() {
     card.watch.setAttribute('data-login', loginOf(streamer));
   }
 
-  // What the active card's media depends on — used to skip needless rebuilds
-  // (and avoid tearing down a mounted live iframe on every layout pass).
-  function mediaKey(streamer, isActive) {
-    return [
-      isActive ? 'A' : 'S',
-      streamer.isLive ? 'L' : 'O',
-      streamer.thumbnailUrl || '',
-      streamer.latestVideoUrl || '',
-      streamer.avatarUrl || ''
-    ].join('|');
+  // What a card's media depends on — used to skip needless rebuilds and, crucially,
+  // to avoid tearing down a mounted live/VOD iframe on every 90s refresh. The active
+  // key uses only stable fields (never the cache-busted preview URL); the side key
+  // uses the preview image with any ?t= cache-buster stripped so it doesn't churn.
+  function stableImage(url) {
+    return String(url || '').split('?')[0];
   }
 
+  function mediaKey(streamer, isActive) {
+    if (isActive) {
+      return ['A', streamer.mediaType, streamer.embedUrl || '', streamer.latestVideoId || ''].join('|');
+    }
+    return ['S', streamer.mediaType, stableImage(streamer.mediaPreviewUrl)].join('|');
+  }
+
+  // Only the ACTIVE card mounts an iframe (live or VOD); when it becomes a side card
+  // its media is replaced by a static preview, which removes/destroys the iframe — so
+  // at most one Twitch iframe exists at any time.
   function setCardMedia(card, streamer, isActive) {
     if (!isActive) {
       card.media.replaceChildren(createSidePreview(streamer));
       return;
     }
-    if (streamer.isLive) {
+    if (streamer.mediaType === 'live') {
       card.media.replaceChildren(
-        canEmbedTwitch() ? createLiveIframe(streamer) : createFallback(streamer, { mode: 'live' })
+        canEmbedTwitch() ? createEmbed(streamer, 'live') : createFallback(streamer, { mode: 'live' })
       );
       return;
     }
-    if (streamer.latestVideoUrl) {
-      card.media.replaceChildren(createVodPoster(streamer, card));
+    if (streamer.mediaType === 'vod') {
+      card.media.replaceChildren(
+        canEmbedTwitch() ? createEmbed(streamer, 'vod') : createFallback(streamer, { mode: 'offline' })
+      );
       return;
     }
     card.media.replaceChildren(createFallback(streamer, { mode: 'offline' }));
@@ -406,7 +355,7 @@ function initStreamersHub() {
     const node = el('article', 'sh-card is-active');
     const media = el('div', 'sh-card__media');
     const wrap = el('div', 'sh-fallback');
-    wrap.appendChild(createBrandArt({ displayName: 'Alchemists' }));
+    wrap.appendChild(createBrandBackdrop());
     wrap.appendChild(el('span', 'sh-fallback__glow'));
     const content = el('div', 'sh-fallback__content');
     content.appendChild(el('span', 'sh-fallback__kicker mono', 'Streamers Hub'));

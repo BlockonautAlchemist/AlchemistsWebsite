@@ -17,13 +17,19 @@ const HELIX_STREAMS_URL = 'https://api.twitch.tv/helix/streams';
 const HELIX_USERS_URL = 'https://api.twitch.tv/helix/users';
 const HELIX_VIDEOS_URL = 'https://api.twitch.tv/helix/videos';
 
+const HELIX_PLAYER_URL = 'https://player.twitch.tv/';
+
 const DEFAULT_TTL_MS = 90 * 1000; // 60-180s window; absorbs page-load bursts.
 const THUMB_WIDTH = 440;
 const THUMB_HEIGHT = 248;
-// "Get Videos" type used for offline "latest content". archive = the streamer's
-// most recent past broadcast (VOD), which exists for far more channels than
-// curated highlights. Switch to 'highlight' here if you prefer hand-picked clips.
-const VIDEO_TYPE = 'archive';
+// "Get Videos" types tried, in priority order, for an offline creator's "latest
+// content". archive = most recent past broadcast (the broadest coverage), then
+// hand-picked highlights, then uploads. The first type with a result wins.
+const VIDEO_TYPE_CHAIN = ['archive', 'highlight', 'upload'];
+// The embed `parent` MUST match the host serving the page (localhost, a Vercel
+// preview URL, or production). We never know that server-side, so emit a
+// placeholder and let the browser swap in window.location.hostname.
+const EMBED_DOMAIN_PLACEHOLDER = 'REPLACE_WITH_DOMAIN';
 
 // --- In-memory caches --------------------------------------------------------
 // NOTE: these live on a single warm serverless instance. On Vercel Fluid Compute
@@ -117,17 +123,31 @@ function fetchHelixUsers(logins, auth) {
 }
 
 // "Get Videos" accepts only ONE user_id per request (unlike Get Streams/Users,
-// which batch by login). So we fan out one request per user-id and keep the most
-// recent result. Returns a flat array of video objects (0 or 1 per user).
-async function fetchHelixVideos(userIds, auth, { type = VIDEO_TYPE } = {}) {
-  if (!Array.isArray(userIds) || !userIds.length) return [];
-  const results = await Promise.all(
-    userIds.map((userId) => {
-      const search = new URLSearchParams({ user_id: String(userId), type, first: '1' });
-      return fetchHelix(`${HELIX_VIDEOS_URL}?${search.toString()}`, auth);
-    })
-  );
-  return results.flat();
+// which batch by login). Returns the raw array (0 or 1 item, since first=1) for a
+// single user_id + video type. sort=time/period=all => the newest of that type.
+function fetchHelixVideos(userId, type, auth) {
+  if (!userId) return Promise.resolve([]);
+  const search = new URLSearchParams({
+    user_id: String(userId),
+    type,
+    first: '1',
+    sort: 'time',
+    period: 'all'
+  });
+  return fetchHelix(`${HELIX_VIDEOS_URL}?${search.toString()}`, auth);
+}
+
+// Best available recent video for a creator: try archive -> highlight -> upload
+// and return the first non-empty hit, annotated with the matched `alchemistType`.
+// Returns null when the creator has no videos of any type.
+async function fetchLatestVideo(userId, auth) {
+  for (const type of VIDEO_TYPE_CHAIN) {
+    const videos = await fetchHelixVideos(userId, type, auth);
+    if (videos.length) {
+      return { ...videos[0], alchemistType: type };
+    }
+  }
+  return null;
 }
 
 function indexByLogin(items, key) {
@@ -160,6 +180,25 @@ function templateThumbnail(url, width = THUMB_WIDTH, height = THUMB_HEIGHT) {
   return url.replace(/%?\{width\}/g, String(width)).replace(/%?\{height\}/g, String(height));
 }
 
+// Public name for the same templating logic (handles both live {width} and video
+// %{width} placeholders). Kept as an alias so callers can use either name.
+const resolveTwitchThumbnail = templateThumbnail;
+
+// Official Twitch player URL for a live channel embed or a VOD embed. The `parent`
+// is a placeholder swapped on the client to the current hostname (see
+// EMBED_DOMAIN_PLACEHOLDER). Pass `channel` (login) for live, `video` (id) for VOD.
+function buildEmbedUrl({ channel, video } = {}) {
+  const params = new URLSearchParams();
+  if (video) params.set('video', String(video));
+  else if (channel) params.set('channel', String(channel).toLowerCase());
+  else return null;
+  params.set('parent', EMBED_DOMAIN_PLACEHOLDER);
+  params.set('muted', 'true');
+  params.set('autoplay', 'true');
+  // URLSearchParams percent-encodes the placeholder braces-free token as-is.
+  return `${HELIX_PLAYER_URL}?${params.toString()}`;
+}
+
 // Pure: merges the registry with Twitch Helix results into the frontend shape.
 // videosByUserId maps a Twitch user_id -> a single recent video object (from
 // Get Videos). It is optional so existing 3-arg callers keep working.
@@ -167,6 +206,8 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin, videosByUser
   const streams = streamsByLogin instanceof Map ? streamsByLogin : new Map();
   const users = usersByLogin instanceof Map ? usersByLogin : new Map();
   const videos = videosByUserId instanceof Map ? videosByUserId : new Map();
+
+  const cacheBust = Date.now();
 
   return registry.map((streamer) => {
     const login = String(streamer.twitchUsername || '').toLowerCase();
@@ -177,7 +218,38 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin, videosByUser
     // so treat empty/missing alike and fall back to the local registry bio.
     const twitchDescription = user && user.description ? user.description : null;
     // Recent past video used for the offline "latest content" preview.
-    const video = user && user.id ? videos.get(String(user.id)) : null;
+    const video = !isLive && user && user.id ? videos.get(String(user.id)) : null;
+
+    const avatarUrl = streamer.avatar || (user && user.profile_image_url) || null;
+    const offlineImageUrl = (user && user.offline_image_url) || null;
+    const liveThumbnailUrl = isLive ? templateThumbnail(stream.thumbnail_url) : null;
+    const latestVideoId = video && video.id ? String(video.id) : null;
+    const latestVideoType = video && video.alchemistType ? video.alchemistType : null;
+    const latestVideoThumbnailUrl = video ? templateThumbnail(video.thumbnail_url) : null;
+
+    // Media priority: live stream -> recent video -> branded fallback. mediaType
+    // drives the carousel; the active card mounts an embed for live/vod, while
+    // every state has a static mediaPreviewUrl (or branded art) so it's never empty.
+    let mediaType;
+    let mediaPreviewUrl;
+    let embedUrl;
+    if (isLive) {
+      mediaType = 'live';
+      // Cache-bust the live thumbnail so side-card previews refresh each poll.
+      mediaPreviewUrl = liveThumbnailUrl
+        ? `${liveThumbnailUrl}?t=${cacheBust}`
+        : offlineImageUrl || avatarUrl || null;
+      embedUrl = buildEmbedUrl({ channel: login });
+    } else if (video) {
+      mediaType = 'vod';
+      mediaPreviewUrl = latestVideoThumbnailUrl || offlineImageUrl || avatarUrl || null;
+      embedUrl = latestVideoId ? buildEmbedUrl({ video: latestVideoId }) : null;
+    } else {
+      mediaType = 'fallback';
+      // Null here => the client renders the branded backdrop (local fallback art).
+      mediaPreviewUrl = offlineImageUrl || avatarUrl || null;
+      embedUrl = null;
+    }
 
     return {
       // Prefer Twitch's canonical display_name (proper casing) when available.
@@ -194,14 +266,22 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin, videosByUser
       streamTitle: isLive ? stream.title || null : null,
       gameName: isLive ? stream.game_name || null : null,
       viewerCount: isLive && typeof stream.viewer_count === 'number' ? stream.viewer_count : null,
-      thumbnailUrl: isLive ? templateThumbnail(stream.thumbnail_url) : null,
+      thumbnailUrl: liveThumbnailUrl,
+      liveThumbnailUrl,
       startedAt: isLive ? stream.started_at || null : null,
-      avatarUrl: streamer.avatar || (user && user.profile_image_url) || null,
+      avatarUrl,
+      offlineImageUrl,
       // Most recent past video (offline "latest content"). Null when none exists.
+      latestVideoId,
+      latestVideoType,
       latestVideoTitle: video && video.title ? video.title : null,
       latestVideoUrl: video && video.url ? video.url : null,
-      latestVideoThumbnailUrl: video ? templateThumbnail(video.thumbnail_url) : null,
-      latestVideoCreatedAt: video && video.created_at ? video.created_at : null
+      latestVideoThumbnailUrl,
+      latestVideoCreatedAt: video && video.created_at ? video.created_at : null,
+      // Resolved media contract used by the carousel.
+      mediaType,
+      mediaPreviewUrl,
+      embedUrl
     };
   });
 }
@@ -268,17 +348,31 @@ async function getStreamersData({ ttlMs = DEFAULT_TTL_MS } = {}) {
 
     const users = await fetchHelixUsers(logins, auth);
 
-    // Offline "latest content": fetch one recent video per user. This is a
-    // best-effort enhancement layered on top of live status — if it fails we
-    // log and continue with null video fields rather than degrading the page.
-    let videosByUserId = new Map();
-    try {
-      const userIds = users.map((user) => user && user.id).filter(Boolean);
-      const videos = await fetchHelixVideos(userIds, auth);
-      videosByUserId = indexByUserId(videos);
-    } catch (error) {
-      console.error('[streamers] Twitch video fetch failed (continuing without):', error.message);
-    }
+    // Offline "latest content": fetch the best recent video (archive -> highlight
+    // -> upload) per OFFLINE creator. Live creators are skipped (they show the live
+    // embed). Best-effort and isolated PER creator: one creator's video failure
+    // yields null for that creator only and never degrades the endpoint.
+    const liveLogins = new Set(
+      streams.filter((s) => s && s.type === 'live').map((s) => String(s.user_login).toLowerCase())
+    );
+    const offlineUsers = users.filter(
+      (user) => user && user.id && !liveLogins.has(String(user.login).toLowerCase())
+    );
+    const videoResults = await Promise.all(
+      offlineUsers.map(async (user) => {
+        try {
+          const video = await fetchLatestVideo(user.id, auth);
+          return video ? { ...video, user_id: user.id } : null;
+        } catch (error) {
+          console.error(
+            `[streamers] Twitch video fetch failed for ${user.login} (continuing without):`,
+            error.message
+          );
+          return null;
+        }
+      })
+    );
+    const videosByUserId = indexByUserId(videoResults.filter(Boolean));
 
     const normalized = normalizeStreamers(
       alchemistStreamers,
@@ -317,12 +411,16 @@ module.exports = {
   fetchHelixStreams,
   fetchHelixUsers,
   fetchHelixVideos,
+  fetchLatestVideo,
   indexByLogin,
   indexByUserId,
   templateThumbnail,
+  resolveTwitchThumbnail,
+  buildEmbedUrl,
   normalizeStreamers,
   sortStreamers,
   getStreamersData,
   TwitchHttpError,
+  EMBED_DOMAIN_PLACEHOLDER,
   _resetCachesForTests
 };
