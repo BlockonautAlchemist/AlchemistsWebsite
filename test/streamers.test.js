@@ -7,6 +7,7 @@ const {
   sortStreamers,
   templateThumbnail,
   indexByLogin,
+  indexByUserId,
   getStreamersData,
   _resetCachesForTests
 } = require('../server/streamers/twitch');
@@ -15,14 +16,26 @@ const originalFetch = global.fetch;
 const originalClientId = process.env.TWITCH_CLIENT_ID;
 const originalClientSecret = process.env.TWITCH_CLIENT_SECRET;
 let baselineFromRegistry;
+let buildTwitchEmbedUrl;
+let compactStreamerTags;
 let formatViewers;
 let monogram;
+let selectActiveStreamer;
+let streamCategoryLabel;
+let streamStatusLabel;
+let viewerCountLabel;
 
 test.before(async () => {
   ({
     baselineFromRegistry,
+    buildTwitchEmbedUrl,
+    compactStreamerTags,
     formatViewers,
-    monogram
+    monogram,
+    selectActiveStreamer,
+    streamCategoryLabel,
+    streamStatusLabel,
+    viewerCountLabel
   } = await import('../src/streamers/viewModel.mjs'));
 });
 
@@ -41,8 +54,10 @@ function jsonResponse(payload, { ok = true, status = 200 } = {}) {
   return Promise.resolve({ ok, status, json: () => Promise.resolve(payload) });
 }
 
-// A fetch stub that routes by URL: token -> streams -> users.
-function mockTwitchFetch({ streams = [], users = [] } = {}) {
+// A fetch stub that routes by URL: token -> streams -> users -> videos.
+// Get Videos is queried one user_id at a time, so filter the catalog by the
+// user_id in the request (mirroring the real Helix behaviour).
+function mockTwitchFetch({ streams = [], users = [], videos = [] } = {}) {
   return (url) => {
     const target = String(url);
     if (target.includes('id.twitch.tv/oauth2/token')) {
@@ -53,6 +68,10 @@ function mockTwitchFetch({ streams = [], users = [] } = {}) {
     }
     if (target.includes('helix/users')) {
       return jsonResponse({ data: users });
+    }
+    if (target.includes('helix/videos')) {
+      const userId = new URL(target).searchParams.get('user_id');
+      return jsonResponse({ data: videos.filter((video) => String(video.user_id) === userId) });
     }
     throw new Error(`Unexpected fetch to ${target}`);
   };
@@ -69,6 +88,15 @@ test('templateThumbnail substitutes width/height placeholders', () => {
     'https://cdn/preview-440x248.jpg'
   );
   assert.equal(templateThumbnail(null), null);
+});
+
+test('templateThumbnail also handles the Get Videos %{width} format', () => {
+  assert.equal(
+    templateThumbnail('https://cdn/vod-%{width}x%{height}.jpg'),
+    'https://cdn/vod-440x248.jpg'
+  );
+  // Empty string (a freshly-created VOD still processing) is treated as missing.
+  assert.equal(templateThumbnail(''), null);
 });
 
 test('normalizeStreamers maps live and offline streamers correctly', () => {
@@ -132,6 +160,38 @@ test('normalizeStreamers prefers Twitch description and display_name, with local
   assert.equal(beta.displayName, 'Beta');
 });
 
+test('normalizeStreamers attaches the latest video via user id, null when absent', () => {
+  const users = indexByLogin(
+    [
+      { login: 'alpha', id: '111', profile_image_url: 'https://img/alpha.png' },
+      { login: 'beta', id: '222', profile_image_url: 'https://img/beta.png' }
+    ],
+    'login'
+  );
+  // Only alpha (user id 111) has a recent video; beta should stay null.
+  const videos = indexByUserId([
+    {
+      user_id: '111',
+      title: 'Boss Fighters Finals',
+      url: 'https://www.twitch.tv/videos/987654321',
+      thumbnail_url: 'https://cdn/vod-%{width}x%{height}.jpg',
+      created_at: '2026-05-20T18:00:00Z'
+    }
+  ]);
+
+  const [alpha, beta] = normalizeStreamers(REGISTRY, new Map(), users, videos);
+
+  assert.equal(alpha.latestVideoTitle, 'Boss Fighters Finals');
+  assert.equal(alpha.latestVideoUrl, 'https://www.twitch.tv/videos/987654321');
+  assert.equal(alpha.latestVideoThumbnailUrl, 'https://cdn/vod-440x248.jpg');
+  assert.equal(alpha.latestVideoCreatedAt, '2026-05-20T18:00:00Z');
+
+  assert.equal(beta.latestVideoTitle, null);
+  assert.equal(beta.latestVideoUrl, null);
+  assert.equal(beta.latestVideoThumbnailUrl, null);
+  assert.equal(beta.latestVideoCreatedAt, null);
+});
+
 test('sortStreamers orders live > featured > registry order', () => {
   const list = [
     { twitchUsername: 'a', isLive: false, featured: false },
@@ -191,6 +251,65 @@ test('getStreamersData returns normalized live data with credentials', async () 
   assert.equal(microkong.avatarUrl, 'https://img/mk.png');
 });
 
+test('getStreamersData attaches the latest recent video per streamer', async () => {
+  _resetCachesForTests();
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CLIENT_SECRET = 'secret';
+  global.fetch = mockTwitchFetch({
+    users: [
+      { login: 'scifihighvr', id: '101', profile_image_url: 'https://img/scifi.png' },
+      { login: 'microkong', id: '102', profile_image_url: 'https://img/mk.png' }
+    ],
+    videos: [
+      {
+        user_id: '102',
+        title: 'Partner Game Night',
+        url: 'https://www.twitch.tv/videos/555',
+        thumbnail_url: 'https://cdn/mk-%{width}x%{height}.jpg',
+        created_at: '2026-05-19T20:00:00Z'
+      }
+    ]
+  });
+
+  const data = await getStreamersData();
+  assert.equal(data.degraded, false);
+
+  const microkong = data.streamers.find((s) => s.twitchUsername === 'microkong');
+  assert.equal(microkong.latestVideoTitle, 'Partner Game Night');
+  assert.equal(microkong.latestVideoUrl, 'https://www.twitch.tv/videos/555');
+  assert.equal(microkong.latestVideoThumbnailUrl, 'https://cdn/mk-440x248.jpg');
+
+  // A streamer with no video keeps null fields.
+  const scifi = data.streamers.find((s) => s.twitchUsername === 'scifihighvr');
+  assert.equal(scifi.latestVideoUrl, null);
+});
+
+test('getStreamersData keeps live status when the video fetch fails', async () => {
+  _resetCachesForTests();
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CLIENT_SECRET = 'secret';
+  global.fetch = (url) => {
+    const target = String(url);
+    if (target.includes('oauth2/token')) return jsonResponse({ access_token: 't', expires_in: 3600 });
+    if (target.includes('helix/streams')) {
+      return jsonResponse({ data: [{ user_login: 'scifihighvr', type: 'live', title: 'Live', viewer_count: 5 }] });
+    }
+    if (target.includes('helix/users')) {
+      return jsonResponse({ data: [{ login: 'scifihighvr', id: '101' }] });
+    }
+    if (target.includes('helix/videos')) return jsonResponse({}, { ok: false, status: 500 });
+    throw new Error(`Unexpected fetch to ${target}`);
+  };
+
+  const data = await getStreamersData();
+  // Video failure must not degrade the page or live status.
+  assert.equal(data.degraded, false);
+  assert.equal(data.reason, null);
+  const scifi = data.streamers.find((s) => s.twitchUsername === 'scifihighvr');
+  assert.equal(scifi.isLive, true);
+  assert.equal(scifi.latestVideoUrl, null);
+});
+
 test('getStreamersData degrades when Twitch fetch fails', async () => {
   _resetCachesForTests();
   process.env.TWITCH_CLIENT_ID = 'cid';
@@ -221,6 +340,67 @@ test('client formatViewers formats counts compactly', () => {
   assert.equal(formatViewers(1200), '1.2K');
   assert.equal(formatViewers(15400), '15.4K');
   assert.equal(formatViewers(null), null);
+});
+
+test('client active streamer selection is live-first, then featured, then registry order', () => {
+  const list = [
+    { twitchUsername: 'plain', isLive: false, featured: false },
+    { twitchUsername: 'featured', isLive: false, featured: true },
+    { twitchUsername: 'live', isLive: true, featured: false }
+  ];
+
+  assert.equal(selectActiveStreamer(list).twitchUsername, 'live');
+  assert.equal(selectActiveStreamer(list, 'FEATURED').twitchUsername, 'featured');
+  assert.equal(selectActiveStreamer(list.slice(0, 2)).twitchUsername, 'featured');
+  assert.equal(selectActiveStreamer([{ twitchUsername: 'plain', isLive: false, featured: false }]).twitchUsername, 'plain');
+  assert.equal(selectActiveStreamer([]), null);
+});
+
+test('client viewer and status helpers produce compact labels', () => {
+  assert.equal(viewerCountLabel({ viewerCount: 4321 }), '4.3K watching');
+  assert.equal(viewerCountLabel({ viewerCount: null }), null);
+  assert.equal(streamStatusLabel({ isLive: true }), 'Live now');
+  assert.equal(streamStatusLabel({ isLive: false }), 'Offline');
+});
+
+test('client compact streamer helpers prefer current category and dedupe tags', () => {
+  const streamer = {
+    gameName: 'Boss Fighters',
+    preferredGames: ['boss fighters', 'VR Games', 'Alchemist Events', 'Community Events']
+  };
+
+  assert.deepEqual(compactStreamerTags(streamer), ['Boss Fighters', 'VR Games', 'Alchemist Events']);
+  assert.deepEqual(compactStreamerTags({ preferredGames: ['One', 'Two'] }, 1), ['One']);
+  assert.deepEqual(compactStreamerTags({ preferredGames: 'not-array' }), []);
+  assert.equal(streamCategoryLabel(streamer), 'Boss Fighters');
+  assert.equal(streamCategoryLabel({ preferredGames: ['Partner Games'] }), 'Partner Games');
+  assert.equal(streamCategoryLabel({ preferredGames: [] }), 'Alchemist Stream');
+});
+
+test('client buildTwitchEmbedUrl creates the official iframe URL', () => {
+  const url = buildTwitchEmbedUrl({
+    channel: 'SciFiHighVR',
+    parent: 'example.com',
+    autoplay: true,
+    muted: true
+  });
+
+  assert.equal(url, 'https://player.twitch.tv/?channel=scifihighvr&parent=example.com&muted=true&autoplay=true');
+  assert.equal(buildTwitchEmbedUrl({ channel: 'scifihighvr', parent: '' }), null);
+  assert.equal(buildTwitchEmbedUrl({ channel: '', parent: 'example.com' }), null);
+});
+
+test('client buildTwitchEmbedUrl plays a VOD when given a video id', () => {
+  assert.equal(
+    buildTwitchEmbedUrl({ video: '987654321', parent: 'example.com' }),
+    'https://player.twitch.tv/?video=987654321&parent=example.com&muted=true&autoplay=true'
+  );
+  // A leading "v" prefix is stripped; missing parent still returns null.
+  assert.equal(
+    buildTwitchEmbedUrl({ video: 'v555', parent: 'example.com', autoplay: false, muted: false }),
+    'https://player.twitch.tv/?video=555&parent=example.com&muted=false&autoplay=false'
+  );
+  assert.equal(buildTwitchEmbedUrl({ video: '555', parent: '' }), null);
 });
 
 test('client monogram derives initials', () => {

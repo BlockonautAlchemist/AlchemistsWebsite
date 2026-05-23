@@ -15,10 +15,15 @@ const { alchemistStreamers } = require('../../src/data/streamers');
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const HELIX_STREAMS_URL = 'https://api.twitch.tv/helix/streams';
 const HELIX_USERS_URL = 'https://api.twitch.tv/helix/users';
+const HELIX_VIDEOS_URL = 'https://api.twitch.tv/helix/videos';
 
 const DEFAULT_TTL_MS = 90 * 1000; // 60-180s window; absorbs page-load bursts.
 const THUMB_WIDTH = 440;
 const THUMB_HEIGHT = 248;
+// "Get Videos" type used for offline "latest content". archive = the streamer's
+// most recent past broadcast (VOD), which exists for far more channels than
+// curated highlights. Switch to 'highlight' here if you prefer hand-picked clips.
+const VIDEO_TYPE = 'archive';
 
 // --- In-memory caches --------------------------------------------------------
 // NOTE: these live on a single warm serverless instance. On Vercel Fluid Compute
@@ -111,6 +116,20 @@ function fetchHelixUsers(logins, auth) {
   return fetchHelix(`${HELIX_USERS_URL}?${buildLoginQuery('login', logins)}`, auth);
 }
 
+// "Get Videos" accepts only ONE user_id per request (unlike Get Streams/Users,
+// which batch by login). So we fan out one request per user-id and keep the most
+// recent result. Returns a flat array of video objects (0 or 1 per user).
+async function fetchHelixVideos(userIds, auth, { type = VIDEO_TYPE } = {}) {
+  if (!Array.isArray(userIds) || !userIds.length) return [];
+  const results = await Promise.all(
+    userIds.map((userId) => {
+      const search = new URLSearchParams({ user_id: String(userId), type, first: '1' });
+      return fetchHelix(`${HELIX_VIDEOS_URL}?${search.toString()}`, auth);
+    })
+  );
+  return results.flat();
+}
+
 function indexByLogin(items, key) {
   const map = new Map();
   for (const item of items) {
@@ -120,15 +139,34 @@ function indexByLogin(items, key) {
   return map;
 }
 
+// Index videos by Twitch user_id, keeping the first (most recent) per user.
+// user_id can be a string or number in the API, so normalize to a string key.
+function indexByUserId(videos) {
+  const map = new Map();
+  for (const video of videos) {
+    const userId = video && video.user_id;
+    if (userId == null) continue;
+    const key = String(userId);
+    if (!map.has(key)) map.set(key, video);
+  }
+  return map;
+}
+
+// Get Streams thumbnails use "{width}x{height}" placeholders; Get Videos uses
+// "%{width}x%{height}". Handle both, and treat empty strings (a freshly-created
+// VOD whose thumbnail is still processing) as "no thumbnail".
 function templateThumbnail(url, width = THUMB_WIDTH, height = THUMB_HEIGHT) {
   if (!url) return null;
-  return url.replace('{width}', String(width)).replace('{height}', String(height));
+  return url.replace(/%?\{width\}/g, String(width)).replace(/%?\{height\}/g, String(height));
 }
 
 // Pure: merges the registry with Twitch Helix results into the frontend shape.
-function normalizeStreamers(registry, streamsByLogin, usersByLogin) {
+// videosByUserId maps a Twitch user_id -> a single recent video object (from
+// Get Videos). It is optional so existing 3-arg callers keep working.
+function normalizeStreamers(registry, streamsByLogin, usersByLogin, videosByUserId) {
   const streams = streamsByLogin instanceof Map ? streamsByLogin : new Map();
   const users = usersByLogin instanceof Map ? usersByLogin : new Map();
+  const videos = videosByUserId instanceof Map ? videosByUserId : new Map();
 
   return registry.map((streamer) => {
     const login = String(streamer.twitchUsername || '').toLowerCase();
@@ -138,6 +176,8 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin) {
     // Twitch "about" text. Can be an empty string for creators who never set one,
     // so treat empty/missing alike and fall back to the local registry bio.
     const twitchDescription = user && user.description ? user.description : null;
+    // Recent past video used for the offline "latest content" preview.
+    const video = user && user.id ? videos.get(String(user.id)) : null;
 
     return {
       // Prefer Twitch's canonical display_name (proper casing) when available.
@@ -156,7 +196,12 @@ function normalizeStreamers(registry, streamsByLogin, usersByLogin) {
       viewerCount: isLive && typeof stream.viewer_count === 'number' ? stream.viewer_count : null,
       thumbnailUrl: isLive ? templateThumbnail(stream.thumbnail_url) : null,
       startedAt: isLive ? stream.started_at || null : null,
-      avatarUrl: streamer.avatar || (user && user.profile_image_url) || null
+      avatarUrl: streamer.avatar || (user && user.profile_image_url) || null,
+      // Most recent past video (offline "latest content"). Null when none exists.
+      latestVideoTitle: video && video.title ? video.title : null,
+      latestVideoUrl: video && video.url ? video.url : null,
+      latestVideoThumbnailUrl: video ? templateThumbnail(video.thumbnail_url) : null,
+      latestVideoCreatedAt: video && video.created_at ? video.created_at : null
     };
   });
 }
@@ -223,10 +268,23 @@ async function getStreamersData({ ttlMs = DEFAULT_TTL_MS } = {}) {
 
     const users = await fetchHelixUsers(logins, auth);
 
+    // Offline "latest content": fetch one recent video per user. This is a
+    // best-effort enhancement layered on top of live status — if it fails we
+    // log and continue with null video fields rather than degrading the page.
+    let videosByUserId = new Map();
+    try {
+      const userIds = users.map((user) => user && user.id).filter(Boolean);
+      const videos = await fetchHelixVideos(userIds, auth);
+      videosByUserId = indexByUserId(videos);
+    } catch (error) {
+      console.error('[streamers] Twitch video fetch failed (continuing without):', error.message);
+    }
+
     const normalized = normalizeStreamers(
       alchemistStreamers,
       indexByLogin(streams, 'user_login'),
-      indexByLogin(users, 'login')
+      indexByLogin(users, 'login'),
+      videosByUserId
     );
 
     const result = {
@@ -258,7 +316,9 @@ module.exports = {
   getAppAccessToken,
   fetchHelixStreams,
   fetchHelixUsers,
+  fetchHelixVideos,
   indexByLogin,
+  indexByUserId,
   templateThumbnail,
   normalizeStreamers,
   sortStreamers,

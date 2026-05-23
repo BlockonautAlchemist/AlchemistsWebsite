@@ -60,65 +60,55 @@
   </nav>
 
   <main>
-    <!-- A. HERO -->
-    <section class="sh-hero" id="top" aria-labelledby="sh-hero-title">
-      <div class="sh-hero__grid" aria-hidden="true"></div>
-      <div class="sh-hero__cuts" aria-hidden="true"></div>
+    <!-- A. LIVE CAROUSEL -->
+    <section class="sh-live" id="live" aria-labelledby="sh-live-title">
+      <div class="sh-live__grid" aria-hidden="true"></div>
+      <div class="sh-live__cuts" aria-hidden="true"></div>
 
-      <div class="sh-hero__inner">
-        <div class="eyebrow sh-hero__eyebrow">Alchemist Streamers Hub</div>
-        <h1 class="sh-hero__title display" id="sh-hero-title">
-          Watch The Alchemists <span>Live</span>
-        </h1>
-        <p class="sh-hero__copy">
-          Follow Alchemist creators as they stream guild events, partner games, tournaments,
-          playtests, and community moments. When someone is live, you’ll see them here first.
-          When they’re offline, you can still visit their Twitch channel and support their content.
-        </p>
-        <div class="sh-hero__ctas">
-          <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary" target="_blank" rel="noopener noreferrer" data-action="join-discord">Join The Discord</a>
-          <a href="#live" class="btn btn-ghost">Watch Streamers</a>
+      <div class="sh-live__inner">
+        <div class="sh-live__head">
+          <div class="eyebrow sh-live__eyebrow">Alchemist Streamers Hub</div>
+          <h1 class="sh-live__title display" id="sh-live-title">
+            Watch The Alchemists <span>Live</span>
+          </h1>
+          <p class="sh-live__copy">
+            Follow Alchemist creators through guild events, partner games, tournaments,
+            playtests, and community moments on Twitch.
+          </p>
         </div>
+
+        <div class="sh-notice" id="sh-notice" role="status" hidden></div>
+
+        <div
+          class="sh-carousel"
+          id="sh-carousel"
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Featured Alchemist streamers"
+          tabindex="0"
+        >
+          <button class="sh-carousel__arrow sh-carousel__arrow--prev" id="sh-carousel-prev" type="button" aria-label="Previous streamer">
+            <span aria-hidden="true">&lsaquo;</span>
+          </button>
+
+          <div class="sh-carousel__viewport" id="sh-carousel-viewport">
+            <div class="sh-carousel__track" id="sh-carousel-track"></div>
+          </div>
+
+          <button class="sh-carousel__arrow sh-carousel__arrow--next" id="sh-carousel-next" type="button" aria-label="Next streamer">
+            <span aria-hidden="true">&rsaquo;</span>
+          </button>
+        </div>
+
+        <p class="sh-updated mono" id="sh-updated" aria-live="polite"></p>
+
+        <noscript>
+          <p class="sh-empty">
+            Enable JavaScript to load Alchemist streamers, or
+            <a href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">join our Discord</a>.
+          </p>
+        </noscript>
       </div>
-    </section>
-
-    <!-- B. LIVE NOW -->
-    <section class="sh-section sh-live" id="live" aria-labelledby="sh-live-title">
-      <div class="section-head" data-reveal>
-        <div class="eyebrow">On Air</div>
-        <h2 class="section-title display" id="sh-live-title">Live <span>Now</span></h2>
-        <p class="section-copy">Alchemists streaming on Twitch right now. Jump straight into a stream and say hi.</p>
-      </div>
-
-      <!-- Non-blocking banner for degraded / could-not-load states (toggled by JS) -->
-      <div class="sh-notice" id="sh-notice" role="status" hidden></div>
-
-      <!-- Live cards render here; empty + loading states are toggled by streamers.js -->
-      <div class="sh-grid sh-grid--live" id="sh-live-grid" aria-live="polite"></div>
-
-      <p class="sh-empty" id="sh-live-empty" hidden>
-        No Alchemists are live right now — explore everyone’s channels below and catch the next stream.
-      </p>
-
-      <p class="sh-updated mono" id="sh-updated" aria-live="polite"></p>
-    </section>
-
-    <!-- C. OFFLINE / ALCHEMIST CREATORS -->
-    <section class="sh-section sh-creators" id="creators" aria-labelledby="sh-creators-title">
-      <div class="section-head" data-reveal>
-        <div class="eyebrow">The Roster</div>
-        <h2 class="section-title display" id="sh-creators-title">Alchemist <span>Creators</span></h2>
-        <p class="section-copy">Every approved Alchemist streamer. Follow them on Twitch so you never miss a stream.</p>
-      </div>
-
-      <div class="sh-grid sh-grid--offline" id="sh-offline-grid"></div>
-
-      <noscript>
-        <p class="sh-empty">
-          Enable JavaScript to load Alchemist streamers, or
-          <a href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">join our Discord</a>.
-        </p>
-      </noscript>
     </section>
 
     <!-- D. WEEKLY CHALLENGE (placeholder) -->
@@ -135,16 +125,16 @@
       </div>
     </section>
 
-    <!-- E. STREAMER OF THE MONTH (placeholder) -->
+    <!-- E. STREAMER OF THE MONTH -->
     <!-- TODO(v2): connect to Discord ID-based voting with founder-weighted votes and
          partner rewards. No public voting / leaderboards are built in v1. -->
     <section class="sh-section sh-feature" id="streamer-of-the-month" aria-labelledby="sh-sotm-title">
-      <div class="sh-feature__card sh-feature__card--gold" data-reveal>
+      <div class="sh-feature__card" data-reveal>
         <div class="eyebrow">Coming Soon</div>
         <h2 class="sh-feature__title display" id="sh-sotm-title">Streamer of the Month</h2>
         <p class="sh-feature__copy">
-          Soon, the community will be able to vote on standout Alchemist creators, with
-          founder-weighted voting and partner rewards.
+          Monthly creator spotlights are coming soon. Voting details, honorees, and rewards
+          will appear here when the program opens.
         </p>
       </div>
     </section>
