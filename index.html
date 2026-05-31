@@ -47,15 +47,23 @@
       <a href="#partners">Partners</a>
       <a href="/vision-forge">Vision Forge</a>
       <a href="/streamers">Streamers</a>
+      <div class="phantom-wallet phantom-wallet--mobile">
+        <button data-phantom-connect class="btn btn-primary phantom-wallet__connect-mobile" type="button">Connect Wallet</button>
+        <div data-phantom-status class="phantom-status phantom-status--mobile" hidden>
+          <span class="phantom-status__dot" aria-hidden="true"></span>
+          <span data-phantom-address class="phantom-status__address mono"></span>
+          <button data-phantom-disconnect class="btn btn-ghost phantom-status__disconnect" type="button">Disconnect</button>
+        </div>
+      </div>
     </div>
     <div class="nav__actions">
       <span class="nav__status mono">400+ Members</span>
       <div class="phantom-wallet">
-        <button id="phantom-connect" class="btn btn-primary btn-nav" type="button">Connect Wallet</button>
-        <div id="phantom-status" class="phantom-status" hidden>
+        <button id="phantom-connect" data-phantom-connect class="btn btn-primary btn-nav" type="button">Connect Wallet</button>
+        <div id="phantom-status" data-phantom-status class="phantom-status" hidden>
           <span class="phantom-status__dot" aria-hidden="true"></span>
-          <span id="phantom-address" class="phantom-status__address mono"></span>
-          <button id="phantom-disconnect" class="btn btn-ghost btn-nav phantom-status__disconnect" type="button">Disconnect</button>
+          <span id="phantom-address" data-phantom-address class="phantom-status__address mono"></span>
+          <button id="phantom-disconnect" data-phantom-disconnect class="btn btn-ghost btn-nav phantom-status__disconnect" type="button">Disconnect</button>
         </div>
       </div>
       <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>

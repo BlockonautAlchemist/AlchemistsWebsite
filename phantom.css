@@ -24,8 +24,15 @@
 }
 
 /* .btn sets display:inline-flex, which overrides the UA [hidden] rule —
-   force the connect button to actually hide when JS sets .hidden = true. */
-#phantom-connect[hidden] {
+   force the connect button to actually hide when JS sets .hidden = true.
+   Applies to both the desktop navbar and mobile-menu connect buttons. */
+#phantom-connect[hidden],
+[data-phantom-connect][hidden] {
+  display: none;
+}
+
+/* Mobile wallet block lives inside the nav links menu; hide it on desktop. */
+.phantom-wallet--mobile {
   display: none;
 }
 
@@ -73,6 +80,27 @@
 .phantom-error.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Show the wallet inside the mobile menu (matches the 1024px nav breakpoint). */
+@media (max-width: 1024px) {
+  .phantom-wallet--mobile {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(254, 214, 109, 0.18);
+  }
+  .phantom-wallet--mobile .btn {
+    width: 100%;
+    min-height: 44px; /* comfortable tap target */
+  }
+  .phantom-status--mobile {
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 8px 8px 14px;
+  }
 }
 
 @media (max-width: 720px) {

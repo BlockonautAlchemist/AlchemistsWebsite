@@ -5,15 +5,20 @@
   const PHANTOM_INSTALL_URL = 'https://phantom.app/';
   const ERROR_DISPLAY_MS = 3200;
 
-  const connectBtn = document.getElementById('phantom-connect');
-  const statusEl = document.getElementById('phantom-status');
-  const addressEl = document.getElementById('phantom-address');
-  const disconnectBtn = document.getElementById('phantom-disconnect');
+  // Multiple wallet UIs may exist on the page (desktop navbar + mobile menu).
+  // We drive every matching element from a single set of handlers so the
+  // connection logic is never duplicated.
+  const connectBtns = Array.from(document.querySelectorAll('[data-phantom-connect]'));
+  const statusEls = Array.from(document.querySelectorAll('[data-phantom-status]'));
+  const addressEls = Array.from(document.querySelectorAll('[data-phantom-address]'));
+  const disconnectBtns = Array.from(document.querySelectorAll('[data-phantom-disconnect]'));
 
-  if (!connectBtn || !statusEl || !addressEl || !disconnectBtn) return;
+  if (!connectBtns.length || !statusEls.length || !addressEls.length || !disconnectBtns.length) return;
 
-  const wrapper = connectBtn.closest('.phantom-wallet') || statusEl.parentElement;
-  let errorEl = null;
+  const wrappers = connectBtns
+    .map((btn) => btn.closest('.phantom-wallet'))
+    .filter(Boolean);
+  const errorEls = new Map();
   let errorTimer = null;
   let provider = null;
   let eventsBound = false;
@@ -61,43 +66,66 @@
     return addr.slice(0, 4) + '…' + addr.slice(-4);
   }
 
+  function setConnecting(isLoading) {
+    connectBtns.forEach((btn) => {
+      btn.disabled = isLoading;
+      btn.textContent = isLoading ? 'Connecting…' : 'Connect Wallet';
+    });
+  }
+
   function renderConnected(address) {
     if (!address) return;
-    addressEl.textContent = shortenAddress(address);
-    addressEl.setAttribute('title', address);
-    connectBtn.hidden = true;
-    statusEl.hidden = false;
-    statusEl.classList.add('is-connected');
+    addressEls.forEach((el) => {
+      el.textContent = shortenAddress(address);
+      el.setAttribute('title', address);
+    });
+    connectBtns.forEach((btn) => {
+      btn.hidden = true;
+    });
+    statusEls.forEach((el) => {
+      el.hidden = false;
+      el.classList.add('is-connected');
+    });
     clearError();
   }
 
   function renderDisconnected() {
-    addressEl.textContent = '';
-    addressEl.removeAttribute('title');
-    statusEl.hidden = true;
-    statusEl.classList.remove('is-connected');
-    connectBtn.hidden = false;
-    connectBtn.disabled = false;
-    connectBtn.textContent = 'Connect Wallet';
+    addressEls.forEach((el) => {
+      el.textContent = '';
+      el.removeAttribute('title');
+    });
+    statusEls.forEach((el) => {
+      el.hidden = true;
+      el.classList.remove('is-connected');
+    });
+    connectBtns.forEach((btn) => {
+      btn.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Connect Wallet';
+    });
   }
 
   function showError(message) {
-    if (!wrapper) return;
-    if (!errorEl) {
-      errorEl = document.createElement('div');
-      errorEl.className = 'phantom-error';
-      errorEl.setAttribute('role', 'status');
-      wrapper.appendChild(errorEl);
-    }
-    errorEl.textContent = message;
-    errorEl.classList.add('is-visible');
+    wrappers.forEach((wrapper) => {
+      let errorEl = errorEls.get(wrapper);
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.className = 'phantom-error';
+        errorEl.setAttribute('role', 'status');
+        wrapper.appendChild(errorEl);
+        errorEls.set(wrapper, errorEl);
+      }
+      errorEl.textContent = message;
+      errorEl.classList.add('is-visible');
+    });
     if (errorTimer) clearTimeout(errorTimer);
     errorTimer = setTimeout(clearError, ERROR_DISPLAY_MS);
   }
 
   function clearError() {
-    if (!errorEl) return;
-    errorEl.classList.remove('is-visible');
+    errorEls.forEach((errorEl) => {
+      errorEl.classList.remove('is-visible');
+    });
   }
 
   async function handleConnectClick() {
@@ -107,8 +135,7 @@
       showError('Phantom not detected. Install it to connect.');
       return;
     }
-    connectBtn.disabled = true;
-    connectBtn.textContent = 'Connecting…';
+    setConnecting(true);
     try {
       const res = await p.connect();
       const pk = (res && res.publicKey ? res.publicKey : p.publicKey);
@@ -124,11 +151,10 @@
       }
       renderDisconnected();
     } finally {
-      // Always clear the loading state. On success the button is hidden, so
+      // Always clear the loading state. On success the buttons are hidden, so
       // this just wipes the stale "Connecting…" text; on failure/rejection it
-      // restores the button to its normal Connect Wallet state.
-      connectBtn.disabled = false;
-      connectBtn.textContent = 'Connect Wallet';
+      // restores them to their normal Connect Wallet state.
+      setConnecting(false);
     }
   }
 
@@ -159,8 +185,8 @@
     }
   }
 
-  connectBtn.addEventListener('click', handleConnectClick);
-  disconnectBtn.addEventListener('click', handleDisconnectClick);
+  connectBtns.forEach((btn) => btn.addEventListener('click', handleConnectClick));
+  disconnectBtns.forEach((btn) => btn.addEventListener('click', handleDisconnectClick));
 
   // Phantom injects asynchronously — wait for load event if it isn't there yet.
   if (window.phantom && window.phantom.solana) {
