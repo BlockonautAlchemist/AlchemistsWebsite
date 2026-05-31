@@ -17,6 +17,7 @@
 
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="vision-forge.css" />
+  <link rel="stylesheet" href="phantom.css" />
 </head>
 <body class="vision-page">
   <a class="skip-link" href="#forge-workspace">Skip to Vision Forge</a>
@@ -50,6 +51,14 @@
     </div>
     <div class="nav__actions">
       <span class="nav__status mono">Idea Forge</span>
+      <div class="phantom-wallet">
+        <button id="phantom-connect" class="btn btn-primary btn-nav" type="button">Connect Wallet</button>
+        <div id="phantom-status" class="phantom-status" hidden>
+          <span class="phantom-status__dot" aria-hidden="true"></span>
+          <span id="phantom-address" class="phantom-status__address mono"></span>
+          <button id="phantom-disconnect" class="btn btn-ghost btn-nav phantom-status__disconnect" type="button">Disconnect</button>
+        </div>
+      </div>
       <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
       <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
         <span></span>
@@ -214,5 +223,6 @@
 
   <script type="module" src="script.js"></script>
   <script type="module" src="vision-forge.js"></script>
+  <script type="module" src="phantom.js"></script>
 </body>
 </html>

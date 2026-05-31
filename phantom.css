@@ -1,0 +1,87 @@
+/* ============================================================
+   Phantom wallet — navbar connect/connected state
+   Uses tokens from styles.css (--ink, --teal, --purple, --bg-deep)
+   ============================================================ */
+
+.phantom-wallet {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.phantom-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid rgba(92, 251, 247, 0.32);
+  border-radius: 999px;
+  background: rgba(92, 251, 247, 0.06);
+}
+
+.phantom-status[hidden] {
+  display: none;
+}
+
+/* .btn sets display:inline-flex, which overrides the UA [hidden] rule —
+   force the connect button to actually hide when JS sets .hidden = true. */
+#phantom-connect[hidden] {
+  display: none;
+}
+
+.phantom-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal);
+  flex-shrink: 0;
+}
+
+.phantom-status__address {
+  color: var(--ink);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.phantom-status__disconnect {
+  min-height: 30px;
+  padding: 6px 12px;
+  font-size: 0.7rem;
+}
+
+.phantom-error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  max-width: 240px;
+  padding: 8px 12px;
+  border: 1px solid rgba(173, 25, 209, 0.55);
+  border-radius: 6px;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  box-shadow: 0 8px 24px rgba(8, 0, 14, 0.55);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 50;
+}
+
+.phantom-error.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 720px) {
+  .phantom-status__address {
+    font-size: 0.72rem;
+  }
+  .phantom-error {
+    right: auto;
+    left: 0;
+    max-width: 200px;
+  }
+}
