@@ -20,6 +20,10 @@
       "destination": "/streamers.html"
     },
     {
+      "source": "/terminal",
+      "destination": "/terminal.html"
+    },
+    {
       "source": "/((?!api(?:/|$)|@vite(?:/|$)|@fs(?:/|$)|@id(?:/|$)|@react-refresh(?:/|$)|.*\\.).*)",
       "destination": "/index.html"
     }

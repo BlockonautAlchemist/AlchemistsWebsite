@@ -1,3 +1,10 @@
+import {
+  categoryLabel,
+  formatSignalDate,
+  normalizeSignalsPayload,
+  relativeSignalTime
+} from './src/terminal/viewModel.mjs';
+
 // The Alchemists - lightweight client behavior for static hosting.
 
 (function () {
@@ -108,6 +115,69 @@
   }
 
   initTickers();
+
+  function initLiveIntelPreview() {
+    const root = document.querySelector('[data-live-intel]');
+    if (!root) return;
+
+    const list = root.querySelector('[data-live-intel-list]');
+    const status = root.querySelector('[data-live-intel-status]');
+    const empty = root.querySelector('[data-live-intel-empty]');
+    if (!list || !status || !empty) return;
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = text;
+      return node;
+    }
+
+    function renderSignal(signal) {
+      const article = el('article', 'live-intel__card');
+
+      const meta = el('div', 'live-intel__meta');
+      meta.appendChild(el('span', 'live-intel__category mono', categoryLabel(signal.category)));
+      meta.appendChild(el('span', 'live-intel__time mono', relativeSignalTime(signal.discoveredAt)));
+      article.appendChild(meta);
+
+      article.appendChild(el('h3', 'display', signal.headline || 'Untitled signal'));
+      article.appendChild(el('p', '', signal.alchemistTake || signal.summary || ''));
+
+      const foot = el('div', 'live-intel__foot');
+      foot.appendChild(el('span', 'mono', formatSignalDate(signal.originalDate)));
+
+      const source = el('a', 'live-intel__source mono', signal.sourceName || 'Source');
+      source.href = signal.sourceUrl;
+      source.target = '_blank';
+      source.rel = 'noopener noreferrer';
+      foot.appendChild(source);
+      article.appendChild(foot);
+
+      return article;
+    }
+
+    function renderSignals(signals) {
+      list.replaceChildren(...signals.map(renderSignal));
+      empty.hidden = signals.length > 0;
+      status.textContent = signals.length ? `${signals.length} live signals` : 'No signals stored';
+    }
+
+    fetch('/api/terminal/signals?limit=3', { headers: { Accept: 'application/json' } })
+      .then((response) => response.json().then((payload) => ({ response, payload })).catch(() => ({ response, payload: {} })))
+      .then(({ response, payload }) => {
+        if (!response.ok || payload.success !== true) {
+          throw new Error(payload.error || `Request failed (${response.status})`);
+        }
+        renderSignals(normalizeSignalsPayload(payload));
+      })
+      .catch((error) => {
+        console.warn('[home] live intelligence unavailable:', error.message);
+        renderSignals([]);
+        status.textContent = 'Signal feed unavailable';
+      });
+  }
+
+  initLiveIntelPreview();
 
   const constellationStage = document.querySelector('.constellation__stage');
 

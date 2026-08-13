@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Gaming Intelligence Terminal - The Alchemists</title>
+  <meta name="description" content="The Alchemists AI Gaming Intelligence Terminal tracks real signals across AI, games, creator tools, platforms, research, and opportunities." />
+  <meta property="og:title" content="AI Gaming Intelligence Terminal - The Alchemists" />
+  <meta property="og:description" content="Live AI and gaming intelligence signals for The Alchemists guild." />
+  <meta property="og:image" content="assets/full-logo.png" />
+  <meta name="theme-color" content="#280836" />
+
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="terminal.css" />
+</head>
+<body class="terminal-page">
+  <a class="skip-link" href="#terminal-feed">Skip to intelligence feed</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Terminal announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>AI Gaming Intelligence</span>
+        <span>Real Signals</span>
+        <span>Guild Opportunities</span>
+        <span>Creator Tools</span>
+        <span>Game Dev</span>
+        <span>Research Watch</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#constellation">Strengths</a>
+      <a href="/#identity">The Guild</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a>
+      <a href="/#partners">Partners</a>
+      <a href="/vision-forge">Vision Forge</a>
+      <a href="/streamers">Streamers</a>
+      <a href="/terminal" aria-current="page">Terminal</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Live Signals</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <section class="terminal" id="terminal" aria-labelledby="terminal-title">
+      <div class="terminal__grid" aria-hidden="true"></div>
+      <div class="terminal__cuts" aria-hidden="true"></div>
+
+      <div class="terminal__inner">
+        <header class="terminal__head" data-reveal>
+          <div class="terminal__title-block">
+            <div class="eyebrow terminal__eyebrow">Live Intelligence</div>
+            <h1 class="terminal__title display" id="terminal-title">AI Gaming Intelligence Terminal</h1>
+            <p class="terminal__copy">
+              Signals from AI tools, game development, creator systems, platforms, research, money, and emerging opportunities.
+            </p>
+          </div>
+
+          <div class="terminal__readout" aria-label="Terminal status">
+            <img src="assets/logo-mark.png" alt="" />
+            <div>
+              <span class="terminal__readout-label mono">Signal Sync</span>
+              <strong class="terminal__readout-value mono" id="terminal-status">Connecting</strong>
+            </div>
+          </div>
+        </header>
+
+        <div class="terminal__workspace" data-reveal>
+          <aside class="terminal__filters" aria-label="Signal categories">
+            <div class="terminal__filters-head">
+              <span class="mono">Channels</span>
+              <span class="terminal__filters-dot" aria-hidden="true"></span>
+            </div>
+            <div class="terminal__filter-list" id="terminal-filters"></div>
+          </aside>
+
+          <section class="terminal__feed" id="terminal-feed" aria-labelledby="terminal-feed-title">
+            <div class="terminal__feed-head">
+              <div>
+                <span class="terminal__kicker mono">Latest Signals</span>
+                <h2 class="display" id="terminal-feed-title">Guild Intelligence Feed</h2>
+              </div>
+              <button class="terminal__refresh mono" id="terminal-refresh" type="button">Refresh</button>
+            </div>
+
+            <p class="terminal__notice" id="terminal-notice" role="status" aria-live="polite" hidden></p>
+            <div class="terminal__list" id="terminal-list" aria-live="polite"></div>
+
+            <article class="terminal__empty" id="terminal-empty" hidden>
+              <span class="terminal__empty-kicker mono">No Signals</span>
+              <h3 class="display">Feed awaiting first transmission</h3>
+              <p>No matching intelligence signals are stored yet.</p>
+            </article>
+
+            <noscript>
+              <p class="terminal__empty">
+                Enable JavaScript to load the AI Gaming Intelligence Terminal feed.
+              </p>
+            </noscript>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          Intelligence signals help the guild spot useful tools, trends, research, and collaboration paths.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>&copy; 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="terminal.js"></script>
+</body>
+</html>

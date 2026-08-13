@@ -7,15 +7,6 @@
     linear-gradient(180deg, var(--bg-deep) 0%, #21072d 44%, var(--bg-deep) 100%);
 }
 
-.nav__links a[aria-current="page"] {
-  color: var(--yellow);
-}
-
-.nav__links a[aria-current="page"]::after {
-  transform: scaleX(1);
-  background: var(--yellow);
-}
-
 .vf-hero {
   position: relative;
   min-height: calc(92svh - var(--nav-h) - 34px);

@@ -1,5 +1,6 @@
 const { resolve } = require('node:path');
 const { defineConfig } = require('vite');
+const terminalSignalsHandler = require('./api/terminal/signals');
 const { getStreamersData } = require('./server/streamers/twitch');
 
 module.exports = defineConfig({
@@ -41,9 +42,20 @@ module.exports = defineConfig({
           }
         });
 
+        server.middlewares.use(async (req, res, next) => {
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/api/terminal/signals') {
+            next();
+            return;
+          }
+
+          await terminalSignalsHandler(req, res);
+        });
+
         const cleanUrls = {
           '/vision-forge': '/vision-forge.html',
-          '/streamers': '/streamers.html'
+          '/streamers': '/streamers.html',
+          '/terminal': '/terminal.html'
         };
         server.middlewares.use((req, _res, next) => {
           const path = req.url && req.url.replace(/\/$/, '');
@@ -60,7 +72,8 @@ module.exports = defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         visionForge: resolve(__dirname, 'vision-forge.html'),
-        streamers: resolve(__dirname, 'streamers.html')
+        streamers: resolve(__dirname, 'streamers.html'),
+        terminal: resolve(__dirname, 'terminal.html')
       }
     }
   }

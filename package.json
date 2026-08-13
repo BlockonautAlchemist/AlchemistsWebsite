@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3000",
-    "dev:vercel": "vc dev --listen 3000",
+    "dev:vercel": "node --env-file-if-exists=.env.local ./node_modules/.bin/vc dev --listen 3000",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test"
@@ -12,5 +12,8 @@
   "devDependencies": {
     "vercel": "^54.4.1",
     "vite": "^8.0.13"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
   }
 }

@@ -465,7 +465,7 @@ h4,
 .nav__links {
   display: flex;
   align-items: center;
-  gap: clamp(18px, 2.6vw, 38px);
+  gap: clamp(14px, 1.8vw, 28px);
   color: var(--ink-dim);
   font-family: "Russo One", sans-serif;
   font-size: 0.78rem;
@@ -497,6 +497,15 @@ h4,
 
 .nav__links a:hover::after {
   transform: scaleX(1);
+}
+
+.nav__links a[aria-current="page"] {
+  color: var(--yellow);
+}
+
+.nav__links a[aria-current="page"]::after {
+  transform: scaleX(1);
+  background: var(--yellow);
 }
 
 .nav__actions {
@@ -1547,6 +1556,132 @@ h4,
    Opportunities
    ============================================================ */
 
+.live-intel {
+  padding: var(--section-y) var(--page-x);
+  border-top: 1px solid var(--line);
+  background:
+    linear-gradient(132deg, rgba(92, 251, 247, 0.12), transparent 35%, rgba(254, 214, 109, 0.08) 72%, transparent),
+    var(--bg-deep);
+}
+
+.live-intel__inner {
+  display: grid;
+  gap: clamp(22px, 3vw, 38px);
+}
+
+.live-intel__panel {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(18px, 2.4vw, 30px);
+  border: 1px solid rgba(92, 251, 247, 0.26);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(92, 251, 247, 0.08), transparent 36%),
+    linear-gradient(225deg, rgba(254, 214, 109, 0.07), transparent 36%),
+    rgba(17, 3, 24, 0.78);
+  box-shadow: var(--shadow);
+}
+
+.live-intel__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 38px, rgba(255, 255, 255, 0.045) 38px 39px),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(255, 255, 255, 0.035) 38px 39px);
+  opacity: 0.44;
+  pointer-events: none;
+}
+
+.live-intel__panel-head,
+.live-intel__grid,
+.live-intel__empty {
+  position: relative;
+  z-index: 1;
+}
+
+.live-intel__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.live-intel__status {
+  color: var(--teal);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.live-intel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.live-intel__card {
+  display: grid;
+  gap: 12px;
+  min-height: 218px;
+  padding: 18px;
+  border: 1px solid rgba(248, 237, 255, 0.14);
+  border-left: 4px solid var(--yellow);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)),
+    rgba(40, 8, 54, 0.82);
+}
+
+.live-intel__meta,
+.live-intel__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.live-intel__category {
+  color: var(--yellow);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.live-intel__time,
+.live-intel__foot {
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.live-intel__card h3 {
+  color: var(--ink);
+  font-size: 1.2rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.live-intel__card p {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.live-intel__source {
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.live-intel__empty {
+  padding: 20px;
+  border: 1px solid rgba(254, 214, 109, 0.24);
+  border-radius: 6px;
+  background: rgba(17, 3, 24, 0.58);
+  color: var(--ink-soft);
+}
+
 .opps {
   position: relative;
   padding: var(--section-y) var(--page-x);
@@ -2274,6 +2409,10 @@ h4,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .live-intel__grid {
+    grid-template-columns: 1fr;
+  }
+
   .culture__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2428,6 +2567,15 @@ h4,
   .opps__grid,
   .culture__grid {
     grid-template-columns: 1fr;
+  }
+
+  .live-intel__panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .live-intel__panel-head .btn {
+    width: 100%;
   }
 
   .partner-row__inner {
