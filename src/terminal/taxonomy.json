@@ -1,0 +1,47 @@
+{
+  "channels": [
+    {
+      "value": "AI_TOOLS",
+      "label": "AI TOOLS"
+    },
+    {
+      "value": "GAME_DEV",
+      "label": "GAME DEV"
+    },
+    {
+      "value": "CREATOR_ECONOMY",
+      "label": "CREATOR ECONOMY"
+    },
+    {
+      "value": "PLATFORMS",
+      "label": "PLATFORMS"
+    },
+    {
+      "value": "MONETIZATION",
+      "label": "MONETIZATION"
+    },
+    {
+      "value": "RESEARCH",
+      "label": "RESEARCH"
+    },
+    {
+      "value": "EXPERIMENTS",
+      "label": "EXPERIMENTS"
+    },
+    {
+      "value": "INDUSTRY",
+      "label": "INDUSTRY"
+    }
+  ],
+  "legacyCategoryMigration": {
+    "AI_TOOL": "AI_TOOLS",
+    "GAME_DEV": "GAME_DEV",
+    "CREATOR_TOOL": "CREATOR_ECONOMY",
+    "MONEY": "MONETIZATION",
+    "PLATFORM": "PLATFORMS",
+    "OPPORTUNITY": "INDUSTRY",
+    "RESEARCH": "RESEARCH",
+    "EXPERIMENT": "EXPERIMENTS",
+    "NEWS": "INDUSTRY"
+  }
+}

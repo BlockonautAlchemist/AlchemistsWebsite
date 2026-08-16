@@ -2,12 +2,13 @@ import {
   TERMINAL_CATEGORIES,
   categoryLabel,
   compactSignalTags,
-  formatSignalDate,
   normalizeSignalsPayload,
-  relativeSignalTime
+  relativeSignalTime,
+  signalProvenanceParts,
+  terminalChannelState,
+  terminalSignalsUrl,
+  terminalUrlWithChannel
 } from './src/terminal/viewModel.mjs';
-
-const API_URL = '/api/terminal/signals';
 
 if (typeof document !== 'undefined') {
   initTerminal();
@@ -23,11 +24,22 @@ function initTerminal() {
 
   if (!filterHost || !list || !empty || !notice || !status || !refresh) return;
 
+  const initialChannelState = terminalChannelState(window.location.search);
+
   const state = {
-    category: new URLSearchParams(window.location.search).get('category') || '',
+    channel: initialChannelState.channel,
+    filterNotice: initialChannelState.isUnknownChannel
+      ? 'Unknown channel filter ignored.'
+      : initialChannelState.hasDeprecatedCategory
+        ? 'Deprecated category filter ignored.'
+        : '',
     loading: false,
     abortController: null
   };
+
+  if (initialChannelState.isUnknownChannel || initialChannelState.hasDeprecatedCategory) {
+    window.history.replaceState({}, '', terminalUrlWithChannel(window.location.href, state.channel));
+  }
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -41,19 +53,21 @@ function initTerminal() {
     notice.textContent = message || '';
   }
 
-  function updateStatus(text) {
+  function updateStatus(text, stateName = '') {
     status.textContent = text;
+    status.classList.toggle('is-syncing', stateName === 'syncing');
+    status.classList.toggle('is-offline', stateName === 'offline');
   }
 
   function setActiveFilter() {
     filterHost.querySelectorAll('button[data-category]').forEach((button) => {
-      button.setAttribute('aria-pressed', String(button.dataset.category === state.category));
+      button.setAttribute('aria-pressed', String(button.dataset.category === state.channel));
     });
   }
 
   function renderFilters() {
     const filters = [
-      ['', 'All'],
+      ['', 'ALL'],
       ...TERMINAL_CATEGORIES.map((category) => [category, categoryLabel(category)])
     ];
 
@@ -63,12 +77,9 @@ function initTerminal() {
       button.dataset.category = value;
       button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => {
-        if (state.category === value) return;
-        state.category = value;
-        const url = new URL(window.location.href);
-        if (value) url.searchParams.set('category', value);
-        else url.searchParams.delete('category');
-        window.history.replaceState({}, '', url);
+        if (state.channel === value) return;
+        state.channel = value;
+        window.history.replaceState({}, '', terminalUrlWithChannel(window.location.href, value));
         setActiveFilter();
         loadSignals();
       });
@@ -81,7 +92,8 @@ function initTerminal() {
   function renderMeta(signal) {
     const meta = el('div', 'terminal-card__meta');
     meta.appendChild(el('span', 'terminal-card__category mono', categoryLabel(signal.category)));
-    meta.appendChild(el('span', 'terminal-card__time mono', relativeSignalTime(signal.discoveredAt)));
+    meta.appendChild(el('span', 'terminal-card__time mono', `· ${relativeSignalTime(signal.discoveredAt)}`));
+
     return meta;
   }
 
@@ -102,32 +114,40 @@ function initTerminal() {
     article.appendChild(el('p', 'terminal-card__summary', signal.summary || ''));
 
     const take = el('div', 'terminal-card__take');
-    take.appendChild(el('span', 'terminal-card__take-label mono', 'Alchemist Take'));
+    take.appendChild(el('span', 'terminal-card__take-label mono', 'THE ALCHEMIST PLAY'));
     take.appendChild(el('p', '', signal.alchemistTake || ''));
     article.appendChild(take);
+
+    const sourceRow = el('div', 'terminal-card__source-row');
+    const source = el('a', 'terminal-card__source mono', `SOURCE · ${signal.sourceName || 'Source'} ↗`);
+    source.href = signal.sourceUrl;
+    source.target = '_blank';
+    source.rel = 'noopener noreferrer';
+    sourceRow.appendChild(source);
+
+    const provenanceParts = signalProvenanceParts(signal);
+    if (provenanceParts.length) {
+      sourceRow.appendChild(el('div', 'terminal-card__provenance mono', provenanceParts.join(' · ')));
+    }
+
+    article.appendChild(sourceRow);
+
+    const secondary = el('div', 'terminal-card__secondary');
 
     const strengths = Array.isArray(signal.relevantStrengths) ? signal.relevantStrengths : [];
     if (strengths.length) {
       const shownStrengths = strengths.slice(0, 3);
       const hiddenStrengths = strengths.length - shownStrengths.length;
       if (hiddenStrengths > 0) shownStrengths.push(`+${hiddenStrengths}`);
-      article.appendChild(renderChips(shownStrengths, 'terminal-card__strengths'));
+      secondary.appendChild(renderChips(shownStrengths, 'terminal-card__strengths'));
     }
 
     const tags = compactSignalTags(signal, 5);
     if (tags.length) {
-      article.appendChild(renderChips(tags, 'terminal-card__tags'));
+      secondary.appendChild(renderChips(tags, 'terminal-card__tags'));
     }
 
-    const footer = el('footer', 'terminal-card__footer');
-    footer.appendChild(el('span', 'mono', formatSignalDate(signal.originalDate)));
-
-    const source = el('a', 'terminal-card__source mono', signal.sourceName || 'Source');
-    source.href = signal.sourceUrl;
-    source.target = '_blank';
-    source.rel = 'noopener noreferrer';
-    footer.appendChild(source);
-    article.appendChild(footer);
+    if (secondary.childElementCount > 0) article.appendChild(secondary);
 
     return article;
   }
@@ -143,12 +163,14 @@ function initTerminal() {
     state.abortController = new AbortController();
     state.loading = true;
     refresh.disabled = true;
-    updateStatus('Syncing');
-    setNotice('');
+    updateStatus('Syncing', 'syncing');
+    setNotice(state.filterNotice);
+    state.filterNotice = '';
 
-    const url = new URL(API_URL, window.location.origin);
-    url.searchParams.set('limit', '50');
-    if (state.category) url.searchParams.set('category', state.category);
+    const url = terminalSignalsUrl(window.location.origin, {
+      channel: state.channel,
+      limit: 50
+    });
 
     try {
       const response = await fetch(url, {
@@ -165,13 +187,13 @@ function initTerminal() {
       renderSignals(signals);
 
       const label = signals.length === 1 ? '1 signal' : `${signals.length} signals`;
-      updateStatus(label);
+      updateStatus(`Live · ${label}`, 'live');
     } catch (error) {
       if (error.name === 'AbortError') return;
 
       console.warn('[terminal] signal feed unavailable:', error.message);
       renderSignals([]);
-      updateStatus('Offline');
+      updateStatus('Offline', 'offline');
       setNotice('Signal feed unavailable.');
     } finally {
       state.loading = false;

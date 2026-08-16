@@ -120,9 +120,9 @@ async function createSignal(signal) {
   throw new Error('Signal insert was not persisted.');
 }
 
-async function listSignals({ category = null, limit = 25 } = {}) {
+async function listSignals({ channel = null, limit = 25 } = {}) {
   const sql = getSql();
-  const rows = category
+  const rows = channel
     ? await sql`
         SELECT
           id,
@@ -139,7 +139,7 @@ async function listSignals({ category = null, limit = 25 } = {}) {
           discovered_at,
           created_at
         FROM signals
-        WHERE category = ${category}
+        WHERE category = ${channel}
         ORDER BY discovered_at DESC
         LIMIT ${limit}
       `

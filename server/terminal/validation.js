@@ -1,8 +1,8 @@
 const crypto = require('node:crypto');
 const { ApiError } = require('../vision-forge/errors');
-const { TERMINAL_CATEGORIES, TERMINAL_STRENGTHS } = require('./constants');
+const { TERMINAL_CHANNELS, TERMINAL_STRENGTHS } = require('./constants');
 
-const CATEGORY_SET = new Set(TERMINAL_CATEGORIES);
+const CHANNEL_SET = new Set(TERMINAL_CHANNELS);
 const STRENGTH_SET = new Set(TERMINAL_STRENGTHS);
 const ALLOWED_SIGNAL_FIELDS = new Set([
   'externalId',
@@ -235,7 +235,7 @@ function validateTerminalSignalPayload(body) {
     headline: cleanText(body.headline, 'headline', LIMITS.headline),
     summary: cleanText(body.summary, 'summary', LIMITS.summary),
     alchemistTake: cleanText(body.alchemistTake, 'alchemistTake', LIMITS.alchemistTake),
-    category: validateEnum(body.category, 'category', CATEGORY_SET),
+    category: validateEnum(body.category, 'category', CHANNEL_SET),
     tags: validateTags(body.tags),
     relevantStrengths: validateEnumArray(
       body.relevantStrengths,
@@ -256,7 +256,8 @@ function firstQueryValue(value) {
 }
 
 function validateListQuery(query = {}) {
-  const category = firstQueryValue(query.category);
+  const deprecatedCategory = firstQueryValue(query.category);
+  const channel = firstQueryValue(query.channel);
   const limitValue = firstQueryValue(query.limit);
   let limit = LIMITS.queryLimitDefault;
 
@@ -271,21 +272,28 @@ function validateListQuery(query = {}) {
     }
   }
 
-  if (category !== undefined && category !== '') {
-    const text = String(category).trim();
-    if (!CATEGORY_SET.has(text)) {
-      throw new ApiError(400, 'category is not allowed.', { value: text });
-    }
-
-    return { category: text, limit };
+  if (deprecatedCategory !== undefined && deprecatedCategory !== '') {
+    throw new ApiError(400, 'category filter is not supported. Use channel.', {
+      value: String(deprecatedCategory).trim()
+    });
   }
 
-  return { category: null, limit };
+  if (channel !== undefined && channel !== '') {
+    const text = String(channel).trim();
+    if (!CHANNEL_SET.has(text)) {
+      throw new ApiError(400, 'channel is not allowed.', { value: text });
+    }
+
+    return { channel: text, limit };
+  }
+
+  return { channel: null, limit };
 }
 
 module.exports = {
   LIMITS,
-  TERMINAL_CATEGORIES,
+  TERMINAL_CATEGORIES: TERMINAL_CHANNELS,
+  TERMINAL_CHANNELS,
   TERMINAL_STRENGTHS,
   hashSourceUrl,
   normalizeSourceUrl,

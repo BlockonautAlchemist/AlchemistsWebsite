@@ -65,7 +65,7 @@ curl -X POST "https://www.gamingalchemists.com/api/terminal/signals" \
     "headline": "Concise real signal headline",
     "summary": "One to two short sentences describing what actually happened.",
     "alchemistTake": "One short action-oriented sentence for the guild.",
-    "category": "AI_TOOL",
+    "category": "AI_TOOLS",
     "tags": ["ai", "game-dev"],
     "relevantStrengths": ["Builder", "Researcher"],
     "sourceName": "Original Source",

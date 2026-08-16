@@ -1,26 +1,12 @@
-export const TERMINAL_CATEGORIES = Object.freeze([
-  'AI_TOOL',
-  'GAME_DEV',
-  'CREATOR_TOOL',
-  'MONEY',
-  'PLATFORM',
-  'OPPORTUNITY',
-  'RESEARCH',
-  'EXPERIMENT',
-  'NEWS'
-]);
+import taxonomy from './taxonomy.json' with { type: 'json' };
 
-const CATEGORY_LABELS = Object.freeze({
-  AI_TOOL: 'AI Tool',
-  GAME_DEV: 'Game Dev',
-  CREATOR_TOOL: 'Creator Tool',
-  MONEY: 'Money',
-  PLATFORM: 'Platform',
-  OPPORTUNITY: 'Opportunity',
-  RESEARCH: 'Research',
-  EXPERIMENT: 'Experiment',
-  NEWS: 'News'
-});
+export const TERMINAL_CHANNELS = Object.freeze(taxonomy.channels.map((channel) => channel.value));
+export const TERMINAL_CATEGORIES = TERMINAL_CHANNELS;
+
+const CHANNEL_SET = new Set(TERMINAL_CHANNELS);
+const CHANNEL_LABELS = Object.freeze(Object.fromEntries(
+  taxonomy.channels.map((channel) => [channel.value, channel.label])
+));
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -34,25 +20,87 @@ function validDate(value) {
   return Number.isNaN(timestamp) ? null : new Date(timestamp);
 }
 
+function signalDate(value) {
+  if (!value) return null;
+
+  const source = String(value).trim();
+  if (!source) return null;
+
+  const dateOnly = source.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnly) {
+    const year = Number(dateOnly[1]);
+    const month = Number(dateOnly[2]);
+    const day = Number(dateOnly[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return date.getUTCFullYear() === year
+      && date.getUTCMonth() === month - 1
+      && date.getUTCDate() === day
+      ? date
+      : null;
+  }
+
+  return validDate(source);
+}
+
 export function categoryLabel(category) {
   const key = String(category || '').trim();
-  return CATEGORY_LABELS[key] || key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  return CHANNEL_LABELS[key] || key.replace(/_/g, ' ').toUpperCase();
+}
+
+export function normalizeTerminalChannel(value) {
+  const channel = String(value || '').trim();
+  return CHANNEL_SET.has(channel) ? channel : '';
+}
+
+export function terminalChannelState(search) {
+  const params = search instanceof URLSearchParams
+    ? search
+    : new URLSearchParams(String(search || '').replace(/^\?/, ''));
+  const rawChannel = String(params.get('channel') || '').trim();
+  const rawCategory = String(params.get('category') || '').trim();
+  const channel = normalizeTerminalChannel(rawChannel);
+
+  return {
+    channel,
+    rawChannel,
+    hasDeprecatedCategory: Boolean(rawCategory),
+    isUnknownChannel: Boolean(rawChannel && !channel)
+  };
+}
+
+export function terminalUrlWithChannel(href, channel) {
+  const url = new URL(href, 'http://localhost');
+  const normalized = normalizeTerminalChannel(channel);
+
+  url.searchParams.delete('category');
+  if (normalized) url.searchParams.set('channel', normalized);
+  else url.searchParams.delete('channel');
+
+  return url;
+}
+
+export function terminalSignalsUrl(origin, { channel = '', limit = 50 } = {}) {
+  const url = new URL('/api/terminal/signals', origin);
+  const normalized = normalizeTerminalChannel(channel);
+
+  url.searchParams.set('limit', String(limit));
+  if (normalized) url.searchParams.set('channel', normalized);
+
+  return url;
 }
 
 export function normalizeSignalsPayload(payload) {
   return payload && Array.isArray(payload.signals) ? payload.signals : [];
 }
 
+export function formatOptionalSignalDate(value) {
+  const date = signalDate(value);
+  return date ? DATE_FORMATTER.format(date) : '';
+}
+
 export function formatSignalDate(value) {
-  if (!value) return 'Unknown date';
-
-  const source = String(value);
-  const dateOnly = source.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const date = dateOnly
-    ? new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])))
-    : validDate(source);
-
-  return date ? DATE_FORMATTER.format(date) : 'Unknown date';
+  return formatOptionalSignalDate(value) || 'Unknown date';
 }
 
 export function relativeSignalTime(value, now = Date.now()) {
@@ -72,6 +120,17 @@ export function relativeSignalTime(value, now = Date.now()) {
   }
 
   return 'Just now';
+}
+
+export function signalProvenanceParts(signal) {
+  const originalDate = formatOptionalSignalDate(signal && signal.originalDate);
+  const discoveredAt = formatOptionalSignalDate(signal && signal.discoveredAt);
+  const parts = [];
+
+  if (originalDate) parts.push(`Published ${originalDate}`);
+  if (discoveredAt) parts.push(`Discovered ${discoveredAt}`);
+
+  return parts;
 }
 
 export function compactSignalTags(signal, limit = 4) {
