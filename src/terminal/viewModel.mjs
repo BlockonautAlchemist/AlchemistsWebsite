@@ -2,11 +2,21 @@ import taxonomy from './taxonomy.json' with { type: 'json' };
 
 export const TERMINAL_CHANNELS = Object.freeze(taxonomy.channels.map((channel) => channel.value));
 export const TERMINAL_CATEGORIES = TERMINAL_CHANNELS;
+export const TERMINAL_SORT_OPTIONS = Object.freeze(
+  taxonomy.sorts.map((sort) => Object.freeze({
+    value: sort.value,
+    label: sort.label
+  }))
+);
+export const TERMINAL_SORTS = Object.freeze(TERMINAL_SORT_OPTIONS.map((sort) => sort.value));
+export const TERMINAL_DEFAULT_SORT = 'latest';
 
 const CHANNEL_SET = new Set(TERMINAL_CHANNELS);
+const SORT_SET = new Set(TERMINAL_SORTS);
 const CHANNEL_LABELS = Object.freeze(Object.fromEntries(
   taxonomy.channels.map((channel) => [channel.value, channel.label])
 ));
+const TERMINAL_SEARCH_QUERY_LIMIT = 120;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -53,6 +63,22 @@ export function normalizeTerminalChannel(value) {
   return CHANNEL_SET.has(channel) ? channel : '';
 }
 
+export function normalizeTerminalSort(value) {
+  const sort = String(value || '').trim().toLowerCase();
+  return SORT_SET.has(sort) ? sort : TERMINAL_DEFAULT_SORT;
+}
+
+export function normalizeTerminalSearchQuery(value) {
+  if (value === undefined || value === null) return '';
+
+  return String(value)
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, TERMINAL_SEARCH_QUERY_LIMIT)
+    .trim();
+}
+
 export function terminalChannelState(search) {
   const params = search instanceof URLSearchParams
     ? search
@@ -69,23 +95,78 @@ export function terminalChannelState(search) {
   };
 }
 
-export function terminalUrlWithChannel(href, channel) {
+export function terminalFeedState(search) {
+  const params = search instanceof URLSearchParams
+    ? search
+    : new URLSearchParams(String(search || '').replace(/^\?/, ''));
+  const channelState = terminalChannelState(params);
+  const rawSort = String(params.get('sort') || '').trim();
+  const sort = normalizeTerminalSort(rawSort);
+  const hasQ = params.has('q');
+  const rawQ = String(params.get('q') || '');
+  const q = normalizeTerminalSearchQuery(rawQ);
+  const isUnknownSort = Boolean(rawSort && !SORT_SET.has(rawSort.toLowerCase()));
+  const isNoncanonicalSort = Boolean(rawSort && rawSort !== sort);
+  const isNoncanonicalQuery = hasQ && rawQ !== q;
+
+  return {
+    ...channelState,
+    sort,
+    rawSort,
+    q,
+    rawQ,
+    isUnknownSort,
+    isNoncanonicalSort,
+    isNoncanonicalQuery
+  };
+}
+
+export function terminalUrlWithState(href, { channel = '', sort = TERMINAL_DEFAULT_SORT, q = '' } = {}) {
   const url = new URL(href, 'http://localhost');
   const normalized = normalizeTerminalChannel(channel);
+  const normalizedSort = normalizeTerminalSort(sort);
+  const normalizedQuery = normalizeTerminalSearchQuery(q);
 
   url.searchParams.delete('category');
   if (normalized) url.searchParams.set('channel', normalized);
   else url.searchParams.delete('channel');
+  url.searchParams.set('sort', normalizedSort);
+  if (normalizedQuery) url.searchParams.set('q', normalizedQuery);
+  else url.searchParams.delete('q');
 
   return url;
 }
 
-export function terminalSignalsUrl(origin, { channel = '', limit = 50 } = {}) {
+export function terminalUrlWithChannel(href, channel) {
+  const state = terminalFeedState(new URL(href, 'http://localhost').search);
+  return terminalUrlWithState(href, { channel, sort: state.sort, q: state.q });
+}
+
+export function terminalUrlWithSort(href, sort) {
+  const state = terminalFeedState(new URL(href, 'http://localhost').search);
+  return terminalUrlWithState(href, { channel: state.channel, sort, q: state.q });
+}
+
+export function terminalUrlWithSearch(href, q) {
+  const state = terminalFeedState(new URL(href, 'http://localhost').search);
+  return terminalUrlWithState(href, { channel: state.channel, sort: state.sort, q });
+}
+
+export function terminalSignalsUrl(origin, {
+  channel = '',
+  sort = TERMINAL_DEFAULT_SORT,
+  q = '',
+  limit = 50
+} = {}) {
   const url = new URL('/api/terminal/signals', origin);
   const normalized = normalizeTerminalChannel(channel);
+  const normalizedSort = normalizeTerminalSort(sort);
+  const normalizedQuery = normalizeTerminalSearchQuery(q);
 
   url.searchParams.set('limit', String(limit));
+  url.searchParams.set('sort', normalizedSort);
   if (normalized) url.searchParams.set('channel', normalized);
+  if (normalizedQuery) url.searchParams.set('q', normalizedQuery);
 
   return url;
 }

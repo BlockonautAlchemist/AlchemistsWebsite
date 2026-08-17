@@ -43,5 +43,11 @@
     "RESEARCH": "RESEARCH",
     "EXPERIMENT": "EXPERIMENTS",
     "NEWS": "INDUSTRY"
-  }
+  },
+  "sorts": [
+    {
+      "value": "latest",
+      "label": "LATEST"
+    }
+  ]
 }

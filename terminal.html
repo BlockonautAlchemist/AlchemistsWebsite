@@ -94,16 +94,35 @@
                 <span class="terminal__kicker mono">Latest Signals</span>
                 <h2 class="display" id="terminal-feed-title">Guild Intelligence Feed</h2>
               </div>
-              <button class="terminal__refresh mono" id="terminal-refresh" type="button">Refresh</button>
+              <div class="terminal__feed-actions">
+                <form class="terminal-search" id="terminal-search-form" role="search" aria-label="Search intelligence signals">
+                  <label class="terminal-search__label mono" for="terminal-search">Search</label>
+                  <div class="terminal-search__field">
+                    <input
+                      class="terminal-search__input mono"
+                      id="terminal-search"
+                      name="q"
+                      type="search"
+                      maxlength="120"
+                      autocomplete="off"
+                      placeholder="Signals"
+                    />
+                    <button class="terminal-search__clear mono" id="terminal-search-clear" type="button" aria-label="Clear search" hidden>X</button>
+                  </div>
+                </form>
+                <div class="terminal-sort" id="terminal-sort" role="group" aria-label="Sort signals"></div>
+                <button class="terminal__refresh mono" id="terminal-refresh" type="button">Refresh</button>
+              </div>
             </div>
 
             <p class="terminal__notice" id="terminal-notice" role="status" aria-live="polite" hidden></p>
+            <p class="terminal__search-summary mono" id="terminal-search-summary" aria-live="polite" hidden></p>
             <div class="terminal__list" id="terminal-list" aria-live="polite"></div>
 
-            <article class="terminal__empty" id="terminal-empty" hidden>
-              <span class="terminal__empty-kicker mono">No Signals</span>
-              <h3 class="display">Feed awaiting first transmission</h3>
-              <p>No matching intelligence signals are stored yet.</p>
+            <article class="terminal__empty" id="terminal-empty" data-terminal-empty hidden>
+              <span class="terminal__empty-kicker mono" id="terminal-empty-kicker">No Signals</span>
+              <h3 class="display" id="terminal-empty-title">Feed awaiting first transmission</h3>
+              <p id="terminal-empty-copy">No matching intelligence signals are stored yet.</p>
             </article>
 
             <noscript>

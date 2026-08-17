@@ -1,13 +1,15 @@
 import {
   TERMINAL_CATEGORIES,
+  TERMINAL_SORT_OPTIONS,
   categoryLabel,
   compactSignalTags,
+  normalizeTerminalSearchQuery,
   normalizeSignalsPayload,
   relativeSignalTime,
   signalProvenanceParts,
-  terminalChannelState,
+  terminalFeedState,
   terminalSignalsUrl,
-  terminalUrlWithChannel
+  terminalUrlWithState
 } from './src/terminal/viewModel.mjs';
 
 if (typeof document !== 'undefined') {
@@ -21,24 +23,61 @@ function initTerminal() {
   const notice = document.getElementById('terminal-notice');
   const status = document.getElementById('terminal-status');
   const refresh = document.getElementById('terminal-refresh');
+  const sortHost = document.getElementById('terminal-sort');
+  const searchForm = document.getElementById('terminal-search-form');
+  const searchInput = document.getElementById('terminal-search');
+  const searchClear = document.getElementById('terminal-search-clear');
+  const searchSummary = document.getElementById('terminal-search-summary');
+  const emptyKicker = document.getElementById('terminal-empty-kicker');
+  const emptyTitle = document.getElementById('terminal-empty-title');
+  const emptyCopy = document.getElementById('terminal-empty-copy');
 
-  if (!filterHost || !list || !empty || !notice || !status || !refresh) return;
+  if (
+    !filterHost
+    || !list
+    || !empty
+    || !notice
+    || !status
+    || !refresh
+    || !sortHost
+    || !searchForm
+    || !searchInput
+    || !searchClear
+    || !searchSummary
+    || !emptyKicker
+    || !emptyTitle
+    || !emptyCopy
+  ) return;
 
-  const initialChannelState = terminalChannelState(window.location.search);
+  const initialFeedState = terminalFeedState(window.location.search);
+  const initialNotices = [];
+  if (initialFeedState.isUnknownChannel) initialNotices.push('Unknown channel filter ignored.');
+  if (initialFeedState.hasDeprecatedCategory) initialNotices.push('Deprecated category filter ignored.');
+  if (initialFeedState.isUnknownSort) initialNotices.push('Unknown sort ignored.');
 
   const state = {
-    channel: initialChannelState.channel,
-    filterNotice: initialChannelState.isUnknownChannel
-      ? 'Unknown channel filter ignored.'
-      : initialChannelState.hasDeprecatedCategory
-        ? 'Deprecated category filter ignored.'
-        : '',
+    channel: initialFeedState.channel,
+    sort: initialFeedState.sort,
+    q: initialFeedState.q,
+    filterNotice: initialNotices.join(' '),
     loading: false,
-    abortController: null
+    abortController: null,
+    debounceTimer: null,
+    requestSequence: 0
   };
 
-  if (initialChannelState.isUnknownChannel || initialChannelState.hasDeprecatedCategory) {
-    window.history.replaceState({}, '', terminalUrlWithChannel(window.location.href, state.channel));
+  if (
+    initialFeedState.isUnknownChannel
+    || initialFeedState.hasDeprecatedCategory
+    || initialFeedState.isUnknownSort
+    || initialFeedState.isNoncanonicalSort
+    || initialFeedState.isNoncanonicalQuery
+  ) {
+    window.history.replaceState({}, '', terminalUrlWithState(window.location.href, {
+      channel: state.channel,
+      sort: state.sort,
+      q: state.q
+    }));
   }
 
   function el(tag, className, text) {
@@ -59,9 +98,30 @@ function initTerminal() {
     status.classList.toggle('is-offline', stateName === 'offline');
   }
 
+  function updateUrl() {
+    window.history.replaceState({}, '', terminalUrlWithState(window.location.href, {
+      channel: state.channel,
+      sort: state.sort,
+      q: state.q
+    }));
+  }
+
+  function setSearchUi({ syncInput = true } = {}) {
+    if (syncInput && searchInput.value !== state.q) searchInput.value = state.q;
+    searchClear.hidden = !state.q;
+    searchSummary.hidden = !state.q;
+    searchSummary.textContent = state.q ? `RESULTS FOR "${state.q.toUpperCase()}"` : '';
+  }
+
   function setActiveFilter() {
     filterHost.querySelectorAll('button[data-category]').forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.category === state.channel));
+    });
+  }
+
+  function setActiveSort() {
+    sortHost.querySelectorAll('button[data-sort]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.sort === state.sort));
     });
   }
 
@@ -79,7 +139,7 @@ function initTerminal() {
       button.addEventListener('click', () => {
         if (state.channel === value) return;
         state.channel = value;
-        window.history.replaceState({}, '', terminalUrlWithChannel(window.location.href, value));
+        updateUrl();
         setActiveFilter();
         loadSignals();
       });
@@ -87,6 +147,25 @@ function initTerminal() {
     }));
 
     setActiveFilter();
+  }
+
+  function renderSorts() {
+    sortHost.replaceChildren(...TERMINAL_SORT_OPTIONS.map((option) => {
+      const button = el('button', 'terminal-sort__button mono', option.label);
+      button.type = 'button';
+      button.dataset.sort = option.value;
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => {
+        if (state.sort === option.value) return;
+        state.sort = option.value;
+        updateUrl();
+        setActiveSort();
+        loadSignals();
+      });
+      return button;
+    }));
+
+    setActiveSort();
   }
 
   function renderMeta(signal) {
@@ -152,15 +231,52 @@ function initTerminal() {
     return article;
   }
 
+  function renderEmptyState() {
+    if (state.q) {
+      emptyKicker.textContent = 'No Matches';
+      emptyTitle.textContent = `NO SIGNALS FOUND FOR "${state.q.toUpperCase()}"`;
+      emptyCopy.textContent = 'Try another search or clear the current channel filter.';
+      return;
+    }
+
+    emptyKicker.textContent = 'No Signals';
+    emptyTitle.textContent = 'Feed awaiting first transmission';
+    emptyCopy.textContent = 'No matching intelligence signals are stored yet.';
+  }
+
   function renderSignals(signals) {
     list.replaceChildren(...signals.map(renderSignal));
     empty.hidden = signals.length > 0;
+    if (!signals.length) renderEmptyState();
+  }
+
+  function renderFeedFailure() {
+    list.replaceChildren();
+    empty.hidden = true;
+  }
+
+  function cancelActiveRequest() {
+    if (!state.abortController) return;
+
+    state.abortController.abort();
+    state.abortController = null;
+    state.requestSequence += 1;
+    state.loading = false;
+    refresh.disabled = false;
   }
 
   async function loadSignals() {
+    if (state.debounceTimer) {
+      window.clearTimeout(state.debounceTimer);
+      state.debounceTimer = null;
+    }
+
     if (state.abortController) state.abortController.abort();
 
-    state.abortController = new AbortController();
+    const requestId = state.requestSequence + 1;
+    const abortController = new AbortController();
+    state.requestSequence = requestId;
+    state.abortController = abortController;
     state.loading = true;
     refresh.disabled = true;
     updateStatus('Syncing', 'syncing');
@@ -169,13 +285,15 @@ function initTerminal() {
 
     const url = terminalSignalsUrl(window.location.origin, {
       channel: state.channel,
+      sort: state.sort,
+      q: state.q,
       limit: 50
     });
 
     try {
       const response = await fetch(url, {
         headers: { Accept: 'application/json' },
-        signal: state.abortController.signal
+        signal: abortController.signal
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -183,28 +301,98 @@ function initTerminal() {
         throw new Error(payload.error || `Request failed (${response.status})`);
       }
 
+      if (requestId !== state.requestSequence) return;
+
       const signals = normalizeSignalsPayload(payload);
       renderSignals(signals);
 
-      const label = signals.length === 1 ? '1 signal' : `${signals.length} signals`;
-      updateStatus(`Live · ${label}`, 'live');
+      if (state.q) {
+        updateStatus('Live · Search results', 'live');
+      } else {
+        const label = signals.length === 1 ? '1 signal' : `${signals.length} signals`;
+        updateStatus(`Live · ${label}`, 'live');
+      }
     } catch (error) {
       if (error.name === 'AbortError') return;
+      if (requestId !== state.requestSequence) return;
 
       console.warn('[terminal] signal feed unavailable:', error.message);
-      renderSignals([]);
+      renderFeedFailure();
       updateStatus('Offline', 'offline');
       setNotice('Signal feed unavailable.');
     } finally {
-      state.loading = false;
-      refresh.disabled = false;
+      if (requestId === state.requestSequence) {
+        state.loading = false;
+        refresh.disabled = false;
+        if (state.abortController === abortController) state.abortController = null;
+      }
     }
   }
+
+  function scheduleLoadSignals(delay = 300) {
+    if (state.debounceTimer) window.clearTimeout(state.debounceTimer);
+
+    if (delay <= 0) {
+      state.debounceTimer = null;
+      loadSignals();
+      return;
+    }
+
+    state.debounceTimer = window.setTimeout(() => {
+      state.debounceTimer = null;
+      loadSignals();
+    }, delay);
+  }
+
+  function applySearch(value, { immediate = false } = {}) {
+    const nextQuery = normalizeTerminalSearchQuery(value);
+    const changed = state.q !== nextQuery;
+    state.q = nextQuery;
+    updateUrl();
+    setSearchUi({ syncInput: immediate });
+
+    if (!changed && !immediate) return;
+    if (changed) cancelActiveRequest();
+    scheduleLoadSignals(immediate ? 0 : 300);
+  }
+
+  function clearSearch() {
+    const hadSearch = Boolean(state.q || searchInput.value);
+    if (!hadSearch) return;
+
+    state.q = '';
+    updateUrl();
+    setSearchUi();
+    loadSignals();
+    searchInput.focus();
+  }
+
+  searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    applySearch(searchInput.value, { immediate: true });
+  });
+
+  searchInput.addEventListener('input', () => {
+    applySearch(searchInput.value);
+  });
+
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && (state.q || searchInput.value)) {
+      event.preventDefault();
+      clearSearch();
+    }
+  });
+
+  searchClear.addEventListener('click', () => {
+    clearSearch();
+  });
 
   refresh.addEventListener('click', () => {
     if (!state.loading) loadSignals();
   });
 
   renderFilters();
+  renderSorts();
+  setSearchUi();
   loadSignals();
 }

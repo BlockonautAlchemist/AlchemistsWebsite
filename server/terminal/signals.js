@@ -1,4 +1,5 @@
 const { getSql } = require('./db');
+const { TERMINAL_DEFAULT_SORT } = require('./constants');
 
 function parsePgArray(value) {
   if (Array.isArray(value)) return value;
@@ -22,6 +23,19 @@ function isoDateTime(value) {
 
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? String(value || '') : new Date(timestamp).toISOString();
+}
+
+function escapeLikePattern(value) {
+  return String(value || '').replace(/[\\%_]/g, '\\$&');
+}
+
+function searchPatterns(q) {
+  const terms = String(q || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return terms.map((term) => `%${escapeLikePattern(term)}%`);
 }
 
 function toApiSignal(row) {
@@ -120,48 +134,51 @@ async function createSignal(signal) {
   throw new Error('Signal insert was not persisted.');
 }
 
-async function listSignals({ channel = null, limit = 25 } = {}) {
+async function listSignals({ channel = null, limit = 25, sort = TERMINAL_DEFAULT_SORT, q = '' } = {}) {
+  if (sort !== TERMINAL_DEFAULT_SORT) {
+    throw new Error(`Unsupported Terminal signal sort: ${sort}`);
+  }
+
   const sql = getSql();
-  const rows = channel
-    ? await sql`
-        SELECT
-          id,
-          external_id,
-          headline,
-          summary,
-          alchemist_take,
-          category,
-          tags,
-          relevant_strengths,
-          source_name,
-          source_url,
-          original_date,
-          discovered_at,
-          created_at
-        FROM signals
-        WHERE category = ${channel}
-        ORDER BY discovered_at DESC
-        LIMIT ${limit}
-      `
-    : await sql`
-        SELECT
-          id,
-          external_id,
-          headline,
-          summary,
-          alchemist_take,
-          category,
-          tags,
-          relevant_strengths,
-          source_name,
-          source_url,
-          original_date,
-          discovered_at,
-          created_at
-        FROM signals
-        ORDER BY discovered_at DESC
-        LIMIT ${limit}
-      `;
+  const patternsJson = JSON.stringify(searchPatterns(q));
+  const rows = await sql`
+    SELECT
+      id,
+      external_id,
+      headline,
+      summary,
+      alchemist_take,
+      category,
+      tags,
+      relevant_strengths,
+      source_name,
+      source_url,
+      original_date,
+      discovered_at,
+      created_at
+    FROM signals
+    WHERE (${channel}::text IS NULL OR category = ${channel})
+      AND (
+        ${patternsJson}::jsonb = '[]'::jsonb
+        OR NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(${patternsJson}::jsonb) AS search_terms(pattern)
+          WHERE NOT (
+            COALESCE(headline, '') ILIKE search_terms.pattern ESCAPE '\\'
+            OR COALESCE(summary, '') ILIKE search_terms.pattern ESCAPE '\\'
+            OR COALESCE(alchemist_take, '') ILIKE search_terms.pattern ESCAPE '\\'
+            OR COALESCE(source_name, '') ILIKE search_terms.pattern ESCAPE '\\'
+            OR EXISTS (
+              SELECT 1
+              FROM unnest(COALESCE(tags, ARRAY[]::text[])) AS signal_tags(tag)
+              WHERE signal_tags.tag ILIKE search_terms.pattern ESCAPE '\\'
+            )
+          )
+        )
+      )
+    ORDER BY discovered_at DESC, created_at DESC, id DESC
+    LIMIT ${limit}
+  `;
 
   return rows.map(toApiSignal);
 }
@@ -169,5 +186,6 @@ async function listSignals({ channel = null, limit = 25 } = {}) {
 module.exports = {
   createSignal,
   listSignals,
+  searchPatterns,
   toApiSignal
 };

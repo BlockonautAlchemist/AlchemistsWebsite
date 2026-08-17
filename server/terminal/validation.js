@@ -1,8 +1,14 @@
 const crypto = require('node:crypto');
 const { ApiError } = require('../vision-forge/errors');
-const { TERMINAL_CHANNELS, TERMINAL_STRENGTHS } = require('./constants');
+const {
+  TERMINAL_CHANNELS,
+  TERMINAL_DEFAULT_SORT,
+  TERMINAL_SORTS,
+  TERMINAL_STRENGTHS
+} = require('./constants');
 
 const CHANNEL_SET = new Set(TERMINAL_CHANNELS);
+const SORT_SET = new Set(TERMINAL_SORTS);
 const STRENGTH_SET = new Set(TERMINAL_STRENGTHS);
 const ALLOWED_SIGNAL_FIELDS = new Set([
   'externalId',
@@ -28,6 +34,7 @@ const LIMITS = {
   tag: 40,
   tags: 12,
   strengths: TERMINAL_STRENGTHS.length,
+  query: 120,
   queryLimitDefault: 25,
   queryLimitMax: 60
 };
@@ -255,11 +262,26 @@ function firstQueryValue(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function normalizeSearchQuery(value) {
+  if (value === undefined || value === null) return '';
+
+  return String(value)
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, LIMITS.query)
+    .trim();
+}
+
 function validateListQuery(query = {}) {
   const deprecatedCategory = firstQueryValue(query.category);
   const channel = firstQueryValue(query.channel);
   const limitValue = firstQueryValue(query.limit);
+  const sortValue = firstQueryValue(query.sort);
+  const qValue = firstQueryValue(query.q);
   let limit = LIMITS.queryLimitDefault;
+  let sort = TERMINAL_DEFAULT_SORT;
+  const q = normalizeSearchQuery(qValue);
 
   if (limitValue !== undefined && limitValue !== '') {
     if (!/^\d+$/.test(String(limitValue))) {
@@ -278,24 +300,36 @@ function validateListQuery(query = {}) {
     });
   }
 
+  if (sortValue !== undefined && sortValue !== '') {
+    const text = String(sortValue).trim().toLowerCase();
+    if (!SORT_SET.has(text)) {
+      throw new ApiError(400, 'sort is not allowed.', { value: String(sortValue).trim() });
+    }
+
+    sort = text;
+  }
+
   if (channel !== undefined && channel !== '') {
     const text = String(channel).trim();
     if (!CHANNEL_SET.has(text)) {
       throw new ApiError(400, 'channel is not allowed.', { value: text });
     }
 
-    return { channel: text, limit };
+    return { channel: text, limit, sort, q };
   }
 
-  return { channel: null, limit };
+  return { channel: null, limit, sort, q };
 }
 
 module.exports = {
   LIMITS,
   TERMINAL_CATEGORIES: TERMINAL_CHANNELS,
   TERMINAL_CHANNELS,
+  TERMINAL_DEFAULT_SORT,
+  TERMINAL_SORTS,
   TERMINAL_STRENGTHS,
   hashSourceUrl,
+  normalizeSearchQuery,
   normalizeSourceUrl,
   validateListQuery,
   validateTerminalSignalPayload
