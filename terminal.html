@@ -72,7 +72,40 @@
               <div class="eyebrow terminal__eyebrow">Live Intelligence</div>
               <div class="terminal__readout mono is-syncing" id="terminal-status" role="status" aria-live="polite">Connecting</div>
             </div>
-            <h1 class="terminal__title display" id="terminal-title">AI Gaming Intelligence Terminal</h1>
+
+            <pre class="terminal__banner terminal__banner--wide" aria-hidden="true"> █████╗ ██╗    ██████╗  █████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗
+██╔══██╗██║   ██╔════╝ ██╔══██╗████╗ ████║██║████╗  ██║██╔════╝
+███████║██║   ██║  ███╗███████║██╔████╔██║██║██╔██╗ ██║██║  ███╗
+██╔══██║██║   ██║   ██║██╔══██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║
+██║  ██║██║   ╚██████╔╝██║  ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝
+╚═╝  ╚═╝╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝
+██╗███╗   ██╗████████╗███████╗██╗     ██╗     ██╗ ██████╗ ███████╗███╗   ██╗ ██████╗███████╗
+██║████╗  ██║╚══██╔══╝██╔════╝██║     ██║     ██║██╔════╝ ██╔════╝████╗  ██║██╔════╝██╔════╝
+██║██╔██╗ ██║   ██║   █████╗  ██║     ██║     ██║██║  ███╗█████╗  ██╔██╗ ██║██║     █████╗
+██║██║╚██╗██║   ██║   ██╔══╝  ██║     ██║     ██║██║   ██║██╔══╝  ██║╚██╗██║██║     ██╔══╝
+██║██║ ╚████║   ██║   ███████╗███████╗███████╗██║╚██████╔╝███████╗██║ ╚████║╚██████╗███████╗
+╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚══════╝
+████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗
+╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║
+   ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║
+   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║
+   ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗
+   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝</pre>
+
+            <div class="terminal__banner terminal__banner--compact" aria-hidden="true">
+              <span class="terminal__banner-kicker">AI // GAMING // INTELLIGENCE</span>
+              <pre>████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗
+╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║
+   ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║
+   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║
+   ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗
+   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝</pre>
+            </div>
+
+            <h1 class="terminal__title display terminal-sr-only" id="terminal-title">AI Gaming Intelligence Terminal</h1>
+
+            <p class="terminal__boot mono" aria-hidden="true" data-scramble>ALCHEMISTS//NET · BOOT OK · CHANNELS 08 · UPLINK SECURE</p>
+
             <p class="terminal__copy">
               AI + gaming intelligence for people looking for the next thing to build, sell, or capitalize on.
             </p>
@@ -86,6 +119,7 @@
               <span class="terminal__filters-dot" aria-hidden="true"></span>
             </div>
             <div class="terminal__filter-list" id="terminal-filters"></div>
+            <div class="terminal__rail-foot mono" aria-hidden="true">└─ SELECT CHANNEL ─┘</div>
           </aside>
 
           <section class="terminal__feed" id="terminal-feed" aria-labelledby="terminal-feed-title">
@@ -97,6 +131,7 @@
               <div class="terminal__feed-actions">
                 <form class="terminal-search" id="terminal-search-form" role="search" aria-label="Search intelligence signals">
                   <label class="terminal-search__label mono" for="terminal-search">Search</label>
+                  <span class="terminal-search__prompt mono" aria-hidden="true">alchemist@terminal:~$</span>
                   <div class="terminal-search__field">
                     <input
                       class="terminal-search__input mono"
@@ -111,7 +146,7 @@
                   </div>
                 </form>
                 <div class="terminal-sort" id="terminal-sort" role="group" aria-label="Sort signals"></div>
-                <button class="terminal__refresh mono" id="terminal-refresh" type="button">Refresh</button>
+                <button class="terminal__refresh mono" id="terminal-refresh" type="button">./refresh --signals</button>
               </div>
             </div>
 
@@ -120,14 +155,14 @@
             <div class="terminal__list" id="terminal-list" aria-live="polite"></div>
 
             <article class="terminal__empty" id="terminal-empty" data-terminal-empty hidden>
-              <span class="terminal__empty-kicker mono" id="terminal-empty-kicker">No Signals</span>
-              <h3 class="display" id="terminal-empty-title">Feed awaiting first transmission</h3>
-              <p id="terminal-empty-copy">No matching intelligence signals are stored yet.</p>
+              <span class="terminal__empty-kicker mono" id="terminal-empty-kicker">IDLE</span>
+              <h3 class="display" id="terminal-empty-title">awaiting first transmission...</h3>
+              <p id="terminal-empty-copy">no signals in local store. stand by.</p>
             </article>
 
             <noscript>
               <p class="terminal__empty">
-                Enable JavaScript to load the AI Gaming Intelligence Terminal feed.
+                ERR: js runtime disabled. feed cannot initialize.
               </p>
             </noscript>
           </section>
@@ -139,6 +174,52 @@
   <footer class="footer">
     <div class="footer__inner">
       <div class="footer__brand">
+        <pre class="terminal__sigil" aria-hidden="true">           ████
+           ████
+          ██████
+          ██████
+         ████████
+         ████████
+        ████  ████
+        ████  ████
+       ████    ████
+       ████    ████
+      ████      ████
+      ████      ████
+     ████        ████
+     ████        ████
+    ████          ████
+    ████          ████
+   ████            ████
+   ████            ████
+  ████              ████
+  ████              ████
+ ████                ████
+ ████                ████
+████                  ████
+████                  ████
+███                    ████
+███                    ████
+████████████████████████████
+████████████████████████████
+██                      ████
+██                      ████
+██                      ████
+██                      ████
+██                      ████
+██                      ████
+██                      ████
+██                      ████
+                       ██████████
+                      █████████
+                     ████████
+                    ███████
+                ████████████████████
+                          ████████
+                         ██████
+                        █████
+                       ███
+                      ██</pre>
         <div class="footer__brand-row">
           <img src="assets/logo-mark.png" alt="" />
           <span>The Alchemists</span>

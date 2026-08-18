@@ -14,6 +14,45 @@ import {
 
 if (typeof document !== 'undefined') {
   initTerminal();
+  initDecodeLines();
+}
+
+// Text-decode effect for decorative readout lines. Targets are aria-hidden,
+// so the transient garbage characters are never exposed to assistive tech.
+function initDecodeLines() {
+  const targets = Array.from(document.querySelectorAll('[data-scramble]'));
+  if (!targets.length) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const GLYPHS = '01<>[]{}/\\|=+*#%$&@';
+
+  targets.forEach((node) => {
+    const final = node.textContent;
+    let frame = 0;
+
+    function tick() {
+      const revealed = Math.floor(frame / 2);
+
+      if (revealed > final.length) {
+        node.textContent = final;
+        return;
+      }
+
+      node.textContent = final
+        .split('')
+        .map((char, index) => (
+          index < revealed || char === ' '
+            ? char
+            : GLYPHS[Math.floor(Math.random() * GLYPHS.length)]
+        ))
+        .join('');
+
+      frame += 1;
+      window.requestAnimationFrame(tick);
+    }
+
+    window.requestAnimationFrame(tick);
+  });
 }
 
 function initTerminal() {
@@ -51,9 +90,9 @@ function initTerminal() {
 
   const initialFeedState = terminalFeedState(window.location.search);
   const initialNotices = [];
-  if (initialFeedState.isUnknownChannel) initialNotices.push('Unknown channel filter ignored.');
-  if (initialFeedState.hasDeprecatedCategory) initialNotices.push('Deprecated category filter ignored.');
-  if (initialFeedState.isUnknownSort) initialNotices.push('Unknown sort ignored.');
+  if (initialFeedState.isUnknownChannel) initialNotices.push('WARN: unknown channel filter dropped.');
+  if (initialFeedState.hasDeprecatedCategory) initialNotices.push('WARN: deprecated category filter dropped.');
+  if (initialFeedState.isUnknownSort) initialNotices.push('WARN: unknown sort dropped.');
 
   const state = {
     channel: initialFeedState.channel,
@@ -233,15 +272,15 @@ function initTerminal() {
 
   function renderEmptyState() {
     if (state.q) {
-      emptyKicker.textContent = 'No Matches';
-      emptyTitle.textContent = `NO SIGNALS FOUND FOR "${state.q.toUpperCase()}"`;
-      emptyCopy.textContent = 'Try another search or clear the current channel filter.';
+      emptyKicker.textContent = 'ERR 404';
+      emptyTitle.textContent = `ERR: no signals matched query "${state.q}".`;
+      emptyCopy.textContent = 'try broader terms, or clear the channel filter.';
       return;
     }
 
-    emptyKicker.textContent = 'No Signals';
-    emptyTitle.textContent = 'Feed awaiting first transmission';
-    emptyCopy.textContent = 'No matching intelligence signals are stored yet.';
+    emptyKicker.textContent = 'IDLE';
+    emptyTitle.textContent = 'awaiting first transmission...';
+    emptyCopy.textContent = 'no signals in local store. stand by.';
   }
 
   function renderSignals(signals) {
@@ -319,7 +358,7 @@ function initTerminal() {
       console.warn('[terminal] signal feed unavailable:', error.message);
       renderFeedFailure();
       updateStatus('Offline', 'offline');
-      setNotice('Signal feed unavailable.');
+      setNotice('ERR: signal feed unreachable. connection dropped.');
     } finally {
       if (requestId === state.requestSequence) {
         state.loading = false;
