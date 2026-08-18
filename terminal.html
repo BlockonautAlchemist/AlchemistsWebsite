@@ -21,6 +21,18 @@
 <body class="terminal-page">
   <a class="skip-link" href="#terminal-feed">Skip to intelligence feed</a>
 
+<!-- CRT overlays: decorative only -->
+<div class="terminal-crt" aria-hidden="true">
+  <div class="terminal-crt__scan"></div>
+  <div class="terminal-crt__flicker"></div>
+  <div class="terminal-crt__band"></div>
+  <div class="terminal-crt__vignette"></div>
+</div>
+<div class="terminal-grid" aria-hidden="true">
+  <div class="terminal-grid__plane"></div>
+  <div class="terminal-grid__horizon"></div>
+</div>
+
   <div class="ticker" data-ticker role="marquee" aria-label="Terminal announcements">
     <div class="ticker__track">
       <div class="ticker__group">
@@ -60,166 +72,113 @@
     </div>
   </nav>
 
-  <main>
-    <section class="terminal" id="terminal" aria-labelledby="terminal-title">
-      <div class="terminal__grid" aria-hidden="true"></div>
-      <div class="terminal__cuts" aria-hidden="true"></div>
+<main class="terminal-main">
 
-      <div class="terminal__inner">
-        <header class="terminal__head" data-reveal>
-          <div class="terminal__title-block">
-            <div class="terminal__meta-row">
-              <div class="eyebrow terminal__eyebrow">Live Intelligence</div>
-              <div class="terminal__readout mono is-syncing" id="terminal-status" role="status" aria-live="polite">Connecting</div>
-            </div>
+  <section class="terminal-hero" data-reveal>
+    <div class="terminal-hero__col">
+      <p class="eyebrow terminal-hero__eyebrow">Live Intelligence</p>
+      <h1 id="terminal-title" class="terminal-sr">AI Gaming Intelligence Terminal</h1>
 
-            <pre class="terminal__banner terminal__banner--wide" aria-hidden="true"> █████╗ ██╗    ██████╗  █████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗
-██╔══██╗██║   ██╔════╝ ██╔══██╗████╗ ████║██║████╗  ██║██╔════╝
-███████║██║   ██║  ███╗███████║██╔████╔██║██║██╔██╗ ██║██║  ███╗
-██╔══██║██║   ██║   ██║██╔══██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║
-██║  ██║██║   ╚██████╔╝██║  ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝
-╚═╝  ╚═╝╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝
-██╗███╗   ██╗████████╗███████╗██╗     ██╗     ██╗ ██████╗ ███████╗███╗   ██╗ ██████╗███████╗
-██║████╗  ██║╚══██╔══╝██╔════╝██║     ██║     ██║██╔════╝ ██╔════╝████╗  ██║██╔════╝██╔════╝
-██║██╔██╗ ██║   ██║   █████╗  ██║     ██║     ██║██║  ███╗█████╗  ██╔██╗ ██║██║     █████╗
-██║██║╚██╗██║   ██║   ██╔══╝  ██║     ██║     ██║██║   ██║██╔══╝  ██║╚██╗██║██║     ██╔══╝
-██║██║ ╚████║   ██║   ███████╗███████╗███████╗██║╚██████╔╝███████╗██║ ╚████║╚██████╗███████╗
-╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚══════╝
-████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗
+      <pre class="terminal-banner terminal-banner--lg mono" aria-hidden="true">████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗
 ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║
    ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║
    ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║
    ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗
    ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝</pre>
+      <pre class="terminal-banner terminal-banner--sm mono" aria-hidden="true">▀█▀ ██▀ █▀▄ █▄ ▄█ █ █▄ █ ▄▀▄ █
+ █  █▀  █▀▄ █ ▀ █ █ █ ▀█ █▀█ █
+ ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀  ▀ ▀ ▀ ▀▀▀</pre>
 
-            <div class="terminal__banner terminal__banner--compact" aria-hidden="true">
-              <span class="terminal__banner-kicker">AI // GAMING // INTELLIGENCE</span>
-              <pre>████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗
-╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║
-   ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║
-   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║
-   ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗
-   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝</pre>
-            </div>
+      <p class="terminal-hero__boot mono" aria-hidden="true" data-scramble>├─ node alchemists-signal-bus // build 2026.08 ─┤</p>
+      <p class="terminal-hero__lede">AI + gaming intelligence for people looking for the next thing to build, sell, or capitalize on. Every signal is scanned, tagged, and given a guild read before it lands here.</p>
+    </div>
 
-            <h1 class="terminal__title display terminal-sr-only" id="terminal-title">AI Gaming Intelligence Terminal</h1>
+    <pre class="terminal-hero__art mono" aria-hidden="true">        ╭───────╮
+        │  ░▒▓  │
+        ╰──╮ ╭──╯
+           │ │
+      ╭────╯ ╰────╮
+     ╱             ╲
+    │  ░▒▓█████▓▒░  │
+    │   ▓███████▓   │
+     ╲             ╱
+      ╰──╮     ╭──╯
+         │     │
+      ═══╧═════╧═══
+   // ALEMBIC · v2.6
+   distilling signal
+   from noise</pre>
+  </section>
 
-            <p class="terminal__boot mono" aria-hidden="true" data-scramble>ALCHEMISTS//NET · BOOT OK · CHANNELS 08 · UPLINK SECURE</p>
+  <div class="terminal-shell">
 
-            <p class="terminal__copy">
-              AI + gaming intelligence for people looking for the next thing to build, sell, or capitalize on.
-            </p>
-          </div>
-        </header>
-
-        <div class="terminal__workspace" data-reveal>
-          <aside class="terminal__filters" aria-label="Signal categories">
-            <div class="terminal__filters-head">
-              <span class="mono">Channels</span>
-              <span class="terminal__filters-dot" aria-hidden="true"></span>
-            </div>
-            <div class="terminal__filter-list" id="terminal-filters"></div>
-            <div class="terminal__rail-foot mono" aria-hidden="true">└─ SELECT CHANNEL ─┘</div>
-          </aside>
-
-          <section class="terminal__feed" id="terminal-feed" aria-labelledby="terminal-feed-title">
-            <div class="terminal__feed-head">
-              <div>
-                <span class="terminal__kicker mono">Latest Signals</span>
-                <h2 class="display" id="terminal-feed-title">Guild Intelligence Feed</h2>
-              </div>
-              <div class="terminal__feed-actions">
-                <form class="terminal-search" id="terminal-search-form" role="search" aria-label="Search intelligence signals">
-                  <label class="terminal-search__label mono" for="terminal-search">Search</label>
-                  <span class="terminal-search__prompt mono" aria-hidden="true">alchemist@terminal:~$</span>
-                  <div class="terminal-search__field">
-                    <input
-                      class="terminal-search__input mono"
-                      id="terminal-search"
-                      name="q"
-                      type="search"
-                      maxlength="120"
-                      autocomplete="off"
-                      placeholder="Signals"
-                    />
-                    <button class="terminal-search__clear mono" id="terminal-search-clear" type="button" aria-label="Clear search" hidden>X</button>
-                  </div>
-                </form>
-                <div class="terminal-sort" id="terminal-sort" role="group" aria-label="Sort signals"></div>
-                <button class="terminal__refresh mono" id="terminal-refresh" type="button">./refresh --signals</button>
-              </div>
-            </div>
-
-            <p class="terminal__notice" id="terminal-notice" role="status" aria-live="polite" hidden></p>
-            <p class="terminal__search-summary mono" id="terminal-search-summary" aria-live="polite" hidden></p>
-            <div class="terminal__list" id="terminal-list" aria-live="polite"></div>
-
-            <article class="terminal__empty" id="terminal-empty" data-terminal-empty hidden>
-              <span class="terminal__empty-kicker mono" id="terminal-empty-kicker">IDLE</span>
-              <h3 class="display" id="terminal-empty-title">awaiting first transmission...</h3>
-              <p id="terminal-empty-copy">no signals in local store. stand by.</p>
-            </article>
-
-            <noscript>
-              <p class="terminal__empty">
-                ERR: js runtime disabled. feed cannot initialize.
-              </p>
-            </noscript>
-          </section>
-        </div>
+    <aside class="terminal-rail" aria-label="Feed controls" data-reveal>
+      <div class="terminal-rail__block terminal-rail__block--row">
+        <span class="terminal-rail__label mono" id="terminal-status-label">Uplink</span>
+        <span id="terminal-status" role="status" aria-live="polite" aria-labelledby="terminal-status-label">Connecting</span>
       </div>
+
+      <div class="terminal-rail__block">
+        <h2 class="terminal-rail__label mono">Channels</h2>
+        <div class="terminal-filters" id="terminal-filters"></div>
+      </div>
+
+      <div class="terminal-rail__block terminal-rail__block--row">
+        <span class="terminal-rail__label mono" id="terminal-sort-label">Order</span>
+        <div class="terminal-sort" id="terminal-sort" role="group" aria-labelledby="terminal-sort-label"></div>
+      </div>
+
+      <form class="terminal-search" id="terminal-search-form" role="search">
+        <label class="terminal-search__prompt mono" for="terminal-search">
+          <span aria-hidden="true">alchemist@terminal:~$</span>
+          <span class="terminal-sr">Search signals</span>
+        </label>
+        <input class="terminal-search__input mono" id="terminal-search" type="search" maxlength="120" autocomplete="off" placeholder="grep --signals">
+        <span class="terminal-search__cursor mono" aria-hidden="true">█</span>
+        <button class="terminal-search__clear mono" id="terminal-search-clear" type="button" aria-label="Clear search" hidden>[ x ]</button>
+      </form>
+
+      <button class="terminal-refresh mono" id="terminal-refresh" type="button">./refresh --signals</button>
+
+      <dl class="terminal-readout mono" aria-hidden="true">
+        <div><dt>uplink</dt><dd class="is-ok">47ms</dd></div>
+        <div><dt>packets</dt><dd class="is-warm">1.28k</dd></div>
+        <div><dt>channels</dt><dd class="is-cool">8/8</dd></div>
+        <div><dt>buffer</dt><dd>▓▓▓▓▓▒░ 71%</dd></div>
+        <div><dt>crt</dt><dd class="is-ok">ok</dd></div>
+      </dl>
+    </aside>
+
+    <section class="terminal-feed" id="terminal-feed" aria-labelledby="terminal-feed-title" data-reveal>
+      <div class="terminal-feed__head">
+        <span class="terminal-feed__rule mono" aria-hidden="true">╔═</span>
+        <h2 class="display terminal-feed__title" id="terminal-feed-title">Guild Intelligence Feed</h2>
+        <span class="terminal-feed__fill mono" aria-hidden="true"></span>
+      </div>
+
+      <p class="terminal-summary mono" id="terminal-search-summary" aria-live="polite" hidden></p>
+      <p class="terminal-notice mono" id="terminal-notice" role="status" aria-live="polite" hidden></p>
+
+      <div class="terminal-list" id="terminal-list" aria-live="polite"></div>
+
+      <div class="terminal-empty mono" id="terminal-empty" hidden>
+        <p class="terminal-empty__kicker" id="terminal-empty-kicker"></p>
+        <p class="terminal-empty__title" id="terminal-empty-title"></p>
+        <p class="terminal-empty__copy" id="terminal-empty-copy"></p>
+      </div>
+
+      <noscript>
+        <p class="terminal-noscript mono">JavaScript is disabled. The signal feed streams client-side — enable JavaScript, or read the latest signals in the guild Discord.</p>
+      </noscript>
+
+      <pre class="terminal-eof mono" aria-hidden="true">╚═══ EOF ═══ alchemist@terminal:~$ █</pre>
     </section>
-  </main>
+  </div>
+</main>
 
   <footer class="footer">
     <div class="footer__inner">
       <div class="footer__brand">
-        <pre class="terminal__sigil" aria-hidden="true">           ████
-           ████
-          ██████
-          ██████
-         ████████
-         ████████
-        ████  ████
-        ████  ████
-       ████    ████
-       ████    ████
-      ████      ████
-      ████      ████
-     ████        ████
-     ████        ████
-    ████          ████
-    ████          ████
-   ████            ████
-   ████            ████
-  ████              ████
-  ████              ████
- ████                ████
- ████                ████
-████                  ████
-████                  ████
-███                    ████
-███                    ████
-████████████████████████████
-████████████████████████████
-██                      ████
-██                      ████
-██                      ████
-██                      ████
-██                      ████
-██                      ████
-██                      ████
-██                      ████
-                       ██████████
-                      █████████
-                     ████████
-                    ███████
-                ████████████████████
-                          ████████
-                         ██████
-                        █████
-                       ███
-                      ██</pre>
         <div class="footer__brand-row">
           <img src="assets/logo-mark.png" alt="" />
           <span>The Alchemists</span>

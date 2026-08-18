@@ -935,7 +935,8 @@ test('terminal page exposes search controls and no-results hooks', () => {
   const html = fs.readFileSync(`${__dirname}/../terminal.html`, 'utf8');
 
   assert.match(html, /<form class="terminal-search"[^>]+role="search"/);
-  assert.match(html, /<label class="terminal-search__label mono" for="terminal-search">Search<\/label>/);
+  assert.match(html, /<label class="terminal-search__prompt mono" for="terminal-search">/);
+  assert.match(html, /<span class="terminal-sr">Search signals<\/span>/);
   assert.match(html, /id="terminal-search"[\s\S]+type="search"[\s\S]+maxlength="120"/);
   assert.match(html, /id="terminal-search-clear"[\s\S]+aria-label="Clear search"/);
   assert.match(html, /id="terminal-search-summary"/);

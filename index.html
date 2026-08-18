@@ -16,7 +16,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="phantom.css" />
 </head>
 <body>
   <a class="skip-link" href="#identity">Skip to content</a>
@@ -48,25 +47,9 @@
       <a href="/vision-forge">Vision Forge</a>
       <a href="/streamers">Streamers</a>
       <a href="/terminal">Terminal</a>
-      <div class="phantom-wallet phantom-wallet--mobile">
-        <button data-phantom-connect class="btn btn-primary phantom-wallet__connect-mobile" type="button">Connect Wallet</button>
-        <div data-phantom-status class="phantom-status phantom-status--mobile" hidden>
-          <span class="phantom-status__dot" aria-hidden="true"></span>
-          <span data-phantom-address class="phantom-status__address mono"></span>
-          <button data-phantom-disconnect class="btn btn-ghost phantom-status__disconnect" type="button">Disconnect</button>
-        </div>
-      </div>
     </div>
     <div class="nav__actions">
       <span class="nav__status mono">400+ Members</span>
-      <div class="phantom-wallet">
-        <button id="phantom-connect" data-phantom-connect class="btn btn-primary btn-nav" type="button">Connect Wallet</button>
-        <div id="phantom-status" data-phantom-status class="phantom-status" hidden>
-          <span class="phantom-status__dot" aria-hidden="true"></span>
-          <span id="phantom-address" data-phantom-address class="phantom-status__address mono"></span>
-          <button id="phantom-disconnect" data-phantom-disconnect class="btn btn-ghost btn-nav phantom-status__disconnect" type="button">Disconnect</button>
-        </div>
-      </div>
       <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
       <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
         <span></span>
@@ -266,29 +249,6 @@
 
     <div class="section-divider" aria-hidden="true"></div>
 
-    <section class="live-intel" id="live-intelligence" data-live-intel aria-labelledby="live-intel-title">
-      <div class="section-container live-intel__inner">
-        <div class="section-head section-head--left" data-reveal>
-          <div class="eyebrow">Live Intelligence</div>
-          <h2 class="section-title display" id="live-intel-title">Latest AI Gaming Signals</h2>
-          <p class="section-copy">
-            Fresh signals from the guild intelligence terminal, connected directly to the live feed.
-          </p>
-        </div>
-
-        <div class="live-intel__panel" data-reveal>
-          <div class="live-intel__panel-head">
-            <span class="live-intel__status mono" data-live-intel-status>Syncing feed</span>
-            <a href="/terminal" class="btn btn-ghost">Open Terminal</a>
-          </div>
-          <div class="live-intel__grid" data-live-intel-list></div>
-          <p class="live-intel__empty" data-live-intel-empty hidden>No live intelligence signals are stored yet.</p>
-        </div>
-      </div>
-    </section>
-
-    <div class="section-divider" aria-hidden="true"></div>
-
     <section class="opps" id="opportunities" aria-labelledby="opps-title">
       <div class="opps__shell">
         <div class="section-head section-head--left" data-reveal>
@@ -389,6 +349,5 @@
   </footer>
 
   <script type="module" src="script.js"></script>
-  <script type="module" src="phantom.js"></script>
 </body>
 </html>
