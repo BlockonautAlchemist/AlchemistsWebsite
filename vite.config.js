@@ -1,5 +1,6 @@
 const { resolve } = require('node:path');
 const { defineConfig } = require('vite');
+const newsletterSubscribeHandler = require('./api/newsletter/subscribe');
 const terminalSignalsHandler = require('./api/terminal/signals');
 const { getStreamersData } = require('./server/streamers/twitch');
 
@@ -50,6 +51,16 @@ module.exports = defineConfig({
           }
 
           await terminalSignalsHandler(req, res);
+        });
+
+        server.middlewares.use(async (req, res, next) => {
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/api/newsletter/subscribe') {
+            next();
+            return;
+          }
+
+          await newsletterSubscribeHandler(req, res);
         });
 
         const cleanUrls = {

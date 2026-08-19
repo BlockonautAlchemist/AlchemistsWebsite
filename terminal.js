@@ -17,9 +17,12 @@ const TERMINAL_PAGE_SIZE = 12;
 const TERMINAL_MAX_VISIBLE_LIMIT = 60;
 const TERMINAL_DESKTOP_SEARCH_DELAY = 300;
 const TERMINAL_MOBILE_SEARCH_DELAY = 450;
+const NEWSLETTER_SUBSCRIBE_URL = '/api/newsletter/subscribe';
+const NEWSLETTER_FALLBACK_URL = 'https://spawncamper9000.beehiiv.com/?modal=signup';
 
 if (typeof document !== 'undefined') {
   initTerminal();
+  initTerminalNewsletter();
   initDecodeLines();
 }
 
@@ -58,6 +61,88 @@ function initDecodeLines() {
     }
 
     window.requestAnimationFrame(tick);
+  });
+}
+
+function normalizeNewsletterEmail(value) {
+  return String(value || '').trim();
+}
+
+function isValidNewsletterEmail(email) {
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function initTerminalNewsletter() {
+  const form = document.getElementById('terminal-newsletter-form');
+  const emailInput = document.getElementById('terminal-newsletter-email');
+  const submit = document.getElementById('terminal-newsletter-submit');
+  const status = document.getElementById('terminal-newsletter-status');
+  const fallback = document.getElementById('terminal-newsletter-fallback');
+  const panel = document.getElementById('terminal-newsletter');
+
+  if (!form || !emailInput || !submit || !status || !fallback || !panel) return;
+
+  const defaultSubmitText = submit.textContent;
+  const state = { submitting: false };
+
+  function setStatus(message, stateName = 'idle', { showFallback = false, fallbackUrl = NEWSLETTER_FALLBACK_URL } = {}) {
+    status.hidden = !message;
+    status.textContent = message || '';
+    status.dataset.state = stateName;
+    panel.dataset.state = stateName;
+
+    fallback.href = fallbackUrl || NEWSLETTER_FALLBACK_URL;
+    fallback.hidden = !showFallback;
+  }
+
+  function setSubmitting(isSubmitting) {
+    state.submitting = isSubmitting;
+    emailInput.disabled = isSubmitting;
+    submit.disabled = isSubmitting;
+    submit.textContent = isSubmitting ? '[ connecting ... ]' : defaultSubmitText;
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (state.submitting) return;
+
+    const email = normalizeNewsletterEmail(emailInput.value);
+    if (!isValidNewsletterEmail(email)) {
+      setStatus('ERR: enter a valid email address.', 'error');
+      emailInput.focus();
+      return;
+    }
+
+    setSubmitting(true);
+    setStatus('CONNECTING: opening deeper intel route...', 'loading');
+
+    try {
+      const response = await fetch(NEWSLETTER_SUBSCRIBE_URL, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.ok !== true) {
+        const error = new Error(payload.error || 'Newsletter signup failed.');
+        error.fallbackUrl = payload.fallbackUrl;
+        throw error;
+      }
+
+      setStatus('CONNECTED: check your inbox for the next signal.', 'success');
+      form.reset();
+    } catch (error) {
+      setStatus(error.message || 'ERR: signup link failed open.', 'error', {
+        showFallback: true,
+        fallbackUrl: error.fallbackUrl || NEWSLETTER_FALLBACK_URL
+      });
+    } finally {
+      setSubmitting(false);
+    }
   });
 }
 
