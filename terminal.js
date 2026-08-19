@@ -12,6 +12,12 @@ import {
   terminalUrlWithState
 } from './src/terminal/viewModel.mjs';
 
+const TERMINAL_INITIAL_VISIBLE_LIMIT = 12;
+const TERMINAL_PAGE_SIZE = 12;
+const TERMINAL_MAX_VISIBLE_LIMIT = 60;
+const TERMINAL_DESKTOP_SEARCH_DELAY = 300;
+const TERMINAL_MOBILE_SEARCH_DELAY = 450;
+
 if (typeof document !== 'undefined') {
   initTerminal();
   initDecodeLines();
@@ -70,6 +76,7 @@ function initTerminal() {
   const emptyKicker = document.getElementById('terminal-empty-kicker');
   const emptyTitle = document.getElementById('terminal-empty-title');
   const emptyCopy = document.getElementById('terminal-empty-copy');
+  const loadMore = document.getElementById('terminal-load-more');
 
   if (
     !filterHost
@@ -86,6 +93,7 @@ function initTerminal() {
     || !emptyKicker
     || !emptyTitle
     || !emptyCopy
+    || !loadMore
   ) return;
 
   const initialFeedState = terminalFeedState(window.location.search);
@@ -102,7 +110,10 @@ function initTerminal() {
     loading: false,
     abortController: null,
     debounceTimer: null,
-    requestSequence: 0
+    requestSequence: 0,
+    visibleLimit: TERMINAL_INITIAL_VISIBLE_LIMIT,
+    hasMore: false,
+    isComposing: false
   };
 
   if (
@@ -164,6 +175,25 @@ function initTerminal() {
     });
   }
 
+  function setLoadMoreUi() {
+    loadMore.hidden = !state.hasMore;
+    loadMore.disabled = state.loading || state.visibleLimit >= TERMINAL_MAX_VISIBLE_LIMIT;
+  }
+
+  function resetPaging() {
+    state.visibleLimit = TERMINAL_INITIAL_VISIBLE_LIMIT;
+    state.hasMore = false;
+    setLoadMoreUi();
+  }
+
+  function searchDebounceDelay() {
+    if (typeof window.matchMedia !== 'function') return TERMINAL_DESKTOP_SEARCH_DELAY;
+
+    return window.matchMedia('(max-width: 768px), (pointer: coarse)').matches
+      ? TERMINAL_MOBILE_SEARCH_DELAY
+      : TERMINAL_DESKTOP_SEARCH_DELAY;
+  }
+
   function renderFilters() {
     const filters = [
       ['', 'ALL'],
@@ -178,6 +208,7 @@ function initTerminal() {
       button.addEventListener('click', () => {
         if (state.channel === value) return;
         state.channel = value;
+        resetPaging();
         updateUrl();
         setActiveFilter();
         loadSignals();
@@ -197,6 +228,7 @@ function initTerminal() {
       button.addEventListener('click', () => {
         if (state.sort === option.value) return;
         state.sort = option.value;
+        resetPaging();
         updateUrl();
         setActiveSort();
         loadSignals();
@@ -284,14 +316,22 @@ function initTerminal() {
   }
 
   function renderSignals(signals) {
-    list.replaceChildren(...signals.map(renderSignal));
-    empty.hidden = signals.length > 0;
-    if (!signals.length) renderEmptyState();
+    const visibleSignals = signals.slice(0, state.visibleLimit);
+    state.hasMore = signals.length > visibleSignals.length && state.visibleLimit < TERMINAL_MAX_VISIBLE_LIMIT;
+
+    list.replaceChildren(...visibleSignals.map(renderSignal));
+    empty.hidden = visibleSignals.length > 0;
+    if (!visibleSignals.length) renderEmptyState();
+    setLoadMoreUi();
+
+    return visibleSignals.length;
   }
 
   function renderFeedFailure() {
     list.replaceChildren();
     empty.hidden = true;
+    state.hasMore = false;
+    setLoadMoreUi();
   }
 
   function cancelActiveRequest() {
@@ -302,6 +342,7 @@ function initTerminal() {
     state.requestSequence += 1;
     state.loading = false;
     refresh.disabled = false;
+    setLoadMoreUi();
   }
 
   async function loadSignals() {
@@ -318,15 +359,17 @@ function initTerminal() {
     state.abortController = abortController;
     state.loading = true;
     refresh.disabled = true;
+    setLoadMoreUi();
     updateStatus('Syncing', 'syncing');
     setNotice(state.filterNotice);
     state.filterNotice = '';
+    const requestLimit = Math.min(state.visibleLimit + 1, TERMINAL_MAX_VISIBLE_LIMIT);
 
     const url = terminalSignalsUrl(window.location.origin, {
       channel: state.channel,
       sort: state.sort,
       q: state.q,
-      limit: 50
+      limit: requestLimit
     });
 
     try {
@@ -343,12 +386,12 @@ function initTerminal() {
       if (requestId !== state.requestSequence) return;
 
       const signals = normalizeSignalsPayload(payload);
-      renderSignals(signals);
+      const visibleCount = renderSignals(signals);
 
       if (state.q) {
         updateStatus('Live · Search results', 'live');
       } else {
-        const label = signals.length === 1 ? '1 signal' : `${signals.length} signals`;
+        const label = visibleCount === 1 ? '1 signal' : `${visibleCount} signals`;
         updateStatus(`Live · ${label}`, 'live');
       }
     } catch (error) {
@@ -364,11 +407,12 @@ function initTerminal() {
         state.loading = false;
         refresh.disabled = false;
         if (state.abortController === abortController) state.abortController = null;
+        setLoadMoreUi();
       }
     }
   }
 
-  function scheduleLoadSignals(delay = 300) {
+  function scheduleLoadSignals(delay = TERMINAL_DESKTOP_SEARCH_DELAY) {
     if (state.debounceTimer) window.clearTimeout(state.debounceTimer);
 
     if (delay <= 0) {
@@ -391,8 +435,11 @@ function initTerminal() {
     setSearchUi({ syncInput: immediate });
 
     if (!changed && !immediate) return;
-    if (changed) cancelActiveRequest();
-    scheduleLoadSignals(immediate ? 0 : 300);
+    if (changed) {
+      cancelActiveRequest();
+      resetPaging();
+    }
+    scheduleLoadSignals(immediate ? 0 : searchDebounceDelay());
   }
 
   function clearSearch() {
@@ -400,6 +447,7 @@ function initTerminal() {
     if (!hadSearch) return;
 
     state.q = '';
+    resetPaging();
     updateUrl();
     setSearchUi();
     loadSignals();
@@ -408,10 +456,21 @@ function initTerminal() {
 
   searchForm.addEventListener('submit', (event) => {
     event.preventDefault();
+    if (state.isComposing) return;
     applySearch(searchInput.value, { immediate: true });
   });
 
   searchInput.addEventListener('input', () => {
+    if (state.isComposing) return;
+    applySearch(searchInput.value);
+  });
+
+  searchInput.addEventListener('compositionstart', () => {
+    state.isComposing = true;
+  });
+
+  searchInput.addEventListener('compositionend', () => {
+    state.isComposing = false;
     applySearch(searchInput.value);
   });
 
@@ -430,8 +489,19 @@ function initTerminal() {
     if (!state.loading) loadSignals();
   });
 
+  loadMore.addEventListener('click', () => {
+    if (state.loading || !state.hasMore) return;
+
+    state.visibleLimit = Math.min(
+      state.visibleLimit + TERMINAL_PAGE_SIZE,
+      TERMINAL_MAX_VISIBLE_LIMIT
+    );
+    loadSignals();
+  });
+
   renderFilters();
   renderSorts();
   setSearchUi();
+  setLoadMoreUi();
   loadSignals();
 }

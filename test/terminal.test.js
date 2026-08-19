@@ -234,9 +234,11 @@ function makeTerminalSqlStore(initialRows = []) {
 
     if (query.includes('select id, external_id')) {
       const isSearchList = query.includes('search_terms(pattern)');
-      const category = isSearchList ? values[0] : null;
-      const patterns = isSearchList ? JSON.parse(values[2]) : [];
-      const limit = isSearchList ? values[4] : values[0];
+      const hasCategoryFilter = query.includes('where category =');
+      let valueIndex = 0;
+      const category = hasCategoryFilter ? values[valueIndex++] : null;
+      const patterns = isSearchList ? JSON.parse(values[valueIndex++]) : [];
+      const limit = values[valueIndex];
 
       return rows
         .filter((row) => !category || row.category === category)
@@ -402,6 +404,43 @@ test('lists signals by discovered date and optional channel', async () => {
   const research = await listSignals({ channel: 'RESEARCH', limit: 10, sort: 'latest' });
   assert.equal(research.length, 1);
   assert.equal(research[0].category, 'RESEARCH');
+});
+
+test('lists latest feeds through index-friendly query branches', async () => {
+  const store = makeTerminalSqlStore([
+    sampleDbRow({
+      id: 'signal-1',
+      external_id: 'new-research',
+      category: 'RESEARCH',
+      discovered_at: '2026-08-14T12:00:00.000Z'
+    }),
+    sampleDbRow({
+      id: 'signal-2',
+      external_id: 'older-industry',
+      category: 'INDUSTRY',
+      discovered_at: '2026-08-13T12:00:00.000Z'
+    })
+  ]);
+  _setSqlForTests(store.sql);
+
+  const all = await listSignals({ limit: 1, sort: 'latest' });
+  assert.deepEqual(all.map((signal) => signal.externalId), ['new-research']);
+
+  const defaultCall = store.calls.at(-1);
+  assert.deepEqual(defaultCall.values, [1]);
+  assert.doesNotMatch(defaultCall.query, /search_terms\(pattern\)/);
+  assert.doesNotMatch(defaultCall.query, /\bor\b/);
+  assert.doesNotMatch(defaultCall.query, /category =/);
+
+  const research = await listSignals({ channel: 'RESEARCH', limit: 1, sort: 'latest' });
+  assert.deepEqual(research.map((signal) => signal.externalId), ['new-research']);
+
+  const channelCall = store.calls.at(-1);
+  assert.deepEqual(channelCall.values, ['RESEARCH', 1]);
+  assert.match(channelCall.query, /where category =/);
+  assert.doesNotMatch(channelCall.query, /search_terms\(pattern\)/);
+  assert.doesNotMatch(channelCall.query, /::text is null/);
+  assert.doesNotMatch(channelCall.query, /\bor\b/);
 });
 
 test('lists latest signals with deterministic created date and id tie-breakers', async () => {
@@ -942,6 +981,7 @@ test('terminal page exposes search controls and no-results hooks', () => {
   assert.match(html, /id="terminal-search-summary"/);
   assert.match(html, /id="terminal-empty-title"/);
   assert.match(html, /id="terminal-empty-copy"/);
+  assert.match(html, /id="terminal-load-more"[\s\S]+aria-controls="terminal-list"[\s\S]+hidden/);
 });
 
 test('terminal signal provenance helper produces source date labels only', () => {

@@ -543,6 +543,49 @@
   animation: terminal-spin 0.48s steps(1, end) infinite;
 }
 
+.terminal-load-more {
+  display: block;
+  width: min(100%, 340px);
+  margin: 14px auto 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(57, 255, 136, 0.48);
+  border-radius: 2px;
+  background: rgba(57, 255, 136, 0.07);
+  color: var(--terminal-phosphor);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 16px -9px var(--terminal-phosphor);
+  transition: color var(--motion-fast, 160ms ease), background var(--motion-fast, 160ms ease),
+    border-color var(--motion-fast, 160ms ease);
+}
+
+.terminal-load-more[hidden] {
+  display: none;
+}
+
+.terminal-load-more::before { content: "[ "; }
+.terminal-load-more::after { content: " ]"; }
+
+.terminal-load-more:hover:not(:disabled) {
+  color: var(--terminal-cyan);
+  border-color: var(--terminal-cyan);
+  background: rgba(92, 251, 247, 0.08);
+}
+
+.terminal-load-more:disabled {
+  cursor: progress;
+  color: var(--terminal-amber);
+  border-color: rgba(254, 214, 109, 0.45);
+  background: rgba(254, 214, 109, 0.06);
+}
+
+.terminal-load-more:disabled::after {
+  content: " ▖";
+  animation: terminal-spin 0.48s steps(1, end) infinite;
+}
+
 /* Decorative rail readout ---------------------------------------------- */
 .terminal-readout {
   display: grid;
@@ -678,6 +721,8 @@
 .terminal-card {
   position: relative;
   overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -1023,6 +1068,28 @@
   .terminal-card__provenance {
     margin-left: 0;
     text-align: left;
+  }
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .terminal-crt__scan,
+  .terminal-grid__plane {
+    animation: none;
+  }
+
+  .terminal-crt__flicker,
+  .terminal-crt__band {
+    display: none;
+  }
+
+  .terminal-rail {
+    background: rgba(13, 2, 20, 0.97);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .terminal-card:hover::before {
+    animation: none;
   }
 }
 

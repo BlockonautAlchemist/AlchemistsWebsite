@@ -140,27 +140,107 @@ async function listSignals({ channel = null, limit = 25, sort = TERMINAL_DEFAULT
   }
 
   const sql = getSql();
-  const patternsJson = JSON.stringify(searchPatterns(q));
-  const rows = await sql`
-    SELECT
-      id,
-      external_id,
-      headline,
-      summary,
-      alchemist_take,
-      category,
-      tags,
-      relevant_strengths,
-      source_name,
-      source_url,
-      original_date,
-      discovered_at,
-      created_at
-    FROM signals
-    WHERE (${channel}::text IS NULL OR category = ${channel})
-      AND (
-        ${patternsJson}::jsonb = '[]'::jsonb
-        OR NOT EXISTS (
+  const patterns = searchPatterns(q);
+  const hasSearch = patterns.length > 0;
+  let rows;
+
+  if (!channel && !hasSearch) {
+    rows = await sql`
+      SELECT
+        id,
+        external_id,
+        headline,
+        summary,
+        alchemist_take,
+        category,
+        tags,
+        relevant_strengths,
+        source_name,
+        source_url,
+        original_date,
+        discovered_at,
+        created_at
+      FROM signals
+      ORDER BY discovered_at DESC, created_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  } else if (channel && !hasSearch) {
+    rows = await sql`
+      SELECT
+        id,
+        external_id,
+        headline,
+        summary,
+        alchemist_take,
+        category,
+        tags,
+        relevant_strengths,
+        source_name,
+        source_url,
+        original_date,
+        discovered_at,
+        created_at
+      FROM signals
+      WHERE category = ${channel}
+      ORDER BY discovered_at DESC, created_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  } else if (!channel) {
+    const patternsJson = JSON.stringify(patterns);
+    rows = await sql`
+      SELECT
+        id,
+        external_id,
+        headline,
+        summary,
+        alchemist_take,
+        category,
+        tags,
+        relevant_strengths,
+        source_name,
+        source_url,
+        original_date,
+        discovered_at,
+        created_at
+      FROM signals
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(${patternsJson}::jsonb) AS search_terms(pattern)
+        WHERE NOT (
+          COALESCE(headline, '') ILIKE search_terms.pattern ESCAPE '\\'
+          OR COALESCE(summary, '') ILIKE search_terms.pattern ESCAPE '\\'
+          OR COALESCE(alchemist_take, '') ILIKE search_terms.pattern ESCAPE '\\'
+          OR COALESCE(source_name, '') ILIKE search_terms.pattern ESCAPE '\\'
+          OR EXISTS (
+            SELECT 1
+            FROM unnest(COALESCE(tags, ARRAY[]::text[])) AS signal_tags(tag)
+            WHERE signal_tags.tag ILIKE search_terms.pattern ESCAPE '\\'
+          )
+        )
+      )
+      ORDER BY discovered_at DESC, created_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  } else {
+    const patternsJson = JSON.stringify(patterns);
+    rows = await sql`
+      SELECT
+        id,
+        external_id,
+        headline,
+        summary,
+        alchemist_take,
+        category,
+        tags,
+        relevant_strengths,
+        source_name,
+        source_url,
+        original_date,
+        discovered_at,
+        created_at
+      FROM signals
+      WHERE category = ${channel}
+        AND NOT EXISTS (
           SELECT 1
           FROM jsonb_array_elements_text(${patternsJson}::jsonb) AS search_terms(pattern)
           WHERE NOT (
@@ -175,10 +255,10 @@ async function listSignals({ channel = null, limit = 25, sort = TERMINAL_DEFAULT
             )
           )
         )
-      )
-    ORDER BY discovered_at DESC, created_at DESC, id DESC
-    LIMIT ${limit}
-  `;
+      ORDER BY discovered_at DESC, created_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  }
 
   return rows.map(toApiSignal);
 }
