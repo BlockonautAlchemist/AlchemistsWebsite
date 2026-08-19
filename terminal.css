@@ -234,27 +234,14 @@
   letter-spacing: 0.3em;
 }
 
-.terminal-banner {
+.terminal-wordmark {
+  width: min(100%, 580px);
+  aspect-ratio: 1200 / 236;
+  height: auto;
   margin: 0;
-  overflow: hidden;
-  white-space: pre;
-  line-height: 1;
-  color: var(--terminal-magenta);
-  text-shadow:
-    -2px 0 rgba(92, 251, 247, 0.5),
-    2px 0 rgba(254, 214, 109, 0.3),
-    0 0 26px rgba(255, 46, 151, 0.4);
-}
-
-.terminal-banner--lg {
-  display: block;
-  font-size: clamp(6px, 1.42vw, 15px);
-}
-
-.terminal-banner--sm {
-  display: none;
-  font-size: clamp(11px, 4.4vw, 20px);
-  line-height: 1.05;
+  object-fit: cover;
+  object-position: center 43%;
+  filter: drop-shadow(0 0 22px rgba(255, 46, 151, 0.35));
 }
 
 .terminal-hero__boot {
@@ -1277,9 +1264,6 @@
 }
 
 @media (max-width: 640px) {
-  .terminal-banner--lg { display: none; }
-  .terminal-banner--sm { display: block; }
-
   .terminal-rail {
     padding: 11px;
     border-radius: 0 0 var(--radius, 8px) var(--radius, 8px);
