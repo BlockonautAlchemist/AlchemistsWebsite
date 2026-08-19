@@ -235,12 +235,10 @@
 }
 
 .terminal-wordmark {
-  width: min(100%, 580px);
-  aspect-ratio: 1200 / 236;
+  width: min(100%, 580px, calc(100vw - var(--page-x, 24px) - var(--page-x, 24px)));
+  aspect-ratio: 1128 / 178;
   height: auto;
   margin: 0;
-  object-fit: cover;
-  object-position: center 43%;
   filter: drop-shadow(0 0 22px rgba(255, 46, 151, 0.35));
 }
 
@@ -1264,6 +1262,10 @@
 }
 
 @media (max-width: 640px) {
+  .terminal-wordmark {
+    width: min(100%, 90vw, 360px);
+  }
+
   .terminal-rail {
     padding: 11px;
     border-radius: 0 0 var(--radius, 8px) var(--radius, 8px);
