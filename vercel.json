@@ -24,6 +24,10 @@
       "destination": "/terminal.html"
     },
     {
+      "source": "/command-center",
+      "destination": "/command-center.html"
+    },
+    {
       "source": "/((?!api(?:/|$)|@vite(?:/|$)|@fs(?:/|$)|@id(?:/|$)|@react-refresh(?:/|$)|.*\\.).*)",
       "destination": "/index.html"
     }

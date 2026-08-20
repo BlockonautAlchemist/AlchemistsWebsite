@@ -6,6 +6,7 @@
     "dev": "vite --host 127.0.0.1 --port 3000",
     "dev:vercel": "node --env-file-if-exists=.env.local ./node_modules/.bin/vc dev --listen 3000",
     "build": "vite build",
+    "command-center:replay": "node --env-file-if-exists=.env.local scripts/replay-command-center-telemetry.js",
     "preview": "vite preview",
     "test": "node --test"
   },
@@ -14,6 +15,7 @@
     "vite": "^8.0.13"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "phaser": "^4.2.1"
   }
 }

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" class="command-center-root">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SpawnCamper9000 Command Center - The Alchemists</title>
+  <meta name="description" content="A live public command center showing SpawnCamper9000 workflow telemetry for AI gaming intelligence operations." />
+  <meta property="og:title" content="SpawnCamper9000 Command Center - The Alchemists" />
+  <meta property="og:description" content="Live SpawnCamper9000 workflow state for The Alchemists AI gaming intelligence pipeline." />
+  <meta property="og:image" content="assets/full-logo.png" />
+  <meta name="theme-color" content="#111513" />
+
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="command-center.css" />
+</head>
+<body class="command-center-page">
+  <a class="skip-link" href="#command-center">Skip to command center</a>
+
+  <div class="ticker" data-ticker role="marquee" aria-label="Command Center announcements">
+    <div class="ticker__track">
+      <div class="ticker__group">
+        <span>SpawnCamper9000</span>
+        <span>Workflow Telemetry</span>
+        <span>Research</span>
+        <span>Publishing</span>
+        <span>Newsletter</span>
+        <span>Terminal Uplink</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="/" class="nav__brand" aria-label="The Alchemists home">
+      <img src="assets/logo-mark.png" alt="" />
+      <span class="display">The Alchemists</span>
+    </a>
+    <div class="nav__links" id="nav-links">
+      <a href="/#constellation">Strengths</a>
+      <a href="/#identity">The Guild</a>
+      <a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a>
+      <a href="/#partners">Partners</a>
+      <a href="/vision-forge">Vision Forge</a>
+      <a href="/streamers">Streamers</a>
+      <a href="/terminal">Dev Terminal</a>
+      <a href="/command-center" aria-current="page">Command Center</a>
+    </div>
+    <div class="nav__actions">
+      <span class="nav__status mono">Workflow Uplink</span>
+      <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="cc-main" id="command-center">
+    <section class="cc-app" aria-labelledby="cc-title">
+      <div class="cc-stage">
+        <header class="cc-stage__bar">
+          <div>
+            <p class="eyebrow cc-eyebrow">SpawnCamper9000</p>
+            <h1 class="display" id="cc-title">Command Center</h1>
+          </div>
+          <div class="cc-status mono" aria-live="polite">
+            <span id="cc-status" data-state="connecting">Connecting</span>
+            <span id="cc-status-copy">opening uplink</span>
+          </div>
+        </header>
+
+        <div class="cc-canvas-wrap">
+          <div class="cc-canvas" id="cc-canvas" aria-label="Pixel command center map"></div>
+        </div>
+
+        <noscript>
+          <p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render live workflow telemetry.</p>
+        </noscript>
+      </div>
+
+      <aside class="cc-ops" aria-label="Command Center telemetry">
+        <div class="cc-readout">
+          <div>
+            <span class="cc-readout__label mono">active</span>
+            <strong id="cc-active-count">0</strong>
+          </div>
+          <div>
+            <span class="cc-readout__label mono">stale</span>
+            <strong id="cc-stale-count">0</strong>
+          </div>
+          <div>
+            <span class="cc-readout__label mono">updated</span>
+            <strong id="cc-updated-at">No heartbeat</strong>
+          </div>
+        </div>
+
+        <section class="cc-panel" aria-labelledby="cc-workflows-title">
+          <div class="cc-panel__head">
+            <h2 class="display" id="cc-workflows-title">Workflows</h2>
+          </div>
+          <div class="cc-workflows" id="cc-workflow-list" aria-live="polite"></div>
+        </section>
+
+        <section class="cc-panel cc-selected" aria-labelledby="cc-selected-title">
+          <div class="cc-panel__head">
+            <h2 class="display" id="cc-selected-title">Uplink</h2>
+          </div>
+          <div class="cc-selected__body" id="cc-selected-body"></div>
+        </section>
+
+        <section class="cc-panel" aria-labelledby="cc-history-title">
+          <div class="cc-panel__head">
+            <h2 class="display" id="cc-history-title">Recent</h2>
+          </div>
+          <ol class="cc-history" id="cc-history-list" aria-live="polite"></ol>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <div class="footer__brand-row">
+          <img src="assets/logo-mark.png" alt="" />
+          <span>The Alchemists</span>
+        </div>
+        <p class="footer__about">
+          Workflow telemetry shows the public operational state of SpawnCamper9000 without exposing private logs or drafts.
+        </p>
+        <p class="footer__motto subtitle-font">We strive to do good.</p>
+      </div>
+
+      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+
+    <div class="footer__legal">
+      <span>&copy; 2026 The Alchemists Guild</span>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="command-center.js"></script>
+</body>
+</html>

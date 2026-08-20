@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Original placeholder workstation sprite">
+  <rect width="128" height="128" fill="none"/>
+  <ellipse cx="64" cy="108" rx="42" ry="9" fill="#060807" opacity="0.32"/>
+  <path d="M22 42h84l10 54H12Z" fill="#223029" stroke="#78f4c2" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="30" y="22" width="68" height="40" rx="6" fill="#111916" stroke="#f5c65a" stroke-width="4"/>
+  <rect x="38" y="32" width="28" height="6" fill="#78f4c2"/>
+  <rect x="38" y="45" width="46" height="5" fill="#ff68d2"/>
+  <rect x="28" y="76" width="20" height="8" fill="#d58cff"/>
+  <rect x="55" y="76" width="45" height="8" fill="#86ffc8"/>
+  <path d="M24 96h80" stroke="#405146" stroke-width="4" stroke-linecap="round"/>
+</svg>

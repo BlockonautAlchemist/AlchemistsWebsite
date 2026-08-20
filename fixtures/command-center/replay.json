@@ -1,0 +1,148 @@
+[
+  {
+    "eventId": "idle-boot",
+    "offsetSeconds": 0,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "idle",
+    "activity": "Standing by for the next sweep",
+    "ttlSeconds": 120,
+    "context": {
+      "station": "research"
+    }
+  },
+  {
+    "eventId": "tools-research",
+    "offsetSeconds": 3,
+    "workflow": "new-tools",
+    "workflowLabel": "New Tools",
+    "state": "researching",
+    "activity": "Scanning AI gaming tools",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "scanner",
+      "target": "AI gaming tools",
+      "count": 12
+    }
+  },
+  {
+    "eventId": "tools-browsing",
+    "offsetSeconds": 8,
+    "workflow": "new-tools",
+    "workflowLabel": "New Tools",
+    "state": "browsing",
+    "activity": "Opening source pages for promising tools",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "scanner",
+      "target": "tool sources",
+      "count": 7
+    }
+  },
+  {
+    "eventId": "models-evaluating",
+    "offsetSeconds": 13,
+    "workflow": "models-infra",
+    "workflowLabel": "Models Infra",
+    "state": "evaluating",
+    "activity": "Comparing model routing options",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "models",
+      "target": "routing options",
+      "count": 4
+    }
+  },
+  {
+    "eventId": "creator-writing",
+    "offsetSeconds": 18,
+    "workflow": "creator-content",
+    "workflowLabel": "Creator Content",
+    "state": "writing",
+    "activity": "Drafting creator angle for the daily brief",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "creator",
+      "target": "daily brief"
+    }
+  },
+  {
+    "eventId": "social-x-posting",
+    "offsetSeconds": 23,
+    "workflow": "social-x",
+    "workflowLabel": "X Highlights",
+    "state": "posting_to_x",
+    "activity": "Posting public highlight thread",
+    "ttlSeconds": 900,
+    "publicUrl": "https://x.com/example/status/1234567890",
+    "context": {
+      "station": "social-x",
+      "target": "highlight thread"
+    }
+  },
+  {
+    "eventId": "terminal-publish",
+    "offsetSeconds": 28,
+    "workflow": "terminal-publisher",
+    "workflowLabel": "Terminal Publisher",
+    "state": "terminal_publish",
+    "activity": "Publishing vetted signal to Dev Terminal",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "terminal-publisher",
+      "target": "Dev Terminal"
+    }
+  },
+  {
+    "eventId": "newsletter-build",
+    "offsetSeconds": 33,
+    "workflow": "newsletter",
+    "workflowLabel": "Newsletter",
+    "state": "newsletter",
+    "activity": "Composing deeper intel section",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "newsletter",
+      "target": "deeper intel"
+    }
+  },
+  {
+    "eventId": "tools-complete",
+    "offsetSeconds": 38,
+    "workflow": "new-tools",
+    "workflowLabel": "New Tools",
+    "state": "complete",
+    "activity": "Tool sweep complete",
+    "ttlSeconds": 240,
+    "context": {
+      "station": "scanner",
+      "count": 12
+    }
+  },
+  {
+    "eventId": "github-error",
+    "offsetSeconds": 43,
+    "workflow": "github",
+    "workflowLabel": "GitHub Watch",
+    "state": "error",
+    "activity": "Repository watch hit a recoverable API error",
+    "ttlSeconds": 240,
+    "context": {
+      "station": "github",
+      "target": "repository watch"
+    }
+  },
+  {
+    "eventId": "github-recovery",
+    "offsetSeconds": 48,
+    "workflow": "github",
+    "workflowLabel": "GitHub Watch",
+    "state": "researching",
+    "activity": "Repository watch recovered and resumed",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "github",
+      "target": "repository watch"
+    }
+  }
+]

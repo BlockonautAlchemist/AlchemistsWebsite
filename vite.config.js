@@ -1,5 +1,7 @@
 const { resolve } = require('node:path');
 const { defineConfig } = require('vite');
+const commandCenterStateHandler = require('./api/command-center/state');
+const commandCenterTelemetryHandler = require('./api/command-center/telemetry');
 const newsletterSubscribeHandler = require('./api/newsletter/subscribe');
 const terminalSignalsHandler = require('./api/terminal/signals');
 const { getStreamersData } = require('./server/streamers/twitch');
@@ -55,6 +57,26 @@ module.exports = defineConfig({
 
         server.middlewares.use(async (req, res, next) => {
           const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/api/command-center/state') {
+            next();
+            return;
+          }
+
+          await commandCenterStateHandler(req, res);
+        });
+
+        server.middlewares.use(async (req, res, next) => {
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/api/command-center/telemetry') {
+            next();
+            return;
+          }
+
+          await commandCenterTelemetryHandler(req, res);
+        });
+
+        server.middlewares.use(async (req, res, next) => {
+          const url = new URL(req.url || '/', 'http://localhost');
           if (url.pathname !== '/api/newsletter/subscribe') {
             next();
             return;
@@ -66,7 +88,8 @@ module.exports = defineConfig({
         const cleanUrls = {
           '/vision-forge': '/vision-forge.html',
           '/streamers': '/streamers.html',
-          '/terminal': '/terminal.html'
+          '/terminal': '/terminal.html',
+          '/command-center': '/command-center.html'
         };
         server.middlewares.use((req, _res, next) => {
           const path = req.url && req.url.replace(/\/$/, '');
@@ -84,7 +107,8 @@ module.exports = defineConfig({
         main: resolve(__dirname, 'index.html'),
         visionForge: resolve(__dirname, 'vision-forge.html'),
         streamers: resolve(__dirname, 'streamers.html'),
-        terminal: resolve(__dirname, 'terminal.html')
+        terminal: resolve(__dirname, 'terminal.html'),
+        commandCenter: resolve(__dirname, 'command-center.html')
       }
     }
   }

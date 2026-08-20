@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="Original placeholder SpawnCamper agent sprite">
+  <rect width="96" height="96" fill="none"/>
+  <ellipse cx="48" cy="84" rx="24" ry="6" fill="#050706" opacity="0.38"/>
+  <path d="M30 42h36l8 16v18H22V58Z" fill="#28362f" stroke="#86ffc8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M34 18h28l9 16-8 17H33l-8-17Z" fill="#1b2420" stroke="#f5c65a" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="35" y="29" width="26" height="13" rx="3" fill="#0a1110" stroke="#78f4c2" stroke-width="2"/>
+  <rect x="40" y="33" width="6" height="5" fill="#78f4c2"/>
+  <rect x="51" y="33" width="6" height="5" fill="#78f4c2"/>
+  <path d="M24 58h-9v16h9M72 58h9v16h-9" fill="none" stroke="#d58cff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 76v10M60 76v10" stroke="#f5c65a" stroke-width="5" stroke-linecap="round"/>
+  <rect x="36" y="56" width="24" height="10" rx="3" fill="#101614" stroke="#ff68d2" stroke-width="2"/>
+  <path d="M42 61h12" stroke="#ff68d2" stroke-width="2" stroke-linecap="round"/>
+</svg>
