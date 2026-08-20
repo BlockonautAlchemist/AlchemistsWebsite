@@ -208,7 +208,7 @@ test('newsletter payload helper keeps Beehiiv mutations limited to subscriptions
   assert.equal(Object.hasOwn(payload, 'automation_ids'), false);
 });
 
-test('terminal page exposes newsletter CTA as a separate sticky sidebar panel', () => {
+test('terminal page exposes newsletter CTA as a separate desktop-sticky sidebar panel', () => {
   const html = fs.readFileSync(`${__dirname}/../terminal.html`, 'utf8');
   const css = fs.readFileSync(`${__dirname}/../terminal.css`, 'utf8');
 
@@ -232,6 +232,7 @@ test('terminal page exposes newsletter CTA as a separate sticky sidebar panel', 
   assert.match(html, /id="terminal-newsletter-status"[\s\S]+role="status"[\s\S]+aria-live="polite"/);
   assert.match(html, new RegExp(NEWSLETTER_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(css, /\.terminal-sidebar\s*{[\s\S]+position:\s*sticky/);
+  assert.match(css, /@media \(max-width: 1023px\) \{[\s\S]+\.terminal-sidebar\s*{[\s\S]+position:\s*static;[\s\S]+top:\s*auto;/);
   assert.match(css, /\.terminal-rail,\s*\n\.terminal-newsletter\s*{/);
   assert.match(css, /\.terminal-page\s*{[\s\S]+overflow-x:\s*clip/);
   assert.match(css, /\.terminal-newsletter\b/);

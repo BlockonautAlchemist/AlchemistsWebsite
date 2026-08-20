@@ -1186,7 +1186,13 @@
 }
 
 @media (max-width: 1023px) {
-  /* rail collapses to a horizontal strip pinned under the nav */
+  .terminal-sidebar {
+    position: static;
+    top: auto;
+    z-index: auto;
+  }
+
+  /* rail collapses to a horizontal strip above the feed */
   .terminal-rail {
     flex-direction: row;
     flex-wrap: wrap;
