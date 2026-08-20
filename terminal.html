@@ -88,41 +88,43 @@
 
   <div class="terminal-shell">
 
-    <aside class="terminal-rail" aria-label="Feed controls" data-reveal>
-      <div class="terminal-rail__block terminal-rail__block--row">
-        <span class="terminal-rail__label mono" id="terminal-status-label">Uplink</span>
-        <span id="terminal-status" role="status" aria-live="polite" aria-labelledby="terminal-status-label">Connecting</span>
+    <aside class="terminal-sidebar" aria-label="Feed controls and deeper intel" data-reveal>
+      <div class="terminal-rail" aria-label="Feed controls">
+        <div class="terminal-rail__block terminal-rail__block--row">
+          <span class="terminal-rail__label mono" id="terminal-status-label">Uplink</span>
+          <span id="terminal-status" role="status" aria-live="polite" aria-labelledby="terminal-status-label">Connecting</span>
+        </div>
+
+        <div class="terminal-rail__block">
+          <h2 class="terminal-rail__label mono">Channels</h2>
+          <div class="terminal-filters" id="terminal-filters"></div>
+        </div>
+
+        <div class="terminal-rail__block terminal-rail__block--row">
+          <span class="terminal-rail__label mono" id="terminal-sort-label">Order</span>
+          <div class="terminal-sort" id="terminal-sort" role="group" aria-labelledby="terminal-sort-label"></div>
+        </div>
+
+        <form class="terminal-search" id="terminal-search-form" role="search">
+          <label class="terminal-search__prompt mono" for="terminal-search">
+            <span aria-hidden="true">alchemist@terminal:~$</span>
+            <span class="terminal-sr">Search signals</span>
+          </label>
+          <input class="terminal-search__input mono" id="terminal-search" type="search" maxlength="120" autocomplete="off" placeholder="grep --signals">
+          <span class="terminal-search__cursor mono" aria-hidden="true">█</span>
+          <button class="terminal-search__clear mono" id="terminal-search-clear" type="button" aria-label="Clear search" hidden>[ x ]</button>
+        </form>
+
+        <button class="terminal-refresh mono" id="terminal-refresh" type="button">./refresh --signals</button>
+
+        <dl class="terminal-readout mono" aria-hidden="true">
+          <div><dt>uplink</dt><dd class="is-ok">47ms</dd></div>
+          <div><dt>packets</dt><dd class="is-warm">1.28k</dd></div>
+          <div><dt>channels</dt><dd class="is-cool">8/8</dd></div>
+          <div><dt>buffer</dt><dd>▓▓▓▓▓▒░ 71%</dd></div>
+          <div><dt>crt</dt><dd class="is-ok">ok</dd></div>
+        </dl>
       </div>
-
-      <div class="terminal-rail__block">
-        <h2 class="terminal-rail__label mono">Channels</h2>
-        <div class="terminal-filters" id="terminal-filters"></div>
-      </div>
-
-      <div class="terminal-rail__block terminal-rail__block--row">
-        <span class="terminal-rail__label mono" id="terminal-sort-label">Order</span>
-        <div class="terminal-sort" id="terminal-sort" role="group" aria-labelledby="terminal-sort-label"></div>
-      </div>
-
-      <form class="terminal-search" id="terminal-search-form" role="search">
-        <label class="terminal-search__prompt mono" for="terminal-search">
-          <span aria-hidden="true">alchemist@terminal:~$</span>
-          <span class="terminal-sr">Search signals</span>
-        </label>
-        <input class="terminal-search__input mono" id="terminal-search" type="search" maxlength="120" autocomplete="off" placeholder="grep --signals">
-        <span class="terminal-search__cursor mono" aria-hidden="true">█</span>
-        <button class="terminal-search__clear mono" id="terminal-search-clear" type="button" aria-label="Clear search" hidden>[ x ]</button>
-      </form>
-
-      <button class="terminal-refresh mono" id="terminal-refresh" type="button">./refresh --signals</button>
-
-      <dl class="terminal-readout mono" aria-hidden="true">
-        <div><dt>uplink</dt><dd class="is-ok">47ms</dd></div>
-        <div><dt>packets</dt><dd class="is-warm">1.28k</dd></div>
-        <div><dt>channels</dt><dd class="is-cool">8/8</dd></div>
-        <div><dt>buffer</dt><dd>▓▓▓▓▓▒░ 71%</dd></div>
-        <div><dt>crt</dt><dd class="is-ok">ok</dd></div>
-      </dl>
 
       <section class="terminal-newsletter" id="terminal-newsletter" aria-labelledby="terminal-newsletter-title">
         <p class="terminal-newsletter__kicker mono">// DEEPER INTEL</p>

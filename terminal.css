@@ -6,7 +6,7 @@
    ========================================================================== */
 
 .terminal-root {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .terminal-page {
@@ -29,6 +29,7 @@
   --terminal-z-overlay: 900;
 
   background: var(--terminal-bg);
+  overflow-x: clip;
   color: var(--ink-soft, #dbc8e8);
 }
 
@@ -268,19 +269,31 @@
 }
 
 /* Control rail --------------------------------------------------------- */
-.terminal-rail {
+.terminal-sidebar {
   position: sticky;
   top: var(--nav-h, 82px);
   z-index: 5;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 12px;
+  min-width: 0;
+}
+
+.terminal-rail,
+.terminal-newsletter {
+  min-width: 0;
   padding: 14px;
   background: rgba(13, 2, 20, 0.94);
   border: 1px solid var(--terminal-hairline);
   border-radius: var(--radius, 8px);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   box-shadow: 0 12px 40px -22px rgba(255, 46, 151, 0.55);
+}
+
+.terminal-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .terminal-rail__block {
@@ -632,13 +645,8 @@
 
 /* Newsletter CTA ------------------------------------------------------- */
 .terminal-newsletter {
-  flex: 1 1 100%;
   display: grid;
   gap: 8px;
-  min-width: 0;
-  margin-top: 2px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--terminal-hairline-soft);
 }
 
 .terminal-newsletter__kicker,
@@ -1171,7 +1179,7 @@
     gap: 22px;
   }
 
-  .terminal-rail {
+  .terminal-sidebar {
     top: calc(var(--nav-h, 82px) + 16px);
   }
 
@@ -1248,7 +1256,8 @@
     display: none;
   }
 
-  .terminal-rail {
+  .terminal-rail,
+  .terminal-newsletter {
     background: rgba(13, 2, 20, 0.97);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -1264,8 +1273,12 @@
     width: min(100%, 90vw, 360px);
   }
 
-  .terminal-rail {
+  .terminal-rail,
+  .terminal-newsletter {
     padding: 11px;
+  }
+
+  .terminal-rail {
     border-radius: 0 0 var(--radius, 8px) var(--radius, 8px);
   }
 

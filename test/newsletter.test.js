@@ -208,17 +208,21 @@ test('newsletter payload helper keeps Beehiiv mutations limited to subscriptions
   assert.equal(Object.hasOwn(payload, 'automation_ids'), false);
 });
 
-test('terminal page exposes newsletter CTA after the readout with accessible hooks', () => {
+test('terminal page exposes newsletter CTA as a separate sticky sidebar panel', () => {
   const html = fs.readFileSync(`${__dirname}/../terminal.html`, 'utf8');
   const css = fs.readFileSync(`${__dirname}/../terminal.css`, 'utf8');
 
+  const sidebarStart = html.indexOf('<aside class="terminal-sidebar"');
+  const railStart = html.indexOf('<div class="terminal-rail"', sidebarStart);
   const readoutStart = html.indexOf('<dl class="terminal-readout');
   const readoutEnd = html.indexOf('</dl>', readoutStart) + '</dl>'.length;
   const newsletterStart = html.indexOf('<section class="terminal-newsletter"', readoutEnd);
 
+  assert.notEqual(sidebarStart, -1);
+  assert.ok(railStart > sidebarStart);
   assert.notEqual(readoutStart, -1);
   assert.ok(newsletterStart > readoutEnd);
-  assert.equal(html.slice(readoutEnd, newsletterStart).trim(), '');
+  assert.match(html.slice(readoutEnd, newsletterStart), /^\s*<\/div>\s*$/);
   assert.match(html, /\/\/ DEEPER INTEL/);
   assert.match(html, /GO BEYOND THE TERMINAL/);
   assert.match(html, /Get the deeper intel behind the signals\./);
@@ -227,6 +231,9 @@ test('terminal page exposes newsletter CTA after the readout with accessible hoo
   assert.match(html, /id="terminal-newsletter-email"[\s\S]+type="email"[\s\S]+autocomplete="email"/);
   assert.match(html, /id="terminal-newsletter-status"[\s\S]+role="status"[\s\S]+aria-live="polite"/);
   assert.match(html, new RegExp(NEWSLETTER_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(css, /\.terminal-sidebar\s*{[\s\S]+position:\s*sticky/);
+  assert.match(css, /\.terminal-rail,\s*\n\.terminal-newsletter\s*{/);
+  assert.match(css, /\.terminal-page\s*{[\s\S]+overflow-x:\s*clip/);
   assert.match(css, /\.terminal-newsletter\b/);
   assert.match(css, /\.terminal-newsletter__status\[data-state="success"\]/);
   assert.match(css, /\.terminal-newsletter__status\[data-state="error"\]/);
