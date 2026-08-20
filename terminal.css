@@ -888,8 +888,6 @@
 .terminal-card {
   position: relative;
   overflow: hidden;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 320px;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -1148,7 +1146,7 @@
 }
 
 /* Reveal (shared script.js hook) --------------------------------------- */
-.terminal-main [data-reveal] {
+.js .terminal-main [data-reveal] {
   opacity: 0;
   transform: translateY(14px);
   transition: opacity 520ms ease, transform 520ms ease;
@@ -1345,7 +1343,7 @@
     transition-duration: 0.01ms !important;
   }
 
-  .terminal-main [data-reveal] {
+  .js .terminal-main [data-reveal] {
     opacity: 1;
     transform: none;
   }
