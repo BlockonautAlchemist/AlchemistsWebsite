@@ -8,7 +8,7 @@
   <meta property="og:title" content="SpawnCamper9000 Command Center - The Alchemists" />
   <meta property="og:description" content="Live SpawnCamper9000 workflow state for The Alchemists AI gaming intelligence pipeline." />
   <meta property="og:image" content="assets/full-logo.png" />
-  <meta name="theme-color" content="#111513" />
+  <meta name="theme-color" content="#0d0214" />
 
   <link rel="icon" type="image/png" href="assets/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -62,65 +62,66 @@
   </nav>
 
   <main class="cc-main" id="command-center">
-    <section class="cc-app" aria-labelledby="cc-title">
-      <div class="cc-stage">
-        <header class="cc-stage__bar">
-          <div>
-            <p class="eyebrow cc-eyebrow">SpawnCamper9000</p>
-            <h1 class="display" id="cc-title">Command Center</h1>
-          </div>
-          <div class="cc-status mono" aria-live="polite">
-            <span id="cc-status" data-state="connecting">Connecting</span>
-            <span id="cc-status-copy">opening uplink</span>
-          </div>
-        </header>
+    <section class="cc-room" aria-labelledby="cc-title" data-readonly="true">
+      <header class="cc-room__header">
+        <div>
+          <p class="eyebrow cc-eyebrow mono">The Alchemists / Behind the curtain</p>
+          <h1 class="display" id="cc-title">SpawnCamper9000<span>Command Center</span></h1>
+        </div>
+        <p class="cc-room__copy">
+          The facility floor, live. Every lamp, sweep and transmission below is driven by
+          real SpawnCamper9000 workflow telemetry &mdash; nothing here is simulated.
+        </p>
+      </header>
 
-        <div class="cc-canvas-wrap">
-          <div class="cc-canvas" id="cc-canvas" aria-label="Pixel command center map"></div>
+      <div class="cc-world">
+        <div class="cc-world__bar mono">
+          <span>Facility view · cam fixed · zoom &times;1</span>
+          <span class="cc-world__live">● Live telemetry</span>
         </div>
 
-        <noscript>
-          <p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render live workflow telemetry.</p>
-        </noscript>
+        <div class="cc-world__frame" id="cc-frame">
+          <div class="cc-canvas" id="cc-canvas" role="img" aria-label="SpawnCamper9000 command center facility floor"></div>
+
+          <aside class="cc-hud" id="cc-hud" data-edge="left" aria-labelledby="cc-hud-title" hidden>
+            <div class="cc-hud__head">
+              <span class="mono" id="cc-hud-eyebrow">Zone · inspect</span>
+              <h2 class="mono" id="cc-hud-title">Central Operations</h2>
+            </div>
+            <dl class="cc-hud__rows" id="cc-hud-rows"></dl>
+          </aside>
+        </div>
+
+        <div class="cc-strip" id="cc-strip">
+          <p class="cc-strip__line mono">Mode · <strong id="cc-strip-state">Idle</strong></p>
+          <p class="cc-strip__line cc-strip__caption mono" id="cc-strip-caption">No workflows · room alive, nothing operational</p>
+          <div class="cc-strip__hairline"><i id="cc-strip-progress"></i></div>
+          <ul class="cc-strip__unattended mono" id="cc-strip-unattended"></ul>
+        </div>
       </div>
 
-      <aside class="cc-ops" aria-label="Command Center telemetry">
-        <div class="cc-readout">
-          <div>
-            <span class="cc-readout__label mono">active</span>
-            <strong id="cc-active-count">0</strong>
-          </div>
-          <div>
-            <span class="cc-readout__label mono">stale</span>
-            <strong id="cc-stale-count">0</strong>
-          </div>
-          <div>
-            <span class="cc-readout__label mono">updated</span>
-            <strong id="cc-updated-at">No heartbeat</strong>
-          </div>
-        </div>
+      <!--
+        A canvas is opaque to assistive technology, so the same sanitized public
+        state the room renders is mirrored here for screen readers. Read-only.
+      -->
+      <div class="cc-a11y" id="cc-a11y">
+        <h2>Live command center state</h2>
+        <p aria-live="polite">
+          Uplink <span id="cc-status" data-state="connecting">Connecting</span>,
+          <span id="cc-status-copy">opening uplink</span>.
+          <span id="cc-active-count">0</span> active,
+          <span id="cc-stale-count">0</span> stale,
+          updated <span id="cc-updated-at">No heartbeat</span>.
+        </p>
+        <h3 id="cc-area-title">Central Operations</h3>
+        <div id="cc-area-body" aria-live="polite"></div>
+        <h3>Recent signals</h3>
+        <ol id="cc-recent-list" aria-live="polite"></ol>
+      </div>
 
-        <section class="cc-panel" aria-labelledby="cc-workflows-title">
-          <div class="cc-panel__head">
-            <h2 class="display" id="cc-workflows-title">Workflows</h2>
-          </div>
-          <div class="cc-workflows" id="cc-workflow-list" aria-live="polite"></div>
-        </section>
-
-        <section class="cc-panel cc-selected" aria-labelledby="cc-selected-title">
-          <div class="cc-panel__head">
-            <h2 class="display" id="cc-selected-title">Uplink</h2>
-          </div>
-          <div class="cc-selected__body" id="cc-selected-body"></div>
-        </section>
-
-        <section class="cc-panel" aria-labelledby="cc-history-title">
-          <div class="cc-panel__head">
-            <h2 class="display" id="cc-history-title">Recent</h2>
-          </div>
-          <ol class="cc-history" id="cc-history-list" aria-live="polite"></ol>
-        </section>
-      </aside>
+      <noscript>
+        <p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render live workflow telemetry.</p>
+      </noscript>
     </section>
   </main>
 

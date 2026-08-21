@@ -1,4 +1,9 @@
-import { COMMAND_CENTER_FALLBACK_STATION_ID, stationIdForWorkflow } from './sceneConfig.mjs';
+import {
+  COMMAND_CENTER_AREAS,
+  COMMAND_CENTER_COMPLETE_ACK_MS,
+  COMMAND_CENTER_FALLBACK_AREA_ID,
+  areaIdForWorkflow
+} from './sceneConfig.mjs';
 
 export const COMMAND_CENTER_STATES = Object.freeze([
   'idle',
@@ -38,9 +43,17 @@ export const COMMAND_CENTER_ACTIVE_STATES = Object.freeze([
   'waiting'
 ]);
 
+export const COMMAND_CENTER_TRANSMISSION_STATES = Object.freeze([
+  'terminal_publish',
+  'posting_to_x',
+  'newsletter',
+  'publishing'
+]);
+
 const STATE_SET = new Set(COMMAND_CENTER_STATES);
 const ACTIVE_STATE_SET = new Set(COMMAND_CENTER_ACTIVE_STATES);
 const ATTENTION_STATE_SET = new Set(['warning', 'error']);
+const TRANSMISSION_STATE_SET = new Set(COMMAND_CENTER_TRANSMISSION_STATES);
 
 function cleanText(value, maxLength = 220) {
   if (value === undefined || value === null) return '';
@@ -110,14 +123,34 @@ function computedExpiresAt(timestamp, ttlSeconds) {
   return new Date(timestampValue + ttlSeconds * 1000).toISOString();
 }
 
+function isFreshComplete(state, sortTime, now) {
+  if (state !== 'complete' || !sortTime) return false;
+  const age = now - sortTime;
+  return age >= 0 && age <= COMMAND_CENTER_COMPLETE_ACK_MS;
+}
+
+function displayStateFor({ state, stale, history, sortTime, now }) {
+  if (history) return state;
+  if (stale) return 'idle';
+  if (state === 'complete' && !isFreshComplete(state, sortTime, now)) return 'idle';
+  return state;
+}
+
 function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {}) {
   const state = normalizeState(entry.state);
   const timestamp = isoDate(entry.timestamp || entry.eventTimestamp || entry.updatedAt || entry.receivedAt);
   const ttlSeconds = Number.isInteger(entry.ttlSeconds) ? entry.ttlSeconds : 0;
   const expiresAt = isoDate(entry.expiresAt) || computedExpiresAt(timestamp, ttlSeconds);
   const expired = Boolean(expiresAt && timestampMs(expiresAt) <= now);
-  const displayState = expired && !history ? 'idle' : state;
+  const sortTime = timestampMs(timestamp) || timestampMs(entry.updatedAt) || timestampMs(entry.receivedAt);
+  const stale = expired || Boolean(entry.isStale);
+  const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
+  const areaId = areaIdForWorkflow({
+    workflow: entry.workflow,
+    context
+  }) || COMMAND_CENTER_FALLBACK_AREA_ID;
+  const completeAcknowledged = displayState === 'complete';
   const workflow = {
     id: cleanText(entry.id, 96) || null,
     eventId: cleanText(entry.eventId, 180) || null,
@@ -135,21 +168,34 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     context,
     updatedAt: isoDate(entry.updatedAt || entry.receivedAt),
     receivedAt: isoDate(entry.receivedAt),
-    isStale: expired || Boolean(entry.isStale),
+    isStale: stale,
     isActive: ACTIVE_STATE_SET.has(displayState),
     isAttention: ATTENTION_STATE_SET.has(displayState),
-    isComplete: displayState === 'complete',
+    isComplete: state === 'complete',
+    isCompleteAcknowledgement: completeAcknowledged,
+    isTransmission: TRANSMISSION_STATE_SET.has(displayState),
     isVisible: displayState !== 'idle',
-    sortTime: timestampMs(timestamp) || timestampMs(entry.updatedAt) || timestampMs(entry.receivedAt)
+    sortTime,
+    areaId,
+    stationId: areaId
   };
 
-  workflow.stationId = stationIdForWorkflow(workflow) || COMMAND_CENTER_FALLBACK_STATION_ID;
   return workflow;
 }
 
+function compareLatest(a, b) {
+  const timeDelta = b.sortTime - a.sortTime;
+  if (timeDelta) return timeDelta;
+
+  const workflowDelta = a.workflowLabel.localeCompare(b.workflowLabel);
+  if (workflowDelta) return workflowDelta;
+
+  return String(a.eventId || a.id || '').localeCompare(String(b.eventId || b.id || ''));
+}
+
 function compareWorkflow(a, b) {
-  const activeDelta = Number(b.isVisible) - Number(a.isVisible);
-  if (activeDelta) return activeDelta;
+  const visibleDelta = Number(b.isVisible) - Number(a.isVisible);
+  if (visibleDelta) return visibleDelta;
 
   const timeDelta = b.sortTime - a.sortTime;
   if (timeDelta) return timeDelta;
@@ -157,11 +203,48 @@ function compareWorkflow(a, b) {
   return a.workflowLabel.localeCompare(b.workflowLabel);
 }
 
+function latestMatching(workflows, predicate) {
+  return workflows
+    .filter(predicate)
+    .sort(compareLatest)[0] || null;
+}
+
+export function selectFocusWorkflow(workflows) {
+  return latestMatching(workflows, (workflow) => workflow.displayState === 'error' || workflow.displayState === 'warning')
+    || latestMatching(workflows, (workflow) => TRANSMISSION_STATE_SET.has(workflow.displayState))
+    || latestMatching(workflows, (workflow) => workflow.isActive)
+    || latestMatching(workflows, (workflow) => workflow.isCompleteAcknowledgement)
+    || null;
+}
+
+export function groupWorkflowsByArea(workflows) {
+  return COMMAND_CENTER_AREAS.map((area) => {
+    const areaWorkflows = workflows.filter((workflow) => workflow.areaId === area.id);
+    const visibleWorkflows = areaWorkflows.filter((workflow) => workflow.isVisible);
+    const activeWorkflows = areaWorkflows.filter((workflow) => workflow.isActive);
+    const staleWorkflows = areaWorkflows.filter((workflow) => workflow.isStale);
+    const displayWorkflow = selectFocusWorkflow(areaWorkflows);
+
+    return {
+      id: area.id,
+      label: area.label,
+      shortLabel: area.shortLabel,
+      workflows: areaWorkflows,
+      visibleWorkflows,
+      activeWorkflows,
+      staleWorkflows,
+      displayWorkflow,
+      displayState: displayWorkflow ? displayWorkflow.displayState : 'idle',
+      isActiveArea: Boolean(displayWorkflow)
+    };
+  });
+}
+
 export function deriveOverallStatus(workflows) {
   if (workflows.some((workflow) => workflow.displayState === 'error')) return 'error';
   if (workflows.some((workflow) => workflow.displayState === 'warning')) return 'warning';
   if (workflows.some((workflow) => workflow.isActive)) return 'active';
-  if (workflows.some((workflow) => workflow.displayState === 'complete')) return 'complete';
+  if (workflows.some((workflow) => workflow.isCompleteAcknowledgement)) return 'complete';
   if (workflows.some((workflow) => workflow.isStale)) return 'stale';
   return 'idle';
 }
@@ -177,7 +260,8 @@ export function normalizePublicState(payload = {}, now = Date.now()) {
     .sort((a, b) => b.sortTime - a.sortTime);
   const activeWorkflows = workflows.filter((workflow) => workflow.isActive);
   const visibleWorkflows = workflows.filter((workflow) => workflow.isVisible);
-  const primaryWorkflow = activeWorkflows[0] || visibleWorkflows[0] || null;
+  const primaryWorkflow = selectFocusWorkflow(workflows);
+  const areaGroups = groupWorkflowsByArea(workflows);
 
   return {
     success: payload.success === true,
@@ -185,6 +269,7 @@ export function normalizePublicState(payload = {}, now = Date.now()) {
     workflows,
     activeWorkflows,
     visibleWorkflows,
+    areaGroups,
     recentHistory,
     primaryWorkflow,
     staleCount: workflows.filter((workflow) => workflow.isStale).length,
@@ -199,6 +284,7 @@ export function fallbackCommandCenterState({ message = 'Telemetry unavailable', 
     workflows: [],
     activeWorkflows: [],
     visibleWorkflows: [],
+    areaGroups: groupWorkflowsByArea([]),
     recentHistory: [],
     primaryWorkflow: null,
     staleCount: 0,
