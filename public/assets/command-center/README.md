@@ -75,10 +75,84 @@ edges or the 3/4 overlap seams show.
 
 ## L4 · character
 
-`spawncamper_9000.png` — 48x64 frames, 8x6 grid, 384x384, 37 used frames.
-Row 1 `idle` 6f 8fps · row 2 `hover_travel` front 8f 12fps · row 3 `hover_travel` back
-8f 12fps · row 4 `operate` 6f 10fps · row 5 `inspect` 4f 6fps · row 6 `react` 5f 10fps
-one-shot. Origin 24,60. Shadow baked into the frame (32x8 ellipse, 60% `#0d0214`).
+The character ships **one sheet per animation**, each at whatever frame size it was
+actually exported at. `src/command-center/camperSheets.mjs` is the registry: add the
+file here, list it in `manifest.json`, add its measured entry to `CAMPER_SHEETS`.
+Frame size, frame count, fps, playback order and origin are **per-sheet registry data** —
+a future sheet is free to ship a different frame size or a different number of frames,
+and nothing in the scene assumes the grid below. Visuals with no sheet yet fall back to
+`idle`, so a partial drop still replaces the whitebox rig everywhere.
+
+These six are the current production character. The sizes are measured from the PNGs,
+not from the design bible.
+
+| file | sheet | frames | frame | fps | origin | scale | purpose |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `spawncamper_idle_sheet.png` | 864x108 | 8 | 108x108 | 8 | 0.5, 1 | 1 | `idle` — stationary at home or between jobs; the fallback for any mode without art |
+| `spawncamper_walk_front_sheet.png` | 864x108 | 8 | 108x108 | 12 | 0.5, 1 | 1 | `walk_front` — travelling down the screen (positive Y), facing camera |
+| `spawncamper_walk_back_sheet.png` | 904x113 | 8 | 113x113 | 12 | 0.5, 1 | 1 | `walk_back` — travelling up the screen (negative Y), back to camera |
+| `spawncamper_walk_left_sheet.png` | 880x110 | 8 | 110x110 | 12 | 0.5, 1 | 1 | `walk_left` — travelling left (negative X), in profile |
+| `spawncamper_walk_right_sheet.png` | 880x110 | 8 | 110x110 | 12 | 0.5, 1 | 1 | `walk_right` — travelling right (positive X), in profile |
+| `spawncamper_operate_back_sheet.png` | 904x113 | 8 | 113x113 | 10 | 0.5, 1 | 1 | `operate_back` — stationary at a workstation, back to camera, working the machine |
+
+Shared properties, verified per frame against the actual pixels: single horizontal row,
+zero margin, zero spacing, RGBA8, non-interlaced, and **strictly binary alpha** — not one
+semi-transparent pixel in any of the six — so NEAREST never interpolates an edge. As with
+idle, the transparent pixels carry a leftover key colour under `alpha 0`, which is
+harmless and is **not** stripped at runtime; there is no chroma-key or background-removal
+code anywhere in the scene.
+
+**Ground contact is the frame's bottom edge in every frame of all six sheets** (worst
+case one row of slack on three frames). That is what lets a single `originY: 1` hold his
+feet on the anchor even though frame heights differ (108 / 110 / 113), so switching
+animations produces no vertical hop and the walk graph keeps addressing the same ground
+point it always did. Horizontal content centre never drifts more than ~1.2px from the
+cell centre, so `originX: 0.5` holds for all six too — **no sheet needs an origin
+override**. Every sheet is scale `1`; no `setDisplaySize`, no fractional scaling.
+
+`spawncamper_walk_right_sheet.png` was produced by mirroring the approved left sheet as
+one strip, which mirrors the column order too: `right[j]` is pixel-identical to
+`mirror(left[7 - j])` (frames 1-6 byte-exact; frames 0 and 7 differ only in RGB
+underneath fully transparent pixels, so they render identically). Playing it 0→7 would
+run the approved cadence backwards in time, so its registry entry declares
+`frameOrder: [7,6,5,4,3,2,1,0]`. It loads as its own independent texture, and **no
+`flipX` is applied anywhere** — the mirror is physically in the PNG. The PNG itself is
+never modified.
+
+**No baked contact shadow** in any of these exports, unlike the superseded contract
+below. The scene draws a 72x8 ellipse (60% `#0d0214`) under the sprite instead. Bake one
+into a future sheet and set `bakedShadow: true` on its registry entry to drop it.
+
+### Logical mode → visual animation
+
+Telemetry state names and animation names are separate vocabularies and stay that way;
+the inspector always reports the real logical mode (`NEWSLETTER`, `RESEARCHING`, …),
+never an animation name. The legacy mode names in `visualMappings.mjs` predate the art
+and are deliberately not renamed — SpawnCamper now has mechanical legs, but a repo-wide
+rename would buy terminology and risk telemetry. `CAMPER_VISUAL_FOR_MODE` in
+`camperSheets.mjs` is the entire bridge:
+
+| logical mode | stationary visual | why |
+| --- | --- | --- |
+| `idle` | `idle` | |
+| `operate` | `operate_back` | writing, coding, processing, publishing, X, newsletter, terminal |
+| `inspect` | `operate_back` | researching, scanning, evaluating, thinking — all stationary machine work |
+| `hover_travel_front` / `hover_travel_back` | `operate_back` | legacy travel names surviving as the *resting* mode of `browsing` and `executing`; a resting mode is only ever applied once he has stopped at a station anchor, and both are machine-oriented work |
+| `react` | `idle` | no react sheet drawn yet — safe fallback, never the whitebox rig |
+
+Walk animations are **never** selected from a mode name. While a route is in flight the
+visual comes from the segment actually being traversed, recomputed as each leg starts:
+`+Y → walk_front`, `-Y → walk_back`, `-X → walk_left`, `+X → walk_right`. A route that
+goes right then up switches `walk_right → walk_back` at the turn, not on arrival. On
+arrival the pending logical mode resolves through the table above, giving
+`idle → walk_* → operate_back → walk_* → idle`.
+
+Still to draw: `inspect`, `react`, and any future one-shots (scan, error, publish). Each
+arrives as its own entry with its own measured geometry.
+
+**Superseded** (do not regenerate against this): the design bible's original single-file
+contract was `spawncamper_9000.png`, 48x64 frames, 8x6 grid, 384x384, 37 used frames,
+origin 24,60, shadow baked in. The real Sprite Fusion exports do not use that grid.
 
 ## L5 · reusable effects (tinted at runtime)
 

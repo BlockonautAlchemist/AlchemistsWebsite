@@ -30,6 +30,15 @@ let COMMAND_CENTER_PROPS;
 let COMMAND_CENTER_WALK_GRAPH;
 let routeThroughWalkGraph;
 let COMMAND_CENTER_WORKFLOW_AREAS;
+let CAMPER_SHEETS;
+let camperSheetFor;
+let camperAnimationKeyFor;
+let camperFrameOrderFor;
+let camperStaticFrameFor;
+let camperStationaryVisualFor;
+let camperWalkVisualFor;
+let createCamperVisuals;
+let CAMPER_VISUAL_FOR_MODE;
 
 test.before(async () => {
   ({
@@ -53,6 +62,17 @@ test.before(async () => {
     visualForState
   } = await import('../src/command-center/visualMappings.mjs'));
   ({ routeThroughWalkGraph } = await import('../src/command-center/walkGraph.mjs'));
+  ({
+    CAMPER_SHEETS,
+    camperSheetFor,
+    camperAnimationKeyFor,
+    camperFrameOrderFor,
+    camperStaticFrameFor,
+    camperStationaryVisualFor,
+    camperWalkVisualFor,
+    createCamperVisuals,
+    CAMPER_VISUAL_FOR_MODE
+  } = await import('../src/command-center/camperSheets.mjs'));
 });
 
 test.afterEach(() => {
@@ -828,4 +848,328 @@ test('command center shipped frontend contains no Star Office mutation endpoints
 
   assert.doesNotMatch(combined, /\/set_state|\/status|\/agents|\/join-agent|\/agent-push|\/leave-agent|\/yesterday-memo|\/config\/gemini|\/assets\/generate-rpg-background/i);
   assert.doesNotMatch(combined, /office_bg|star-idle|star_working|sofa|coffee_machine|serverroom|error_bug|guest_anim|button skins|LimeZu/i);
+});
+
+// Reads the PNG's IHDR chunk directly: 8-byte signature, then length + 'IHDR' +
+// width/height as big-endian uint32. No decoding needed to prove the grid.
+function readPngSize(file) {
+  const buffer = fs.readFileSync(file);
+  assert.equal(buffer.slice(1, 4).toString('ascii'), 'PNG', `${file} is not a PNG`);
+  assert.equal(buffer.slice(12, 16).toString('ascii'), 'IHDR', `${file} has no leading IHDR`);
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+}
+
+test('every SpawnCamper sheet entry matches the real dimensions of its PNG', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+
+  assert.equal(CAMPER_SHEETS.length > 0, true, 'no character sheets registered');
+
+  CAMPER_SHEETS.forEach((sheet) => {
+    // The art-swap seam: a sheet the manifest does not list stays whitebox, so
+    // every registered sheet must be listed or it silently never loads.
+    assert.equal(
+      manifest.files.includes(sheet.art),
+      true,
+      `${sheet.art} is registered but missing from manifest.json`
+    );
+
+    const file = `${__dirname}/../public${sheet.art}`;
+    assert.equal(fs.existsSync(file), true, `${sheet.art} listed but not on disk`);
+
+    // The exported grid is trusted over any design-bible contract, but it has to
+    // divide exactly or Phaser slices partial frames out of the sheet.
+    const { width, height } = readPngSize(file);
+    assert.deepEqual(
+      { width, height },
+      { width: sheet.sheetWidth, height: sheet.sheetHeight },
+      `${sheet.art} is ${width}x${height}, registry says ${sheet.sheetWidth}x${sheet.sheetHeight}`
+    );
+    assert.equal(sheet.frameWidth * sheet.frames, width, `${sheet.anim} frames do not tile the sheet width`);
+    assert.equal(sheet.frameHeight, height, `${sheet.anim} frame height is not the sheet height`);
+
+    // Whatever order a sheet declares, Phaser has to be handed a valid frame
+    // range: every index in bounds, each used exactly once.
+    const order = camperFrameOrderFor(sheet);
+    assert.equal(order.length, sheet.frames, `${sheet.anim} frame order length`);
+    assert.deepEqual(
+      [...order].sort((a, b) => a - b),
+      Array.from({ length: sheet.frames }, (_, index) => index),
+      `${sheet.anim} frame order is not a permutation of its frames`
+    );
+    const staticFrame = camperStaticFrameFor(sheet);
+    assert.equal(
+      Number.isInteger(staticFrame) && staticFrame >= 0 && staticFrame < sheet.frames,
+      true,
+      `${sheet.anim} reduced-motion frame is outside the sheet`
+    );
+
+    // Section 01: integer scale only, and the origin stays inside the frame.
+    assert.equal(Number.isInteger(sheet.scale) && sheet.scale > 0, true, `${sheet.anim} scale must be a positive integer`);
+    assert.equal(sheet.fps > 0, true, `${sheet.anim} fps`);
+    assert.equal(sheet.originX >= 0 && sheet.originX <= 1, true, `${sheet.anim} originX`);
+    assert.equal(sheet.originY >= 0 && sheet.originY <= 1, true, `${sheet.anim} originY`);
+  });
+});
+
+test('every SpawnCamper mode resolves to a drawn sheet, falling back to idle and never to the rig', () => {
+  const drawn = new Set(CAMPER_SHEETS.map((sheet) => sheet.anim));
+
+  // Every logical telemetry mode reaches real art through the visual mapping.
+  CAMPER_ANIMATIONS.forEach((mode) => {
+    const visual = camperStationaryVisualFor(mode);
+    assert.equal(drawn.has(visual), true, `${mode} resolved to undrawn visual ${visual}`);
+    const sheet = camperSheetFor(visual);
+    assert.notEqual(sheet, null, `${mode} resolved to no sheet at all`);
+    assert.equal(camperAnimationKeyFor(visual), `camper_${sheet.anim}`, `${mode} animation key`);
+  });
+
+  // A visual with no art yet borrows idle's rather than reverting to the whitebox.
+  assert.equal(camperStationaryVisualFor('scan_not_drawn_yet'), 'idle');
+  assert.equal(camperStationaryVisualFor(undefined), 'idle');
+  assert.equal(camperSheetFor('inspect').anim, 'idle', 'undrawn visual must fall back to idle art');
+  assert.equal(camperAnimationKeyFor('publish_not_drawn_yet'), 'camper_idle');
+
+  // react has no sheet yet, so it holds idle instead of the primitive rig.
+  assert.equal(camperStationaryVisualFor('react'), 'idle');
+});
+
+test('SpawnCamper walk animations follow the segment being travelled, not the destination', () => {
+  // positive Y / down -> front, negative Y / up -> back,
+  // negative X / left -> left,  positive X / right -> right.
+  assert.equal(camperWalkVisualFor(0, 120), 'walk_front');
+  assert.equal(camperWalkVisualFor(0, -120), 'walk_back');
+  assert.equal(camperWalkVisualFor(-120, 0), 'walk_left');
+  assert.equal(camperWalkVisualFor(120, 0), 'walk_right');
+
+  // The walk graph is axis-aligned, so a leg only ever moves on one axis; the
+  // dominant axis still has to win deterministically if one ever does not.
+  assert.equal(camperWalkVisualFor(90, 10), 'walk_right');
+  assert.equal(camperWalkVisualFor(10, -90), 'walk_back');
+
+  // No diagonal cel exists, so nothing may resolve outside the four walks.
+  const walks = new Set(['walk_front', 'walk_back', 'walk_left', 'walk_right']);
+  [[1, 1], [-1, -1], [1, -1], [-1, 1], [0, 0]].forEach(([dx, dy]) => {
+    assert.equal(walks.has(camperWalkVisualFor(dx, dy)), true, `${dx},${dy}`);
+  });
+});
+
+test('SpawnCamper only restarts an animation when the requested visual actually changes', () => {
+  const camper = createCamperVisuals();
+  camper.setMode('idle');
+
+  camper.beginRoute();
+  // Walking right across several consecutive legs is one continuous loop: only
+  // the first leg reports a change, the rest are no-ops that leave it running.
+  assert.equal(camper.travel(120, 0), 'walk_right');
+  assert.equal(camper.travel(80, 0), null);
+  assert.equal(camper.travel(4, 0), null);
+  assert.equal(camper.visual, 'walk_right');
+
+  // A route turn switches immediately, mid-route.
+  assert.equal(camper.travel(0, -60), 'walk_back');
+  assert.equal(camper.travel(0, -40), null);
+  assert.equal(camper.visual, 'walk_back');
+
+  // ...and back again, and to the remaining direction.
+  assert.equal(camper.travel(-30, 0), 'walk_left');
+  assert.equal(camper.travel(0, 30), 'walk_front');
+});
+
+test('SpawnCamper walks the whole route, then operates the workstation on arrival', () => {
+  const camper = createCamperVisuals();
+  camper.setMode('idle');
+  assert.equal(camper.visual, 'idle');
+
+  // right, right, up — the animation turns at the turn, not at the end.
+  camper.beginRoute();
+  const painted = [
+    camper.travel(140, 0),
+    camper.travel(60, 0),
+    camper.travel(0, -90)
+  ].filter(Boolean);
+  assert.deepEqual(painted, ['walk_right', 'walk_back']);
+
+  // operate_back must NOT appear while he is still moving toward the station,
+  // even though the logical mode is already set.
+  assert.equal(camper.setMode('operate'), null);
+  assert.equal(camper.visual, 'walk_back');
+
+  // Arrival hands the visual back to the mode.
+  assert.equal(camper.endRoute('operate'), 'operate_back');
+  assert.equal(camper.visual, 'operate_back');
+
+  // Work ends and he leaves: straight into the next directional walk.
+  camper.beginRoute();
+  assert.equal(camper.travel(0, 120), 'walk_front');
+  // ...then home to idle.
+  assert.equal(camper.endRoute('idle'), 'idle');
+});
+
+test('SpawnCamper visual animation never overwrites the logical telemetry mode', () => {
+  const camper = createCamperVisuals();
+
+  // Every state's logical mode survives being rendered as operate_back.
+  Object.entries(STATE_VISUALS).forEach(([state, visual]) => {
+    camper.setMode(visual.camperAnim);
+    assert.equal(camper.mode, visual.camperAnim, `${state} logical mode was replaced`);
+    assert.equal(
+      CAMPER_ANIMATIONS.includes(camper.mode),
+      true,
+      `${state} logical mode is not a telemetry mode`
+    );
+    // The inspector reads the mode, so it must never be an animation name.
+    assert.equal(camper.mode.startsWith('walk_'), false, `${state} mode leaked an animation name`);
+    assert.notEqual(camper.mode, 'operate_back', `${state} mode leaked an animation name`);
+  });
+
+  // Distinct logical states legitimately share one visual, and stay distinct.
+  assert.equal(camperStationaryVisualFor(visualForState('newsletter').camperAnim), 'operate_back');
+  assert.equal(camperStationaryVisualFor(visualForState('researching').camperAnim), 'operate_back');
+  assert.equal(visualForState('newsletter').label, 'Newsletter');
+  assert.equal(visualForState('researching').label, 'Research');
+  assert.notEqual(visualForState('newsletter').camperAnim, undefined);
+
+  // Machine-oriented working states all reach the workstation animation.
+  [
+    'researching', 'browsing', 'scanning', 'evaluating', 'thinking', 'writing', 'coding',
+    'processing', 'executing', 'publishing', 'posting_to_x', 'newsletter', 'terminal_publish'
+  ].forEach((state) => {
+    assert.equal(
+      camperStationaryVisualFor(visualForState(state).camperAnim),
+      'operate_back',
+      `${state} should operate the machine it walked to`
+    );
+  });
+
+  // Non-working states stay off the workstation loop.
+  ['idle', 'waiting', 'complete', 'warning', 'error'].forEach((state) => {
+    assert.equal(camperStationaryVisualFor(visualForState(state).camperAnim), 'idle', state);
+  });
+});
+
+test('the mirrored walk_right sheet is an independent texture played in its authored order', () => {
+  const left = camperSheetFor('walk_left');
+  const right = camperSheetFor('walk_right');
+
+  // Loaded independently: its own key and its own file, not left's flipped.
+  assert.notEqual(left.key, right.key);
+  assert.notEqual(left.art, right.art);
+  assert.match(right.art, /spawncamper_walk_right_sheet\.png$/);
+
+  // The strip mirror reversed the column order, so it plays back-to-front to
+  // reproduce the approved left cadence.
+  assert.deepEqual(camperFrameOrderFor(right), [7, 6, 5, 4, 3, 2, 1, 0]);
+  assert.deepEqual(camperFrameOrderFor(left), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(right.frames, left.frames);
+
+  // Increasing X selects it, and no second flip is ever applied on top of a PNG
+  // that is already physically mirrored.
+  assert.equal(camperWalkVisualFor(120, 0), 'walk_right');
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.doesNotMatch(scene, /flipX|setFlip|toggleFlip/i);
+});
+
+test('the scene creates the camper animations it plays and sizes the hit box from the sheet', () => {
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  // A sheet with no anims.create renders a frozen frame 0.
+  assert.match(scene, /ensureCamperAnimations/);
+  assert.match(scene, /this\.anims\.create\(/);
+  assert.match(scene, /generateFrameNumbers\(sheet\.key/);
+  // Frame sizes come from the registry, never from a hardcoded grid.
+  assert.match(scene, /frameWidth: sheet\.frameWidth/);
+  assert.doesNotMatch(scene, /frameWidth: 48|spawncamper_9000/);
+  // Playback order is registry data too, so a back-to-front sheet needs no code.
+  assert.match(scene, /camperFrameOrderFor\(sheet\)/);
+  // No chroma-key / background removal anywhere: the PNG's alpha is used as authored.
+  assert.doesNotMatch(scene, /chroma|greenScreen|green_screen|removeBackground|colorKey|keyOut|transparentColor/i);
+
+  // Native pixel art: integer scale from the registry, never a forced display
+  // size on the character (L5's glow image legitimately uses one).
+  assert.doesNotMatch(scene, /camperBody[\s\S]{0,200}?setDisplaySize/);
+  assert.match(scene, /setScale\(sheet\.scale\)/);
+  assert.match(scene, /setOrigin\(sheet\.originX, sheet\.originY\)/);
+
+  // Direction comes from the leg being travelled, and the mode is only painted
+  // once the route ends — that is what keeps operate_back off him while walking.
+  assert.match(scene, /setCamperTravelDirection\(leg\.x - this\.camperRig\.x, leg\.y - this\.camperRig\.y\)/);
+  assert.match(scene, /this\.camperVisuals\.beginRoute\(\)/);
+  assert.match(scene, /this\.camperVisuals\.endRoute\(/);
+
+  // The inspector still reports the logical telemetry mode.
+  assert.match(scene, /anim: this\.camperAnim/);
+
+  // Reduced motion holds one frame of the requested sheet instead of looping.
+  assert.match(scene, /if \(this\.reducedMotion\) \{[\s\S]{0,220}?anims\?\.stop\(\)[\s\S]{0,120}?setFrame\(camperStaticFrameFor\(sheet\)\)/);
+});
+
+test('the camper hit box covers him under every animation regardless of frame size', () => {
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  // Sheets differ in frame size (108/110/113), so a box sized from whichever one
+  // happened to be playing at build time would be wrong after a texture swap.
+  assert.match(scene, /CAMPER_SHEETS\.reduce\(/);
+  assert.doesNotMatch(scene, /this\.camperSheet\.frameWidth \* this\.camperSheet\.scale/);
+
+  const widest = Math.max(...CAMPER_SHEETS.map((sheet) => sheet.frameWidth * sheet.scale));
+  const tallest = Math.max(...CAMPER_SHEETS.map((sheet) => sheet.frameHeight * sheet.scale));
+  CAMPER_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.frameWidth * sheet.scale <= widest, true, `${sheet.anim} wider than the hit box`);
+    assert.equal(sheet.frameHeight * sheet.scale <= tallest, true, `${sheet.anim} taller than the hit box`);
+  });
+
+  // Bottom-centre anchoring and depth sorting are unchanged.
+  assert.match(scene, /camperZone\.setPosition\(this\.camperRig\.x, this\.camperRig\.y - hitHeight \/ 2\)/);
+  assert.match(scene, /\.setDepth\(DEPTH\.camper\)/);
+  CAMPER_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.originX, 0.5, `${sheet.anim} originX`);
+    assert.equal(sheet.originY, 1, `${sheet.anim} originY drifts his feet off the anchor`);
+    assert.equal(sheet.scale, 1, `${sheet.anim} is not native scale`);
+  });
+});
+
+test('the command center manifest lists every character sheet and no unshipped art', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+
+  ['idle', 'walk_front', 'walk_back', 'walk_left', 'walk_right', 'operate_back'].forEach((anim) => {
+    const sheet = CAMPER_SHEETS.find((entry) => entry.anim === anim);
+    assert.notEqual(sheet, undefined, `${anim} is not in the registry`);
+    assert.equal(manifest.files.includes(sheet.art), true, `${anim} missing from manifest.json`);
+  });
+
+  // Nothing is preloaded that is not really on disk: the manifest is the gate.
+  manifest.files.forEach((file) => {
+    assert.equal(
+      fs.existsSync(`${__dirname}/../public${file}`),
+      true,
+      `${file} is listed but not on disk, so preload would 404`
+    );
+  });
+});
+
+test('the terminal page is untouched by the command center character work', () => {
+  // The command center must not reach into /terminal, and /terminal must not
+  // learn about SpawnCamper sheets.
+  const terminalFiles = fs
+    .readdirSync(`${__dirname}/../src/terminal`)
+    .map((file) => `src/terminal/${file}`);
+  assert.equal(terminalFiles.length > 0, true, 'no terminal sources found');
+
+  const terminal = terminalFiles
+    .filter((file) => fs.statSync(`${__dirname}/../${file}`).isFile())
+    .map((file) => fs.readFileSync(`${__dirname}/../${file}`, 'utf8'))
+    .join('\n');
+  assert.doesNotMatch(terminal, /spawncamper|camperSheets|walk_front|operate_back/i);
+
+  const commandCenter = [
+    'src/command-center/CommandCenterScene.mjs',
+    'src/command-center/camperSheets.mjs'
+  ]
+    .map((file) => fs.readFileSync(`${__dirname}/../${file}`, 'utf8'))
+    .join('\n');
+  assert.doesNotMatch(commandCenter, /src\/terminal|\/terminal/);
 });

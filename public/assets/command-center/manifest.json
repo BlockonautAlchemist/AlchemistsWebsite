@@ -1,3 +1,10 @@
 {
-  "files": []
+  "files": [
+    "/assets/command-center/spawncamper_idle_sheet.png",
+    "/assets/command-center/spawncamper_walk_front_sheet.png",
+    "/assets/command-center/spawncamper_walk_back_sheet.png",
+    "/assets/command-center/spawncamper_walk_left_sheet.png",
+    "/assets/command-center/spawncamper_walk_right_sheet.png",
+    "/assets/command-center/spawncamper_operate_back_sheet.png"
+  ]
 }

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 3000",
+    "dev": "node --env-file-if-exists=.env.local ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port 3000",
     "dev:vercel": "node --env-file-if-exists=.env.local ./node_modules/.bin/vc dev --listen 3000",
     "build": "vite build",
     "command-center:replay": "node --env-file-if-exists=.env.local scripts/replay-command-center-telemetry.js",

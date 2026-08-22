@@ -12,6 +12,13 @@ import {
   COMMAND_CENTER_PROPS,
   areaById
 } from './sceneConfig.mjs';
+import {
+  CAMPER_SHEETS,
+  camperFrameOrderFor,
+  camperSheetFor,
+  camperStaticFrameFor,
+  createCamperVisuals
+} from './camperSheets.mjs';
 import { COMMAND_CENTER_TIMINGS, visualForState } from './visualMappings.mjs';
 import { routeThroughWalkGraph } from './walkGraph.mjs';
 
@@ -75,12 +82,15 @@ export class CommandCenterScene extends Phaser.Scene {
     COMMAND_CENTER_PROPS.forEach(queue);
     COMMAND_CENTER_COMPONENTS.forEach(queue);
     COMMAND_CENTER_FOREGROUND.forEach(queue);
-    if (this.hasArt('/assets/command-center/spawncamper_9000.png')) {
-      this.load.spritesheet('spawncamper_9000', '/assets/command-center/spawncamper_9000.png', {
-        frameWidth: 48,
-        frameHeight: 64
+    // L4 character sheets ride the same seam. Each entry carries the frame size
+    // its file was actually exported at — nothing is forced onto a shared grid.
+    CAMPER_SHEETS.forEach((sheet) => {
+      if (!this.hasArt(sheet.art)) return;
+      this.load.spritesheet(sheet.key, sheet.art, {
+        frameWidth: sheet.frameWidth,
+        frameHeight: sheet.frameHeight
       });
-    }
+    });
   }
 
   create() {
@@ -782,14 +792,65 @@ export class CommandCenterScene extends Phaser.Scene {
   // L4 · SpawnCamper9000 (section 03)
   // -------------------------------------------------------------------------
 
+  /**
+   * Registers one looping Phaser animation per loaded sheet. Without this the
+   * sprite branch renders a frozen frame 0 — `playCamperAnimation` only ever
+   * looks animations up, it never creates them.
+   */
+  ensureCamperAnimations() {
+    CAMPER_SHEETS.forEach((sheet) => {
+      if (!this.textures.exists(sheet.key)) return;
+
+      // Belt and braces on top of the game config's `pixelArt: true`: hard pixel
+      // edges, no smoothing, and therefore no interpolation across the sheet's
+      // fully-transparent pixels.
+      const texture = this.textures.get(sheet.key);
+      const nearest = Phaser.Textures?.FilterMode?.NEAREST;
+      if (texture && typeof texture.setFilter === 'function' && nearest !== undefined) {
+        texture.setFilter(nearest);
+      }
+
+      const key = `camper_${sheet.anim}`;
+      if (this.anims.exists(key)) return;
+      // Playback order is registry data: a sheet exported back-to-front (the
+      // mirrored walk_right strip) declares its own order rather than being
+      // re-exported or flipped at runtime.
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(sheet.key, { frames: camperFrameOrderFor(sheet) }),
+        frameRate: sheet.fps,
+        repeat: sheet.repeat
+      });
+    });
+  }
+
   buildCamper() {
     const home = COMMAND_CENTER_CANVAS.homePoint;
+    this.ensureCamperAnimations();
 
-    if (this.textures.exists('spawncamper_9000')) {
-      const sprite = this.add.sprite(0, 0, 'spawncamper_9000').setOrigin(0.5, 0.9375);
+    const idleSheet = camperSheetFor('idle');
+    if (idleSheet && this.textures.exists(idleSheet.key)) {
+      // Origin sits on the character's ground contact, so the walk graph and the
+      // station anchors keep addressing the same point they always did.
+      const sprite = this.add
+        .sprite(0, 0, idleSheet.key)
+        .setOrigin(idleSheet.originX, idleSheet.originY)
+        .setScale(idleSheet.scale);
+
+      // This export bakes no contact shadow (the 48x64 contract did), so the
+      // whitebox rig's ellipse stays, resized to the measured foot span. Drop
+      // this once a sheet ships with its own shadow.
+      const shadow = idleSheet.bakedShadow
+        ? null
+        : this.add.ellipse(0, -2, 72, 8, P.void, 0.6);
+
+      this.camperSheet = idleSheet;
       this.camperSprite = sprite;
-      this.camperRig = this.add.container(home.x, home.y, [sprite]).setDepth(DEPTH.camper);
       this.camperBody = sprite;
+      this.camperShadow = shadow;
+      this.camperRig = this.add
+        .container(home.x, home.y, shadow ? [shadow, sprite] : [sprite])
+        .setDepth(DEPTH.camper);
       this.camperIsSprite = true;
     } else {
       // The design's 48x64 whitebox rig, drawn relative to a bottom-centre origin
@@ -813,6 +874,7 @@ export class CommandCenterScene extends Phaser.Scene {
       this.camperCore = core;
       this.camperTentacles = [tentacleL, tentacleR];
       this.camperRig = this.add.container(home.x, home.y, [shadow, body]).setDepth(DEPTH.camper);
+      this.camperSheet = null;
       this.camperIsSprite = false;
     }
 
@@ -827,19 +889,85 @@ export class CommandCenterScene extends Phaser.Scene {
       .setDepth(DEPTH.camper + 1);
 
     this.camperAnim = '';
+    this.camperRigAnim = '';
+    // Which animation should be showing is decided in camperSheets.mjs; this
+    // scene only paints what it is handed.
+    this.camperVisuals = createCamperVisuals();
     this.playCamperAnimation('idle');
   }
 
+  /**
+   * The logical telemetry mode. This is what `inspectCamper` reports, so it stays
+   * OPERATE / INSPECT / REACT / HOVER_TRAVEL_* — an animation name never
+   * replaces it. Choosing what is on screen is `applyCamperVisual`'s job.
+   *
+   * While a route is in flight the visual belongs to the segment being walked,
+   * so the mode is recorded but not painted; `moveCamperTo` applies the
+   * stationary visual on arrival.
+   */
   playCamperAnimation(name) {
-    if (this.camperAnim === name) return;
     this.camperAnim = name;
+    // The primitive rig has per-mode tweens (inspect tilts, react jitters) with
+    // no sheet equivalent, so it stays keyed to the logical mode.
+    if (!this.camperIsSprite) this.applyWhiteboxRig(name);
+    this.applyCamperVisual(this.camperVisuals.setMode(name));
+  }
+
+  /** The visual animation for the segment currently being traversed. */
+  setCamperTravelDirection(dx, dy) {
+    const visual = this.camperVisuals.travel(dx, dy);
+    if (!this.camperIsSprite && visual) {
+      // The rig has one travel pose, not four.
+      this.applyWhiteboxRig(visual === 'walk_back' ? 'hover_travel_back' : 'hover_travel_front');
+    }
+    this.applyCamperVisual(visual);
+  }
+
+  /**
+   * The only place that touches the sprite, and it paints exactly what
+   * `camperVisuals` hands it. A null means the request resolved to the animation
+   * already playing, so a walk cycle keeps looping across several same-direction
+   * legs instead of restarting at frame 0; a genuine change (walk_right ->
+   * walk_back at a turn, walk_back -> operate_back on arrival) arrives as a real
+   * value and switches immediately.
+   */
+  applyCamperVisual(visual) {
+    if (!visual) return;
 
     if (this.camperIsSprite) {
-      const key = `camper_${name}`;
+      // Visuals without their own sheet yet fall back to the idle art rather
+      // than reverting to the primitive rig.
+      const sheet = camperSheetFor(visual);
+      if (!sheet) return;
+      this.camperSheet = sheet;
+      if (this.camperBody.texture?.key !== sheet.key) {
+        // Origin is per sheet, but every sheet measures out at (0.5, 1): ground
+        // contact is the bottom edge in every frame, so his feet stay on the
+        // anchor across the 108/110/113 frame heights with no vertical hop.
+        this.camperBody
+          .setTexture(sheet.key)
+          .setOrigin(sheet.originX, sheet.originY)
+          .setScale(sheet.scale);
+      }
+      const key = `camper_${sheet.anim}`;
+      if (this.reducedMotion) {
+        // Movement and state keep working; only the loop stops, held on this
+        // sheet's own static frame.
+        this.camperBody.anims?.stop();
+        this.camperBody.setFrame(camperStaticFrameFor(sheet));
+        return;
+      }
       if (this.anims.exists(key)) this.camperBody.play(key, true);
-      return;
     }
+  }
 
+  /**
+   * The pre-art fallback rig, kept only for a build with no character sheets at
+   * all. It never runs once the manifest lists the sheets.
+   */
+  applyWhiteboxRig(name) {
+    if (this.camperRigAnim === name) return;
+    this.camperRigAnim = name;
     this.tweens.killTweensOf([this.camperBody, this.camperCore, ...this.camperTentacles]);
     this.camperBody.setPosition(0, 0);
     this.camperBody.setAngle(0);
@@ -900,13 +1028,22 @@ export class CommandCenterScene extends Phaser.Scene {
 
     if (immediate || this.reducedMotion) {
       // Section 11 restoration: on refresh the camper snaps to the newest live
-      // workflow's anchor with no travel animation.
+      // workflow's anchor with no travel animation. Reduced motion lands here
+      // too: he still relocates and the state still updates, he just does not
+      // walk there.
       place(target.x, target.y);
+      this.applyCamperVisual(this.camperVisuals.endRoute());
       this.focusCamera(target, true);
       return;
     }
 
-    if (Math.abs(this.camperRig.x - target.x) < 2 && Math.abs(this.camperRig.y - target.y) < 2) return;
+    // Already standing there. Ending the route matters when a new destination
+    // lands mid-walk: the old step chain died with its tween, so without this he
+    // would hold the last walk frame forever instead of settling.
+    if (Math.abs(this.camperRig.x - target.x) < 2 && Math.abs(this.camperRig.y - target.y) < 2) {
+      this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
+      return;
+    }
 
     const waypoints = routeThroughWalkGraph({ x: this.camperRig.x, y: this.camperRig.y }, target);
     const timeline = [];
@@ -919,19 +1056,28 @@ export class CommandCenterScene extends Phaser.Scene {
     });
     if (!timeline.length) {
       place(target.x, target.y);
+      this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
       return;
     }
 
-    this.playCamperAnimation(timeline[0].y < this.camperRig.y ? 'hover_travel_back' : 'hover_travel_front');
+    // For the whole flight the visual belongs to the segment being walked, not
+    // to the telemetry mode. `playCamperAnimation` keeps recording the logical
+    // mode meanwhile; it just does not paint until the route ends.
+    this.camperVisuals.beginRoute();
 
     const step = (index) => {
       if (index >= timeline.length) {
+        // Arrival: the pending mode is the state he came here to work in, so a
+        // workstation job resolves to operate_back and home resolves to idle.
+        this.camperVisuals.endRoute();
         this.playCamperAnimation(this.pendingCamperAnim || 'idle');
         return;
       }
       const leg = timeline[index];
-      const goingUp = leg.y < this.camperRig.y - 1;
-      this.playCamperAnimation(goingUp ? 'hover_travel_back' : 'hover_travel_front');
+      // Direction comes from the leg actually being traversed, recomputed as
+      // each leg starts, so a route that goes right then up switches
+      // walk_right -> walk_back at the turn rather than on arrival.
+      this.setCamperTravelDirection(leg.x - this.camperRig.x, leg.y - this.camperRig.y);
       this.tweens.add({
         targets: this.camperRig,
         x: leg.x,
@@ -1157,12 +1303,23 @@ export class CommandCenterScene extends Phaser.Scene {
       this.zoneObjects.set(area.id, object);
     });
 
-    const camperZone = this.add.zone(0, 0, 48, 64).setInteractive({ useHandCursor: false });
+    // Sized from the largest registered sheet rather than whichever one happens
+    // to be playing, so the box still covers him after a texture swap between
+    // animations with different frame sizes. The whitebox rig keeps the design's
+    // original 48x64 box.
+    const sheetExtent = (dimension) => CAMPER_SHEETS.reduce(
+      (largest, sheet) => Math.max(largest, sheet[dimension] * sheet.scale),
+      0
+    );
+    const hitWidth = this.camperSheet ? sheetExtent('frameWidth') : 48;
+    const hitHeight = this.camperSheet ? sheetExtent('frameHeight') : 64;
+    const camperZone = this.add.zone(0, 0, hitWidth, hitHeight).setInteractive({ useHandCursor: false });
     camperZone.input.cursor = 'crosshair';
     camperZone.on('pointerdown', () => this.inspectCamper());
     this.camperZone = camperZone;
     this.events.on('update', () => {
-      camperZone.setPosition(this.camperRig.x, this.camperRig.y - 32);
+      // The origin is on his feet, so the box hangs one half-height above the anchor.
+      camperZone.setPosition(this.camperRig.x, this.camperRig.y - hitHeight / 2);
     });
   }
 
