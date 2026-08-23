@@ -99,7 +99,7 @@ export const STATE_VISUALS = Object.freeze({
     severity: 'active',
     effect: 'orbit',
     rate: 1.25,
-    components: Object.freeze(['anim_core_pulse', 'anim_ops_desk_screens']),
+    components: Object.freeze(['anim_ops_desk_screens']),
     conduits: Object.freeze(['SP', 'D3'])
   }),
   thinking: Object.freeze({
@@ -115,7 +115,7 @@ export const STATE_VISUALS = Object.freeze({
     severity: 'active',
     effect: 'orbit',
     rate: 1.25,
-    components: Object.freeze(['anim_core_pulse']),
+    components: Object.freeze([]),
     conduits: Object.freeze(['D3'])
   }),
   writing: Object.freeze({

@@ -39,11 +39,11 @@ export const PROP_STATIC = 'static';
 export const PROP_ANIMATED = 'animated';
 
 // Seeded from the paths sceneConfig already declared. The manifest is the gate:
-// ten machines ship real animated sheets today (Opportunity Radar, Tool
+// eleven machines ship real animated sheets today (Opportunity Radar, Tool
 // Scanner, Newsletter Still, X Uplink, Creator Console, Repo Forge, Model
-// Furnace, Profit Analyzer, Publish Transmitter, News Array) and render as
-// finished art; every other entry names a file the manifest does not list,
-// makes zero requests, and keeps its whitebox.
+// Furnace, Profit Analyzer, Publish Transmitter, News Array, Experiment Bench)
+// and render as finished art; every other entry names a file the manifest does
+// not list, makes zero requests, and keeps its whitebox.
 //
 // `id`         unique instance. Two instances may share one `textureKey`
 //              (both wide crates) — the file is fetched once.
@@ -291,13 +291,32 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_furnace_chamber', 'prop_rack_a', 'prop_rack_b']),
     coversComponents: Object.freeze(['anim_furnace_heat', 'anim_rack_leds', 'anim_fan'])
   }),
+  // Experiment Bench (zone 09). The entry that used to sit here was `core_well`,
+  // the Power Core's static deliverable. The Power Core was retired — it was
+  // scenery that drove nothing, sitting in the best floor pocket in the room —
+  // and the Experiment Bench moved onto that same 144x96 box, ending the
+  // three-way share of `prop_scanner_bench`. The sheet is the complete wooden
+  // alchemist bench: potions, books, the magical circle and its spell effects all
+  // move in frame, so there is nothing procedural to paint on top and
+  // `coversComponents` is empty. The 203x203 cell keeps 57 empty rows under the
+  // bench feet, so `offsetY` puts them back on the floor line. 6fps is one 1.333s
+  // ambient loop.
   Object.freeze({
-    id: 'core_well',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_core_well.png`,
-    textureKey: 'prop_core_well',
-    covers: Object.freeze(['prop_core_well']),
-    coversComponents: Object.freeze(['anim_core_pulse', 'anim_core_sigil', 'anim_core_seed'])
+    id: 'experiment_bench',
+    type: PROP_ANIMATED,
+    art: `${ART_ROOT}/anim_experiment_bench_sheet.png`,
+    textureKey: 'anim_experiment_bench',
+    sheetWidth: 1624,
+    sheetHeight: 203,
+    frameWidth: 203,
+    frameHeight: 203,
+    frames: 8,
+    fps: 6,
+    repeat: -1,
+    offsetY: 57,
+    shadowWidth: 127,
+    covers: Object.freeze(['prop_experiment_bench']),
+    coversComponents: Object.freeze([])
   }),
   // Creator Console (zone 10). Split off `prop_wall_feed_shells`, which three
   // unrelated machines shared, onto a floor console of its own during the

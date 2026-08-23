@@ -537,14 +537,6 @@ export class CommandCenterScene extends Phaser.Scene {
       this.fillMaybeRounded(g, x, y, part.w, part.h, radius);
     }
 
-    if (part.recessed) {
-      // Inset drop shadow inside the core well.
-      for (let i = 0; i < 8; i += 1) {
-        g.fillStyle(0x000000, 0.09 * (1 - i / 8));
-        g.fillRect(x + 2, y + 2 + i, part.w - 4, 1);
-      }
-    }
-
     if (part.stroke !== undefined) {
       g.lineStyle(part.strokeWidth || 1, part.stroke, part.strokeAlpha === undefined ? 1 : part.strokeAlpha);
       if (radius) g.strokeRoundedRect(x, y, part.w, part.h, this.radiusObject(radius));
@@ -834,30 +826,6 @@ export class CommandCenterScene extends Phaser.Scene {
         object.parts.lines = this.addMonoText(object, 6, 5, 'FURNACE ⌁ IDLE', spec.color, 0.75);
         break;
       }
-      case 'core': {
-        const glow = this.addGlow(spec.w / 2, spec.h / 2, spec.w * 1.15, spec.h * 1.15, spec.color, 0.5, false);
-        object.container.add(glow);
-        object.parts.glow = glow;
-        const rim = this.addGlow(spec.w / 2, spec.h / 2, spec.w * 0.7, spec.h * 0.75, spec.accent, 0.08, false);
-        object.container.add(rim);
-        break;
-      }
-      case 'sigil': {
-        const sigil = this.add.rectangle(spec.w / 2, spec.h / 2, spec.w, spec.h, 0x000000, 0);
-        sigil.setStrokeStyle(2, spec.color, 0.5).setAngle(45);
-        object.container.add(sigil);
-        object.parts.sigil = sigil;
-        break;
-      }
-      case 'core-seed': {
-        const halo = this.addGlow(spec.w / 2, spec.h / 2, 34, 34, spec.color, 0.22);
-        object.container.add(halo);
-        const seed = this.add.rectangle(0, 0, spec.w, spec.h, spec.color, 1).setOrigin(0, 0);
-        object.container.add(seed);
-        object.parts.seed = seed;
-        object.parts.halo = halo;
-        break;
-      }
       default:
         break;
     }
@@ -927,19 +895,6 @@ export class CommandCenterScene extends Phaser.Scene {
         parts.fans.forEach((fan, index) => {
           add({ targets: fan, angle: 360, duration: 1100 + index * 500, repeat: -1, ease: 'Linear' });
         });
-      }
-      if (spec.kind === 'core' && parts.glow) {
-        add({
-          targets: parts.glow,
-          scaleX: 1.06, scaleY: 1.06, alpha: 0.62,
-          duration: 1700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-        });
-      }
-      if (parts.sigil) {
-        add({ targets: parts.sigil, angle: 405, duration: 18000, repeat: -1, ease: 'Linear' });
-      }
-      if (parts.seed) {
-        add({ targets: parts.seed, alpha: 0.55, duration: 2100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       }
       if (parts.blip) {
         add({ targets: parts.blip, alpha: 0.1, duration: 2200, yoyo: true, repeat: -1, ease: 'Stepped' });
@@ -1744,9 +1699,6 @@ export class CommandCenterScene extends Phaser.Scene {
       case 'furnace':
         add({ targets: parts.heat, alpha: 0.85, scaleY: 1.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         parts.lines?.setText('FURNACE ⌁ ACTIVE').setAlpha(1);
-        break;
-      case 'core':
-        component.ambientTweens.forEach((tween) => tween.setTimeScale?.(1.8));
         break;
       case 'keyboard':
         parts.ripple.setVisible(true).setX(0);

@@ -67,7 +67,7 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     name: 'Agent Lab',
     shortName: 'Agents',
     description: 'Evaluates agent workflows and automation patterns.',
-    visualDescription: 'Shared scanner bench running compact lab sweeps and signal lamps.',
+    visualDescription: 'Scanner bench shared with Tool Scanner, running compact lab sweeps and signal lamps.',
     workflows: ['agents'],
     hermesJobs: [job('agents', 'Agents')],
     areaId: 'scanner-bench',
@@ -106,16 +106,20 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     areaId: 'profit-analyzer',
     propKeys: ['prop_profit_analyzer']
   }),
+  // Zone 09, the middle of the room. It shared the scanner bench with Tool Scanner
+  // and Agent Lab until the Power Core — scenery with no Hermes job behind it — was
+  // retired and this machine took its floor pocket. Workflow key, Hermes job and
+  // every other semantic field are untouched; only where it physically stands moved.
   machine({
     id: 'experiment-bench',
     name: 'Experiment Bench',
     shortName: 'Playbooks',
     description: 'Turns discoveries into repeatable playbooks and experiments.',
-    visualDescription: 'Shared scanner bench cycling test sweeps and compact status lamps.',
+    visualDescription: 'Wooden alchemist bench with potions, books, a glowing magical circle and spell effects.',
     workflows: ['playbooks'],
     hermesJobs: [job('playbooks', 'Playbooks')],
-    areaId: 'scanner-bench',
-    propKeys: ['prop_scanner_bench']
+    areaId: 'experiment-bench',
+    propKeys: ['prop_experiment_bench']
   }),
   machine({
     id: 'newsletter-still',

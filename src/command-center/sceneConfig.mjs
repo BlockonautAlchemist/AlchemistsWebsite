@@ -240,11 +240,16 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     x: 768, y: 288, w: 120, h: 72,
     parts: Object.freeze(deskParts(120, 72, 22))
   }),
+  // Zone 09. This 144x96 pocket in the middle of the room was the Power Core's
+  // recessed well: scenery with no Hermes job behind it, holding the best floor
+  // pocket in the facility while three real machines shared one bench across the
+  // room. The Power Core is retired outright and the Experiment Bench moved in as
+  // the sole workflow machine here — same box, same walk anchor, same zone number.
   Object.freeze({
-    key: 'prop_core_well',
-    zone: 'power-core',
+    key: 'prop_experiment_bench',
+    zone: 'experiment-bench',
     x: 408, y: 264, w: 144, h: 96,
-    parts: Object.freeze([{ x: 0, y: 0, w: 144, h: 96, fill: COMMAND_CENTER_PALETTE.bg0, stroke: SHELL_TOP, strokeWidth: 2, recessed: true }])
+    parts: Object.freeze(deskParts(144, 96, 24))
   }),
   // Zone 10 and 11. Creator Console and Profit Analyzer used to hang off
   // `prop_wall_feed_shells` alongside News Array — three unrelated workflow
@@ -445,22 +450,9 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
     screen: 0x1b0a10, bezel: COMMAND_CENTER_PALETTE.warm,
     ambient: 'gauge', operational: 'heat'
   }),
-  Object.freeze({
-    key: 'anim_core_pulse', zone: 'power-core', kind: 'core',
-    x: 420, y: 276, w: 120, h: 72,
-    color: COMMAND_CENTER_PALETTE.brand, accent: COMMAND_CENTER_PALETTE.cyan,
-    ambient: 'pulse', operational: 'pulse-fast'
-  }),
-  Object.freeze({
-    key: 'anim_core_sigil', zone: 'power-core', kind: 'sigil',
-    x: 456, y: 294, w: 48, h: 36,
-    color: COMMAND_CENTER_PALETTE.gold, ambient: 'slow-rotate'
-  }),
-  Object.freeze({
-    key: 'anim_core_seed', zone: 'power-core', kind: 'core-seed',
-    x: 474, y: 306, w: 12, h: 12,
-    color: COMMAND_CENTER_PALETTE.gold, ambient: 'glow'
-  }),
+  // The Power Core's three components — core pulse, slow sigil, seed glow — were
+  // deleted with the Power Core itself. The Experiment Bench that took its pocket
+  // ships as one full-object sheet, so it declares no whitebox components at all.
   Object.freeze({
     key: 'anim_creator_screens', zone: 'creator-console', kind: 'crt-row',
     x: 276, y: 214, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
@@ -516,8 +508,8 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['newsletter', 'processing', 'writing'])
   }),
   Object.freeze({
-    id: 'D3', label: 'ops console → core', axis: 'v', x: 477, y: 216, length: 48, thickness: 6,
-    direction: 1, color: COMMAND_CENTER_PALETTE.gold, zone: 'power-core',
+    id: 'D3', label: 'ops console → experiment bench', axis: 'v', x: 477, y: 216, length: 48, thickness: 6,
+    direction: 1, color: COMMAND_CENTER_PALETTE.gold, zone: 'experiment-bench',
     triggers: Object.freeze(['evaluating', 'thinking'])
   }),
   Object.freeze({
@@ -567,7 +559,7 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'res-spur', from: Object.freeze({ x: 132, y: 324 }), to: Object.freeze({ x: 240, y: 324 }) }),
     Object.freeze({ id: 'code-spur', from: Object.freeze({ x: 132, y: 468 }), to: Object.freeze({ x: 240, y: 468 }) }),
     Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 828, y: 372 }), to: Object.freeze({ x: 898, y: 372 }) }),
-    Object.freeze({ id: 'core-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 622, y: 372 }) }),
+    Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 622, y: 372 }) }),
     Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 300, y: 480 }), to: Object.freeze({ x: 300, y: 490 }) }),
     Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
     Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 780, y: 480 }), to: Object.freeze({ x: 780, y: 490 }) }),
@@ -617,7 +609,7 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   Object.freeze({
     id: 'scanner-bench', zoneNumber: '03',
     label: 'Scanner Bench', shortLabel: 'Scanner',
-    description: 'New Tools / Agents / Playbooks',
+    description: 'New Tools / Agents',
     x: 132, y: 288,
     destination: Object.freeze({ x: 132, y: 324 }),
     bounds: Object.freeze({ x: 48, y: 264, width: 168, height: 48 }),
@@ -709,15 +701,15 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     depth: 20
   }),
   Object.freeze({
-    id: 'power-core', zoneNumber: '09',
-    label: 'Power Core', shortLabel: 'Core',
-    description: 'Recessed well, always on',
+    id: 'experiment-bench', zoneNumber: '09',
+    label: 'Experiment Bench', shortLabel: 'Bench',
+    description: 'Playbooks and repeatable experiments',
     x: 480, y: 312,
     destination: Object.freeze({ x: 480, y: 372 }),
     bounds: Object.freeze({ x: 408, y: 264, width: 144, height: 96 }),
     hitRects: Object.freeze([Object.freeze({ x: 408, y: 264, width: 144, height: 96 })]),
     color: COMMAND_CENTER_PALETTE.brand,
-    accent: COMMAND_CENTER_PALETTE.cyan,
+    accent: COMMAND_CENTER_PALETTE.gold,
     conduits: Object.freeze(['D3']),
     depth: 20
   }),
@@ -772,7 +764,8 @@ export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   'ai-news': 'intelligence-research',
   scanner: 'scanner-bench',
   bench: 'scanner-bench',
-  playbooks: 'scanner-bench',
+  playbooks: 'experiment-bench',
+  experiment: 'experiment-bench',
   'new-tools': 'scanner-bench',
   agents: 'scanner-bench',
   github: 'github-code',
@@ -792,9 +785,7 @@ export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   comms: 'x-communications',
   terminal: 'terminal-transmitter',
   'terminal-publisher': 'terminal-transmitter',
-  transmitter: 'terminal-transmitter',
-  core: 'power-core',
-  power: 'power-core'
+  transmitter: 'terminal-transmitter'
 });
 
 export const COMMAND_CENTER_FALLBACK_AREA_ID = 'central-operations';

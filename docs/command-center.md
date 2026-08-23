@@ -45,7 +45,7 @@ the pixel grid. Presentation scale is handled by CSS on the canvas element inste
 | layer | depth | contents | moves |
 | --- | --- | --- | --- |
 | L1 env | 0 | floor, wall, trim, stencils, conduit channels | no |
-| L2 props | 10 | desks, drums, benches, racks, still body, console shells, core well | no |
+| L2 props | 10 | desks, drums, benches, racks, still body, console shells | no |
 | L3 anim | 20 | screen content, LEDs, fans, radar, gauges, chamber fill, furnace heat | yes |
 | L4 camper | 25 | SpawnCamper9000 | yes |
 | L5 fx | 30 | packets, pulses, beam, spark, glitch, success flash, warning lamp | yes |
@@ -183,21 +183,24 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | --- | --- | --- | --- | --- |
 | 01 | `central-operations` | ops console + wall CRT array | 3 screens, keyboard LEDs | 480,228 |
 | 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,324 |
-| 03 | `scanner-bench` | New Tools / Agents / Playbooks bench | sweep bar, ready lamp | 132,324 (shared) |
+| 03 | `scanner-bench` | New Tools / Agents bench | full-object sheet | 132,324 (shared) |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
 | 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 300,480 |
 | 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,480 |
 | 07 | `terminal-transmitter` | large CRT + receptacle | charge orb, packet out | 780,480 |
 | 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,372 |
-| 09 | `power-core` | recessed well, always on | core pulse, slow sigil | 480,372 |
+| 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
 
-Every anchor sits **south** of its machine, so one `operate` animation serves all eight
-working stations - there is no per-station interaction art. Zone 09 is ambient-only.
+Every anchor sits **south** of its machine, so one `operate` animation serves every working
+station - there is no per-station interaction art. Zone 09 was the Power Core, an ambient-only
+recessed well; the Power Core was retired and the Experiment Bench took that pocket, so zone
+09 is a working station like the rest.
 
 Workflow-to-zone mappings:
 
 - `ai-news`, `creator-content`, `monetization` -> `intelligence-research`
-- `new-tools`, `agents`, `playbooks` -> `scanner-bench`
+- `new-tools`, `agents` -> `scanner-bench`
+- `playbooks` -> `experiment-bench`
 - `github` -> `github-code`
 - `models-infra` -> `model-infrastructure`
 - `newsletter` -> `newsletter`
@@ -206,7 +209,7 @@ Workflow-to-zone mappings:
 
 Unknown workflow IDs fall back to `central-operations`. A valid `context.station` overrides
 the mapping through aliases such as `scanner`, `intel`, `creator`, `models`, `furnace`,
-`social-x`, `terminal-publisher`, and `core`.
+`social-x`, `terminal-publisher`, and `experiment`.
 
 ## Conduit Map (section 05)
 
@@ -218,7 +221,7 @@ spawn per event.
 | SP | spine (all zones) | H 132,246 -> 900,246 | cyan | any active workflow |
 | D1 | intel bench -> spine | V 129,252 h60 up | cyan | researching / browsing / scanning |
 | D2 | spine -> newsletter still | V 297,252 h60 down | purple | newsletter compiling |
-| D3 | ops console -> core | V 477,216 h48 down | gold | evaluating / thinking |
+| D3 | ops console -> experiment bench | V 477,216 h48 down | gold | evaluating / thinking |
 | D4 | spine -> X console | V 525,252 h132 down | magenta | writing -> posting_to_x |
 | D5 | X mast -> outside | V 596,0 h276 up, beam | magenta | posting_to_x |
 | D6 | spine -> terminal transmitter | V 777,252 h108 down | gold | terminal_publish |
@@ -313,7 +316,7 @@ Generation order: **02 -> 07 -> 01 -> 03 -> 04 -> 06 -> 05**. Bodies first: they
 palette and the rivet language everything else copies.
 
 1. **Environment** - "Dark alchemical AI facility floor and back wall, 24px pixel tiles, riveted purple-black metal panels, faint gold floor stencils, recessed cable channels, overhead pipe run along the wall top, 3/4 top-down, no furniture, no machines, no characters, no glow. 960x528."
-2. **Workstation bodies** - "Set of retro-alchemy laboratory machine bodies, unlit and powered down: wide operator console, ribbed radar drum, long scanner bench, code bench with disk tower, tall copper distillation column with input tubes, communications console with antenna mast, heavy transmitter cabinet, two compute racks, industrial processing chamber, recessed circular core well. Purple-black metal, gold trim, dark screen holes left EMPTY. [CONSTRAINT BLOCK]"
+2. **Workstation bodies** - "Set of retro-alchemy laboratory machine bodies, unlit and powered down: wide operator console, ribbed radar drum, long scanner bench, code bench with disk tower, tall copper distillation column with input tubes, communications console with antenna mast, heavy transmitter cabinet, two compute racks, industrial processing chamber. Purple-black metal, gold trim, dark screen holes left EMPTY. [CONSTRAINT BLOCK]"
 3. **Screen content** (one row per machine) - "Pixel CRT screen contents only, no bezel, no shell: green phosphor terminal readout, cyan radar grid, cyan scanning bar, ASCII box-drawing status frame, magenta transmission meter, gold charge gauge. Flat, 6px pixel font, no curvature, transparent outside the screen rectangle. [CONSTRAINT BLOCK]"
 4. **Small animated components** - "Sprite sheet of tiny industrial animated parts on transparent background: 4-frame fan blade rotation, 6-frame LED bank blink, 8-frame radar sweep wedge, 10-frame liquid-light chamber fill purple to magenta, 6-frame rotating coil, 8-frame gold charge orb. Uniform 24px-scale chunk. [CONSTRAINT BLOCK]"
 5. **SpawnCamper9000** - "Pixel art robot mascot, 48x64 frames, 6-row sprite sheet: hovering gold ovoid torso with purple riveted collar, glass dome head containing a magenta brain, two dark segmented tentacle arms trailing, small hot orange chest core. Rows: idle 6f, hover travel front 8f, hover travel back 8f, operating console 6f, leaning to inspect 4f, glitch recoil 5f. Never walking, never legs. Baked soft ellipse shadow. [CONSTRAINT BLOCK]"

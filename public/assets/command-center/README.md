@@ -13,11 +13,11 @@ and production art stays in `src/command-center/propSheets.mjs`.
 | News Array | AI News | `ai-news` | AI gaming news intelligence | Shallow horizontal wall display, cycling CRT cells, cyan packets |
 | Repo Forge | GitHub | `github` | Repository and code-signal watch | Green code bench, phosphor terminal, disk tower |
 | Tool Scanner | New Tools | `new-tools` | New AI/game-dev tool discovery | Long scanner bench, cyan scan bar, ready lamp |
-| Agent Lab | Agents | `agents` | Agent workflow and automation review | Shared scanner bench with compact lab sweeps |
+| Agent Lab | Agents | `agents` | Agent workflow and automation review | Scanner bench shared with Tool Scanner, compact lab sweeps |
 | Model Furnace | Models Infra | `models-infra` | Model routing and infrastructure evaluation | Twin racks feeding a heated processing chamber |
 | Creator Console | Creator Content | `creator-content` | Creator-facing intelligence angles | Floor console, three-cell editorial CRT row, signal traffic |
 | Profit Analyzer | Monetization | `monetization` | Monetization and partner opportunity review | Floor console, gold analysis CRT row, warmer pulses |
-| Experiment Bench | Playbooks | `playbooks` | Playbooks and repeatable experiments | Shared scanner bench with test sweeps and status lamps |
+| Experiment Bench | Playbooks | `playbooks` | Playbooks and repeatable experiments | Wooden alchemist bench, potions and books, glowing magical circle, spell effects |
 | Newsletter Still | Newsletter, Finisher | `newsletter` | Longer-form newsletter distillation | Tall still column, coil, chamber fill, output tray |
 | X Uplink | X Draft, X Publish, X Amplify | `social-x` | Public X formatting and transmission | Communications console, transport CRT, antenna mast |
 | Publish Transmitter | Beehiiv Draft | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, wall receptacle, charge meter |
@@ -124,7 +124,6 @@ have no `prop_<name>.png` deliverable at all — an animated sheet replaces it o
 | --- | --- | --- |
 | `prop_ops_console.png` | 192x72 | 01 |
 | `prop_wall_crt_bank.png` | 216x84 | 01, wall-mounted |
-| `prop_core_well.png` | 144x96 | 09, recessed, no glow baked |
 
 Art pass 2 removed five rows from this table. `prop_creator_console.png`, `prop_code_bench.png`,
 `prop_disk_tower.png`, `prop_rack.png` and `prop_furnace_chamber.png` are **no longer
@@ -133,8 +132,14 @@ of those machines, disk tower and both racks included. Do not produce them.
 
 Art pass 3 removed three more. `prop_profit_analyzer.png`, `prop_tx_body.png` and
 `prop_wall_feed_shells.png` are **no longer deliverables either** — the Profit Analyzer,
-Publish Transmitter and News Array sheets are the whole of those machines. Only three static
-prop deliverables are left, and they are the three rows above.
+Publish Transmitter and News Array sheets are the whole of those machines.
+
+Art pass 4 removed the last one. **`prop_core_well.png` is not a deliverable and must never
+be produced.** The Power Core was scenery — a recessed well in the middle of the room with no
+Hermes job behind it and no machine mapped to its zone — and it was **removed from the room
+entirely** in art pass 4, body, components and zone identity together. The Experiment Bench
+took its floor pocket. Only two static prop deliverables are left, and they are the two rows
+above.
 
 ## L3 · animated props (full-object sprite sheets)
 
@@ -193,7 +198,7 @@ spacing, RGBA8, non-interlaced, binary alpha, so NEAREST never interpolates an e
 ### Shipped animated machines
 
 Measured off the PNGs themselves — each file was decoded and its alpha walked per frame.
-All ten are one horizontal strip, binary alpha, zero margin, zero spacing, and every
+All eleven are one horizontal strip, binary alpha, zero margin, zero spacing, and every
 frame's content is horizontally centred in its cell to within 0.5px, so none needs an origin
 or scale override. That centring is also what makes `flipX` safe — a mirror about a centred
 origin leaves the machine on the same floor spot — and a test holds it there.
@@ -202,7 +207,7 @@ The invariant that actually holds is `frameHeight == sheetHeight`, **not** squar
 Repo Forge cell is 203x202, the Model Furnace cell 202x203 and the Publish Transmitter cell
 149x144. Do not assume square cells; measure.
 
-Seven carry a vertical offset, and it is always the same measurement — the empty rows the
+Eight carry a vertical offset, and it is always the same measurement — the empty rows the
 Sprite Fusion cell leaves **under the machine's contact edge**, identical in all 8 frames.
 `offsetY` equals that slack exactly, which puts the last opaque row back on the bottom edge
 of the whitebox box. Without it the machine floats that far above its station.
@@ -215,6 +220,7 @@ of the whitebox box. Without it the machine floats that far above its station.
 | Repo Forge | 29 rows of a 202px cell | 29 |
 | Publish Transmitter | 32 rows of a 144px cell | 32 |
 | Model Furnace | 41 rows of a 203px cell | 41 |
+| Experiment Bench | 57 rows of a 203px cell | 57 |
 | News Array | 70 rows of a 204px cell | 70 |
 
 News Array is the one wall-mounted sheet, so its contact edge is the bottom edge of the wall
@@ -235,9 +241,10 @@ band. It is also the only shipped sheet that carries `groundShadow: false` and r
 | `anim_profit_analyzer_sheet.png` | Profit Analyzer | 11 | 1576x197 | 8 | 197x197 | 6 | 1.333s | `prop_profit_analyzer` |
 | `anim_publish_transmitter_sheet.png` | Publish Transmitter | 07 | 1192x144 | 8 | 149x144 | 6 | 1.333s | `prop_tx_body` |
 | `anim_news_array_sheet.png` | News Array | 02 | 1608x204 | 8 | 201x204 | 6 | 1.333s | `prop_wall_feed_shells` (wall) |
+| `anim_experiment_bench_sheet.png` | Experiment Bench | 09 | 1624x203 | 8 | 203x203 | 6 | 1.333s | `prop_experiment_bench` |
 
 The `loop` column is the cycle length **while SpawnCamper is working at that machine**.
-None of the ten overrides `staticFrame`, so all ten rest on frame 0 of their own sheet
+None of the eleven overrides `staticFrame`, so all eleven rest on frame 0 of their own sheet
 whenever he is not — which is most of the time, and the reason frame 0 should read as a
 powered-but-idle pose rather than a mid-motion pose.
 
@@ -374,6 +381,21 @@ and both are cosmetic:
   art's right edge at x822.5, because the cabinet is narrower than the box the lane was drawn
   against. Routing, telemetry and the lane's triggers are unchanged.
 
+Art pass 4 is one machine and one deletion:
+
+| machine | art occupies | against its boxes |
+| --- | --- | --- |
+| Experiment Bench | x 416.5-543.5, y 270-360 | sits **inside** the 144x96 box (408-552), leaving ~8.5px of bare floor each side and 6px at the top. The Publish Transmitter case again: the box is a floor plan, the bench is compact |
+
+It is the only shipped sheet whose art fits entirely within its box in both axes. Clearances
+around it were checked against the real art of every neighbour: the Ops Console box's bottom
+edge at y216 is 54px above it, the X Mast box at x576 is 32.5px to its right, the Profit
+Analyzer's art starts at x623.5 (80px clear) and the Creator Console's ends at x385.5 (31px
+clear). Conduit `D4` (`spine → X console`, x525, y 252-384) crosses the bench's footprint —
+it crossed the core well's identically before the swap, so nothing about that changed. `D3`
+now stops 6px above the bench's top edge instead of on the well's rim; it kept its id,
+geometry and triggers and only changed which zone owns it.
+
 Two art-to-art seams are worth knowing about, both at the same `DEPTH.props` with no
 y-sorting, so registry order decides: the Creator Console's right edge lands at x 385.5
 against the Ops Console box's left edge at 384 (~1.5px, Creator draws later and wins), and
@@ -413,10 +435,33 @@ and (690, 324), each one axis-aligned spur off an existing lane (`creator-spur` 
 `west-lane`, `profit-spur` off `centre-spur`). Workflow keys, Hermes job ids, telemetry
 state names and the API are unchanged — only which zone a machine physically occupies moved.
 
-**Still outstanding:** `prop_scanner_bench` is shared by Tool Scanner, Agent Lab and
-Experiment Bench. Deferred, because the room has no third clean floor pocket with camper
-standing room. `KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` records it as debt;
-the test fails if any *new* collision appears, and the list may not be extended.
+The second three-way collision is now down to a pair:
+
+| machine | was | now | zone |
+| --- | --- | --- | --- |
+| Tool Scanner | `prop_scanner_bench` | `prop_scanner_bench` — **art shipped** | 03, floor |
+| Agent Lab | `prop_scanner_bench` | `prop_scanner_bench` (still shared) — **deferred** | 03, floor |
+| Experiment Bench | `prop_scanner_bench` | `prop_experiment_bench` 144x96 @ 408,264 — **art shipped** | **09**, floor |
+
+Art pass 4 resolved Experiment Bench by **retiring the Power Core**. Zone 09 was a recessed
+well in the middle of the room with no Hermes job behind it and no machine mapped to its
+lane, so its group was permanently idle, its `anim_core_pulse` / `anim_core_sigil` /
+`anim_core_seed` components were ambient-only and conduit `D3`'s operational branch could
+never fire — scenery holding the best floor pocket in the facility while three real machines
+shared one bench across the room. `prop_core_well`, those three components, the `core` and
+`power` aliases and the Power Core's whitebox renderer paths were all deleted together, and
+the Experiment Bench moved onto the same 144x96 box.
+
+Because the box, the zone number and the walk anchor were reused verbatim, this move needed
+**no walk-graph geometry at all** — the old `core-spur` was renamed `bench-spur` and nothing
+else. He routes (480,228) → (622,228) → (622,372) → (480,372), axis-aligned, and stands 12px
+south of the bench's bottom edge. Workflow keys, Hermes job ids and telemetry state names are
+unchanged; only which zone the machine physically occupies moved.
+
+**Still outstanding:** `prop_scanner_bench` is shared by Tool Scanner and Agent Lab. Agent
+Lab is now the only workflow machine in the room without a box of its own.
+`KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` records it as debt; the test fails if
+any *new* collision appears, and the list may not be extended.
 
 ## L4 · character
 
@@ -579,5 +624,3 @@ The superseded sizing table, kept for reference:
 | `anim_rack_leds.png` | 56x104 | 6 | 8 | reused for both racks, offset |
 | `anim_fan.png` | 34x34 | 4 | 16 | reused x2 |
 | `anim_furnace_heat.png` | 96x38 | 6 | 6 | |
-| `anim_core_pulse.png` | 120x72 | 8 | 6 | |
-| `anim_core_sigil.png` | 48x36 | 16 | 4 | slow rotation, ambient only |

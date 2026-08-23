@@ -492,7 +492,7 @@ test('maps workflows and context aliases to command center room areas', () => {
     ['agents', 'scanner-bench'],
     ['creator-content', 'creator-console'],
     ['monetization', 'profit-analyzer'],
-    ['playbooks', 'scanner-bench'],
+    ['playbooks', 'experiment-bench'],
     ['github', 'github-code'],
     ['models-infra', 'model-infrastructure'],
     ['newsletter', 'newsletter'],
@@ -1855,7 +1855,7 @@ test('every animated machine resolves to a real zone SpawnCamper can walk to', (
   // zone. A machine whose anchor lost its zone would silently never wake.
   const areaIds = new Set(COMMAND_CENTER_AREAS.map((area) => area.id));
   const animated = PROP_SHEETS.filter(isAnimatedProp);
-  assert.equal(animated.length, 10, 'the shipped animated machine count changed');
+  assert.equal(animated.length, 11, 'the shipped animated machine count changed');
 
   animated.forEach((entry) => {
     const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
@@ -1925,9 +1925,12 @@ test('only the machine SpawnCamper stands at runs; every other one holds frame 0
     assert.deepEqual(room(zoneId), entries.map((entry) => entry.id).sort(), `${zoneId} station`);
   });
 
+  // Zone 09 used to be the Power Core: a zone with no machine, no art and nothing
+  // to wake. The Experiment Bench took that pocket, so standing there now runs it.
+  assert.deepEqual(room('experiment-bench'), ['experiment_bench']);
+
   // A zone with no art of its own leaves the room still rather than throwing.
   assert.deepEqual(room('central-operations'), []);
-  assert.deepEqual(room('power-core'), []);
 
   // Reduced motion outranks attendance everywhere.
   byZone.forEach((entries, zoneId) => {
@@ -2096,16 +2099,16 @@ test('the prop art registry leaves the SpawnCamper systems alone', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The ten machine sheets that actually ship today (section 08 art passes 1-3).
+// The eleven machine sheets that actually ship today (section 08 art passes 1-4).
 // ---------------------------------------------------------------------------
 
 // Measured off the real PNGs, not copied from a design contract: each file was
-// decoded and its alpha walked per frame. All ten are one horizontal strip of
+// decoded and its alpha walked per frame. All eleven are one horizontal strip of
 // cells, zero margin, zero spacing, binary alpha. The invariant that holds is
 // `frameHeight == sheetHeight`, not squareness: the Repo Forge cell is 203x202,
 // the Model Furnace cell 202x203 and the Publish Transmitter cell 149x144.
 //
-// `offsetY` is the only *positional* override any of them carries, and seven do:
+// `offsetY` is the only *positional* override any of them carries, and eight do:
 // each of those cells leaves empty rows under the machine's contact edge, so
 // without the nudge it hangs that far off its box. Alongside it sit two more
 // measured facts — `shadowWidth`, how wide the art really is, which sizes the
@@ -2211,6 +2214,17 @@ const SHIPPED_MACHINE_SHEETS = [
     shadowWidth: 85
   },
   {
+    id: 'experiment_bench',
+    machine: 'Experiment Bench',
+    art: '/assets/command-center/anim_experiment_bench_sheet.png',
+    textureKey: 'anim_experiment_bench',
+    sheetWidth: 1624, sheetHeight: 203, frameWidth: 203, frameHeight: 203, frames: 8, fps: 6,
+    anchorProp: 'prop_experiment_bench',
+    // Measured bottom slack: content ends at frame y=145 of a 203px cell.
+    offsetY: 57,
+    shadowWidth: 127
+  },
+  {
     id: 'wall_feed_shells',
     machine: 'News Array',
     art: '/assets/command-center/anim_news_array_sheet.png',
@@ -2226,7 +2240,7 @@ const SHIPPED_MACHINE_SHEETS = [
   }
 ];
 
-test('the ten shipped machine sheets resolve as animated art in the registry', () => {
+test('the eleven shipped machine sheets resolve as animated art in the registry', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     assert.notEqual(entry, null, `${expected.machine} is not in the prop registry`);
@@ -2365,7 +2379,7 @@ test('machine art casts a generated contact shadow on the floor line it stands o
   assert.match(scene, /this\.addGlow\(at\.x, at\.y, at\.width, at\.height, P\.void, at\.alpha, false\)\s*\.setDepth\(DEPTH\.props - 1\)/);
 });
 
-test('the ten shipped sheets tile exactly at the dimensions their PNGs really are', () => {
+test('the eleven shipped sheets tile exactly at the dimensions their PNGs really are', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     const file = `${__dirname}/../public${entry.art}`;
@@ -2403,7 +2417,7 @@ test('the ten shipped sheets tile exactly at the dimensions their PNGs really ar
   });
 });
 
-test('the manifest ships the ten machine sheets so they actually preload', () => {
+test('the manifest ships the eleven machine sheets so they actually preload', () => {
   const manifest = JSON.parse(
     fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
   );
@@ -2432,7 +2446,7 @@ test('the manifest ships the ten machine sheets so they actually preload', () =>
   });
 });
 
-test('the ten shipped machines anchor bottom-centre on their whitebox box', () => {
+test('the eleven shipped machines anchor bottom-centre on their whitebox box', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === expected.anchorProp);
@@ -2465,7 +2479,7 @@ test('the ten shipped machines anchor bottom-centre on their whitebox box', () =
   });
 });
 
-test('the ten shipped machines loop when worked at, and hold their first frame otherwise', () => {
+test('the eleven shipped machines loop when worked at, and hold their first frame otherwise', () => {
   const anims = fakeAnims();
 
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
@@ -2490,7 +2504,7 @@ test('the ten shipped machines loop when worked at, and hold their first frame o
   });
 
   assert.equal(anims.created.length, SHIPPED_MACHINE_SHEETS.length, 'a machine loop was created twice');
-  assert.deepEqual(anims.created.map((entry) => entry.frameRate), [8, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
+  assert.deepEqual(anims.created.map((entry) => entry.frameRate), [8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
   anims.created.forEach((created) => {
     assert.equal(created.repeat, -1, `${created.key} does not loop`);
     assert.deepEqual(created.frames.frames, [0, 1, 2, 3, 4, 5, 6, 7], `${created.key} frames`);
@@ -2599,8 +2613,9 @@ test('the X Uplink sheet owns the mast, and the rest of the room stays whitebox'
   // Exactly these bodies and components retire — nothing else is suppressed.
   assert.deepEqual([...replacedWhiteboxKeys(live)].sort(), [
     'prop_code_bench', 'prop_creator_console', 'prop_disk_tower',
-    'prop_furnace_chamber', 'prop_profit_analyzer', 'prop_rack_a', 'prop_rack_b',
-    'prop_radar_drum', 'prop_scanner_bench', 'prop_still_column', 'prop_still_tray',
+    'prop_experiment_bench', 'prop_furnace_chamber', 'prop_profit_analyzer',
+    'prop_rack_a', 'prop_rack_b', 'prop_radar_drum', 'prop_scanner_bench',
+    'prop_still_column', 'prop_still_tray',
     'prop_tx_body', 'prop_wall_feed_shells', 'prop_x_console', 'prop_x_mast'
   ]);
   assert.deepEqual([...replacedComponentKeys(live)].sort(), [
@@ -2694,12 +2709,14 @@ test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox'
   assert.deepEqual([...machineById('news-array').propKeys], ['prop_wall_feed_shells']);
   assert.equal(replacedWhiteboxKeys([news]).has('prop_wall_feed_shells'), true);
 
-  // Nor is the deferred scanner triple: Tool Scanner keeps the sheet it already
-  // had, Agent Lab and Experiment Bench stay deferred behind it.
+  // The scanner triple is a pair now: Tool Scanner keeps the sheet and the bench it
+  // already had, Agent Lab stays deferred behind it, and Experiment Bench left for
+  // the centre pocket the Power Core used to hold — see art pass 4 below.
   assert.equal(propSheetFor('scanner_bench').art, '/assets/command-center/anim_tool_scanner_sheet.png');
-  ['tool-scanner', 'agent-lab', 'experiment-bench'].forEach((id) => {
+  ['tool-scanner', 'agent-lab'].forEach((id) => {
     assert.deepEqual([...machineById(id).propKeys], ['prop_scanner_bench'], `${id} anchor moved`);
   });
+  assert.deepEqual([...machineById('experiment-bench').propKeys], ['prop_experiment_bench']);
 
   // The decorative crate at 300,180 sat inside the Creator Console's floor
   // pocket, which the real 123x109 art fills. It is gone from both the geometry
@@ -2722,12 +2739,13 @@ test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox'
 // the X Uplink a console plus its mast — but unrelated machines must not share a
 // primary prop just because the original whitebox did.
 //
-// TODO: `prop_scanner_bench` is still shared by tool-scanner, agent-lab and
-// experiment-bench. Deferred, because the room has no third clean floor pocket
-// for a console with camper standing room. This list is debt, not design:
-// nothing may be added to it, and the assertions below fail if anything is.
+// TODO: `prop_scanner_bench` is still shared by tool-scanner and agent-lab. It was
+// a three-way share until art pass 4 retired the Power Core and moved
+// experiment-bench onto the centre pocket it had been holding; Agent Lab is now the
+// only workflow machine left without a box of its own. This list is debt, not
+// design: nothing may be added to it, and the assertions below fail if anything is.
 const KNOWN_SHARED_ANCHORS = Object.freeze({
-  prop_scanner_bench: Object.freeze(['tool-scanner', 'agent-lab', 'experiment-bench'])
+  prop_scanner_bench: Object.freeze(['tool-scanner', 'agent-lab'])
 });
 
 test('every canonical machine anchors on a real whitebox prop', () => {
@@ -2908,13 +2926,145 @@ test('the geometry pass changed no workflow, Hermes or telemetry semantics', () 
   assert.equal(canonicalAreaId('ai-news'), 'intelligence-research');
   assert.equal(machineById('opportunity-radar').areaId, 'intelligence-research');
 
-  // The ten finished machines did not move.
+  // The eleven finished machines each anchor where they are supposed to.
   assert.deepEqual(
     ['radar_drum', 'scanner_bench', 'still_column', 'x_console',
       'creator_console', 'code_bench', 'furnace_chamber',
-      'profit_analyzer', 'tx_body', 'wall_feed_shells'].map((id) => propSheetFor(id).covers[0]),
+      'profit_analyzer', 'tx_body', 'wall_feed_shells', 'experiment_bench']
+      .map((id) => propSheetFor(id).covers[0]),
     ['prop_radar_drum', 'prop_scanner_bench', 'prop_still_column', 'prop_x_console',
       'prop_creator_console', 'prop_code_bench', 'prop_furnace_chamber',
-      'prop_profit_analyzer', 'prop_tx_body', 'prop_wall_feed_shells']
+      'prop_profit_analyzer', 'prop_tx_body', 'prop_wall_feed_shells',
+      'prop_experiment_bench']
   );
+});
+
+// ---------------------------------------------------------------------------
+// Art pass 4: Experiment Bench takes the centre, and the Power Core is retired.
+// ---------------------------------------------------------------------------
+
+test('the Experiment Bench occupies the retired Power Core pocket, alone', () => {
+  const boxFor = (key) => COMMAND_CENTER_PROPS.find((prop) => prop.key === key);
+
+  // The box is the old core well's, transcribed unchanged — this was a move, not a
+  // re-measure. Same 144x96 pocket, same centre, same floor line.
+  const box = boxFor('prop_experiment_bench');
+  assert.notEqual(box, undefined, 'the bench has no whitebox box');
+  assert.deepEqual({ x: box.x, y: box.y, w: box.w, h: box.h }, { x: 408, y: 264, w: 144, h: 96 });
+  assert.equal(box.zone, 'experiment-bench');
+  assert.equal(box.parts.length > 0, true, 'the bench lost its whitebox fallback');
+
+  // Zone 09 kept its number, its anchor and its conduit; only its identity moved.
+  const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'experiment-bench');
+  assert.notEqual(zone, undefined, 'zone 09 does not resolve to the bench');
+  assert.equal(zone.zoneNumber, '09');
+  assert.equal(zone.label, 'Experiment Bench');
+  assert.deepEqual({ x: zone.destination.x, y: zone.destination.y }, { x: 480, y: 372 });
+  assert.deepEqual(
+    { x: zone.bounds.x, y: zone.bounds.y, width: zone.bounds.width, height: zone.bounds.height },
+    { x: 408, y: 264, width: 144, height: 96 }
+  );
+  assert.deepEqual([...zone.conduits], ['D3']);
+
+  // He stands south of it, so the one operate_back animation serves this station
+  // like every other, and he gets there down existing lanes with no diagonal leg.
+  const body = zone.hitRects[0];
+  assert.equal(zone.destination.y >= body.y + body.height, true, 'the bench anchor is not south of its body');
+  const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, zone.destination);
+  for (let i = 1; i < path.length; i += 1) {
+    const diagonal = path[i].x !== path[i - 1].x && path[i].y !== path[i - 1].y;
+    assert.equal(diagonal, false, 'route to the experiment bench turned diagonally');
+  }
+  assert.deepEqual(path[path.length - 1], { x: 480, y: 372 });
+
+  // The spur he arrives on is the Power Core's, renamed and otherwise untouched:
+  // no walk-graph geometry changed for this move.
+  const spur = COMMAND_CENTER_WALK_GRAPH.segments.find((segment) => segment.id === 'bench-spur');
+  assert.notEqual(spur, undefined, 'the centre spur is gone');
+  assert.deepEqual([spur.from, spur.to], [{ x: 480, y: 372 }, { x: 622, y: 372 }]);
+
+  // Semantics are exactly what they were on the scanner bench. Only areaId and
+  // propKeys moved; the workflow key and the Hermes job did not.
+  const machine = machineById('experiment-bench');
+  assert.equal(machine.areaId, 'experiment-bench');
+  assert.deepEqual([...machine.propKeys], ['prop_experiment_bench']);
+  assert.deepEqual([...machine.workflows], ['playbooks']);
+  assert.deepEqual(machine.hermesJobs.map((job) => job.id), ['playbooks']);
+  assert.equal(machineForWorkflow('playbooks').id, 'experiment-bench');
+  assert.equal(machineForHermesJobId('playbooks').id, 'experiment-bench');
+  assert.equal(areaIdForWorkflow({ workflow: 'playbooks', context: {} }), 'experiment-bench');
+  assert.equal(canonicalAreaId('playbooks'), 'experiment-bench');
+
+  // Art lands bottom-centre on that box plus its measured slack: 264 + 96 + 57.
+  const entry = propSheetFor('experiment_bench');
+  assert.equal(entry.type, PROP_ANIMATED);
+  assert.deepEqual([...entry.covers], ['prop_experiment_bench']);
+  assert.deepEqual([...entry.coversComponents], [], 'the sheet is the whole bench; nothing overlays it');
+  assert.deepEqual(propAnchorFor(entry, box), {
+    x: 480, y: 417, originX: 0.5, originY: 1, scale: 1
+  });
+  assert.deepEqual(propShadowFor(entry, box), {
+    x: 480, y: 360, width: 127 * 1.4, height: 127 * 1.4 * 0.22, alpha: 0.55
+  });
+  assert.equal(entry.flipX, undefined, 'the bench export reads the right way round');
+
+  // Measured against the real pixels rather than trusted from the registry.
+  const measured = readPngOpaqueBounds(
+    `${__dirname}/../public${entry.art}`, entry.frameWidth, entry.frameHeight
+  );
+  assert.equal(measured.width, 127);
+  assert.equal(measured.bottomSlack, 57);
+  assert.equal(Math.abs(measured.centreX - entry.frameWidth / 2) <= 0.5, true);
+});
+
+test('the Power Core is gone from the room in every direction it existed', () => {
+  // The body, the registry entry and the three ambient components all go together:
+  // a box surviving in one but not the other fails the every-prop-is-described
+  // invariant either way, and a component with no owner outlives its machine.
+  assert.equal(COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_core_well'), undefined);
+  assert.equal(propSheetFor('core_well'), null);
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.covers.includes('prop_core_well'), false, `${sheet.id} covers a deleted prop`);
+  });
+  ['anim_core_pulse', 'anim_core_sigil', 'anim_core_seed'].forEach((key) => {
+    assert.equal(
+      COMMAND_CENTER_COMPONENTS.find((component) => component.key === key), undefined,
+      `${key} outlived the Power Core`
+    );
+    Object.entries(STATE_VISUALS).forEach(([state, visual]) => {
+      assert.equal(visual.components.includes(key), false, `${state} still drives ${key}`);
+    });
+  });
+
+  // No zone, and no alias pointing at one: the two core tokens now fall through to
+  // the same fallback any unknown token does rather than naming a dead zone.
+  assert.equal(COMMAND_CENTER_AREAS.find((area) => area.id === 'power-core'), undefined);
+  assert.equal(canonicalAreaId('core'), '');
+  assert.equal(canonicalAreaId('power'), '');
+  assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'core' } }), 'central-operations');
+
+  // D3 kept its id, geometry and triggers — visualMappings addresses it by id — and
+  // now belongs to the machine that actually stands under it.
+  const d3 = COMMAND_CENTER_CONDUITS.find((conduit) => conduit.id === 'D3');
+  assert.equal(d3.zone, 'experiment-bench');
+  assert.deepEqual({ x: d3.x, y: d3.y, length: d3.length }, { x: 477, y: 216, length: 48 });
+  assert.deepEqual([...d3.triggers], ['evaluating', 'thinking']);
+
+  // And the procedural renderer paths that only the core used are gone with it,
+  // rather than surviving as unreachable cases nothing can construct a spec for.
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  ["case 'core'", "case 'sigil'", "case 'core-seed'", 'part.recessed', 'parts.sigil', 'parts.seed']
+    .forEach((needle) => {
+      assert.equal(scene.includes(needle), false, `the scene still carries ${needle}`);
+    });
+
+  // Nothing anywhere else still names the Power Core's files or keys.
+  ['sceneConfig.mjs', 'propSheets.mjs', 'machineConfig.mjs', 'visualMappings.mjs'].forEach((name) => {
+    const source = fs.readFileSync(`${__dirname}/../src/command-center/${name}`, 'utf8');
+    assert.doesNotMatch(source, /prop_core_well|anim_core_pulse|anim_core_sigil|anim_core_seed/, name);
+  });
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+  assert.equal(manifest.files.some((file) => file.includes('core_well')), false);
 });
