@@ -124,15 +124,17 @@ have no `prop_<name>.png` deliverable at all — an animated sheet replaces it o
 | --- | --- | --- |
 | `prop_ops_console.png` | 192x72 | 01 |
 | `prop_wall_crt_bank.png` | 216x84 | 01, wall-mounted |
-| `prop_wall_feed_shells.png` | 232x38 | 02, 4 shells in one file, wall-mounted |
-| `prop_profit_analyzer.png` | 108x72 | 11, floor console |
-| `prop_tx_body.png` | 168x96 | 07 |
 | `prop_core_well.png` | 144x96 | 09, recessed, no glow baked |
 
 Art pass 2 removed five rows from this table. `prop_creator_console.png`, `prop_code_bench.png`,
 `prop_disk_tower.png`, `prop_rack.png` and `prop_furnace_chamber.png` are **no longer
 deliverables at all** — the Creator Console, Repo Forge and Model Furnace sheets are the whole
 of those machines, disk tower and both racks included. Do not produce them.
+
+Art pass 3 removed three more. `prop_profit_analyzer.png`, `prop_tx_body.png` and
+`prop_wall_feed_shells.png` are **no longer deliverables either** — the Profit Analyzer,
+Publish Transmitter and News Array sheets are the whole of those machines. Only three static
+prop deliverables are left, and they are the three rows above.
 
 ## L3 · animated props (full-object sprite sheets)
 
@@ -191,26 +193,35 @@ spacing, RGBA8, non-interlaced, binary alpha, so NEAREST never interpolates an e
 ### Shipped animated machines
 
 Measured off the PNGs themselves — each file was decoded and its alpha walked per frame.
-All seven are one horizontal strip, binary alpha, zero margin, zero spacing, and every
+All ten are one horizontal strip, binary alpha, zero margin, zero spacing, and every
 frame's content is horizontally centred in its cell to within 0.5px, so none needs an origin
 or scale override. That centring is also what makes `flipX` safe — a mirror about a centred
 origin leaves the machine on the same floor spot — and a test holds it there.
 
 The invariant that actually holds is `frameHeight == sheetHeight`, **not** squareness: the
-Repo Forge cell is 203x202 and the Model Furnace cell 202x203. Do not assume square cells;
-measure.
+Repo Forge cell is 203x202, the Model Furnace cell 202x203 and the Publish Transmitter cell
+149x144. Do not assume square cells; measure.
 
-Four carry a vertical offset, and it is always the same measurement — the empty rows the
-Sprite Fusion cell leaves **under the machine's floor contact**, identical in all 8 frames.
+Seven carry a vertical offset, and it is always the same measurement — the empty rows the
+Sprite Fusion cell leaves **under the machine's contact edge**, identical in all 8 frames.
 `offsetY` equals that slack exactly, which puts the last opaque row back on the bottom edge
 of the whitebox box. Without it the machine floats that far above its station.
 
 | entry | bottom slack | `offsetY` |
 | --- | --- | --- |
+| Profit Analyzer | 19 rows of a 197px cell | 19 |
 | Newsletter Still | 21 rows of a 203px cell | 21 |
 | Creator Console | 22 rows of a 151px cell | 22 |
 | Repo Forge | 29 rows of a 202px cell | 29 |
+| Publish Transmitter | 32 rows of a 144px cell | 32 |
 | Model Furnace | 41 rows of a 203px cell | 41 |
+| News Array | 70 rows of a 204px cell | 70 |
+
+News Array is the one wall-mounted sheet, so its contact edge is the bottom edge of the wall
+strip rather than a floor line. The nudge works identically: 70 rows down puts the display's
+last opaque row on `prop_wall_feed_shells`'s bottom edge at y=78, well inside the 120px wall
+band. It is also the only shipped sheet that carries `groundShadow: false` and records no
+`shadowWidth` — see *generated contact shadows* below.
 
 | file | machine | zone | sheet | frames | frame | fps | loop | anchors on |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -221,11 +232,19 @@ of the whitebox box. Without it the machine floats that far above its station.
 | `anim_creator_console_sheet.png` | Creator Console | 10 | 1320x151 | 8 | 165x151 | 6 | 1.333s | `prop_creator_console` |
 | `anim_repo_forge_sheet.png` | Repo Forge | 04 | 1624x202 | 8 | 203x202 | 6 | 1.333s | `prop_code_bench` |
 | `anim_model_furnace_sheet.png` | Model Furnace | 08 | 1616x203 | 8 | 202x203 | 6 | 1.333s | `prop_furnace_chamber` |
+| `anim_profit_analyzer_sheet.png` | Profit Analyzer | 11 | 1576x197 | 8 | 197x197 | 6 | 1.333s | `prop_profit_analyzer` |
+| `anim_publish_transmitter_sheet.png` | Publish Transmitter | 07 | 1192x144 | 8 | 149x144 | 6 | 1.333s | `prop_tx_body` |
+| `anim_news_array_sheet.png` | News Array | 02 | 1608x204 | 8 | 201x204 | 6 | 1.333s | `prop_wall_feed_shells` (wall) |
 
 The `loop` column is the cycle length **while SpawnCamper is working at that machine**.
-None of the seven overrides `staticFrame`, so all seven rest on frame 0 of their own sheet
+None of the ten overrides `staticFrame`, so all ten rest on frame 0 of their own sheet
 whenever he is not — which is most of the time, and the reason frame 0 should read as a
 powered-but-idle pose rather than a mid-motion pose.
+
+Attendance is per **zone**, not per machine, and zone 02 is the first zone to own two
+finished machines: News Array on the wall and the Opportunity Radar on the floor below it.
+Standing at zone 02 runs both. That is the existing seam, not a new rule — it was simply
+invisible while no zone had two sheets.
 
 ### Generated contact shadows
 
@@ -261,6 +280,15 @@ get a pool thin enough to read as a line.
 | Creator Console | 123 | 172.2 x 37.9 |
 | Repo Forge | 163 | 228.2 x 50.2 |
 | Model Furnace | 165 | 231 x 50.8 |
+| Publish Transmitter | 85 | 119 x 26.2 |
+| Profit Analyzer | 133 | 186.2 x 41 |
+
+**Wall art casts none.** `groundShadow: false` opts an entry out entirely, because a display
+bolted to the wall stands on nothing and a pool on the floor beneath it would be a shadow
+with no caster. Those entries record no `shadowWidth` either — an unread number is a number
+that drifts. News Array is the only *animated* entry in that category; `prop_wall_crt_bank`,
+`prop_wall_receptacle`, `prop_wall_sigil` and `prop_wall_vents` are the static ones. A test
+asserts every `groundShadow: false` entry is really wall art.
 
 Whitebox bodies are untouched by this: they keep their own `shadow: 4` offset-rectangle
 fill, which is the development fallback's look and not the shipped one.
@@ -325,6 +353,27 @@ Both bare patches are the intended consequence of a full-assembly replacement an
 Newsletter Still's retired tray box. If they ever want filling it is a job for the L1 shell
 or new dressing props, not for reinstating a whitebox under finished art.
 
+Art pass 3 adds the last three, measured the same way:
+
+| machine | art occupies | against its boxes |
+| --- | --- | --- |
+| Profit Analyzer | x 623.5-756.5, y 151-312 | overhangs the 108x72 box (636-744) by ~12.5px each side and rises 89px above its top. Its footprint fully contains the decorative `prop_crate_wide_a` box (648-696, 168-192) — see below |
+| Publish Transmitter | x 737.5-822.5, y 376-456 | sits **inside** the 168x96 box (696-864), leaving ~41px of bare floor each side and 16px at the top. The Tool Scanner case again: the box is a floor plan, the cabinet is compact |
+| News Array | x 71.5-254.5, y 13-78 | inset ~23px each side of the 232x38 wall strip (48-280) and rising 27px above its top, entirely inside the 120px wall band. No floor pool |
+
+Two consequences of art pass 3 were **not** fixed, because geometry was out of scope for it
+and both are cosmetic:
+
+- `prop_crate_wide_a` (48x24 @ 648,168) now sits inside the Profit Analyzer's art footprint.
+  This is the `prop_crate_small` situation from art pass 2, which was resolved by deleting the
+  crate. Here the crate survives and renders *behind* the art — `buildProps` adds the whitebox
+  `Graphics` before the art sprites at the same `DEPTH.props`, so the sprites win. If it ever
+  reads wrong the fix is to delete the box from `COMMAND_CENTER_PROPS` **and** its registry
+  entry together, never one without the other.
+- Conduit `D8` (`transmitter → wall port`, x 864-936) starts ~41px clear of the transmitter
+  art's right edge at x822.5, because the cabinet is narrower than the box the lane was drawn
+  against. Routing, telemetry and the lane's triggers are unchanged.
+
 Two art-to-art seams are worth knowing about, both at the same `DEPTH.props` with no
 y-sorting, so registry order decides: the Creator Console's right edge lands at x 385.5
 against the Ops Console box's left edge at 384 (~1.5px, Creator draws later and wins), and
@@ -347,12 +396,13 @@ Two three-way collisions existed. The first is fixed:
 
 | machine | was | now | zone |
 | --- | --- | --- | --- |
-| News Array | `prop_wall_feed_shells` | `prop_wall_feed_shells` (sole owner, still whitebox) | 02, wall |
+| News Array | `prop_wall_feed_shells` | `prop_wall_feed_shells` (sole owner) — **art shipped** | 02, wall |
 | Creator Console | `prop_wall_feed_shells` | `prop_creator_console` 120x72 @ 264,204 — **art shipped** | **10**, floor |
-| Profit Analyzer | `prop_wall_feed_shells` | `prop_profit_analyzer` 108x72 @ 636,240 | **11**, floor |
+| Profit Analyzer | `prop_wall_feed_shells` | `prop_profit_analyzer` 108x72 @ 636,240 — **art shipped** | **11**, floor |
 
 News Array keeps the wall strip because its art is deliberately a shallow horizontal
-wall-mounted intelligence display. The two consoles are floor-standing and got boxes that
+wall-mounted intelligence display, and the delivered sheet is exactly that: 184x65 of drawn
+content hanging inside the wall band. The two consoles are floor-standing and got boxes that
 describe an actual floor footprint and ground contact, because a 123x109 console cannot
 hang off a 38px wall strip without falling off the top of the canvas.
 
@@ -502,11 +552,11 @@ they are not built at all once its asset loads.
 
 One consequence worth knowing: `anim_ops_screens`, `anim_code_scroll`, `anim_x_crt` and
 `anim_tx_crt` render live telemetry text into the room. That in-world text goes away when
-their machine's real art lands, which is intended — real art is not overpainted. Two of the
-four are already gone: `anim_x_crt` retired with the X Uplink sheet, and `anim_code_scroll`
-retired with the Repo Forge sheet in art pass 2. `anim_ops_screens` and `anim_tx_crt` still
-render it, until the Ops Console and Publish Transmitter take delivery. Telemetry itself,
-the API, the zone inspector and the camper badge are unaffected.
+their machine's real art lands, which is intended — real art is not overpainted. Three of
+the four are now gone: `anim_x_crt` retired with the X Uplink sheet, `anim_code_scroll` with
+the Repo Forge sheet in art pass 2, and `anim_tx_crt` with the Publish Transmitter sheet in
+art pass 3. Only `anim_ops_screens` still renders it, until the Ops Console takes delivery.
+Telemetry itself, the API, the zone inspector and the camper badge are unaffected.
 
 The superseded sizing table, kept for reference:
 

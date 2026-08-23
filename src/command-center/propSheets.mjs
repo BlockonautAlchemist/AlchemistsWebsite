@@ -39,10 +39,11 @@ export const PROP_STATIC = 'static';
 export const PROP_ANIMATED = 'animated';
 
 // Seeded from the paths sceneConfig already declared. The manifest is the gate:
-// seven machines ship real animated sheets today (Opportunity Radar, Tool
+// ten machines ship real animated sheets today (Opportunity Radar, Tool
 // Scanner, Newsletter Still, X Uplink, Creator Console, Repo Forge, Model
-// Furnace) and render as finished art; every other entry names a file the
-// manifest does not list, makes zero requests, and keeps its whitebox.
+// Furnace, Profit Analyzer, Publish Transmitter, News Array) and render as
+// finished art; every other entry names a file the manifest does not list,
+// makes zero requests, and keeps its whitebox.
 //
 // `id`         unique instance. Two instances may share one `textureKey`
 //              (both wide crates) — the file is fetched once.
@@ -94,11 +95,27 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_ops_console']),
     coversComponents: Object.freeze(['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'])
   }),
+  // News Array (zone 02). The one shipped sheet that hangs on the wall: shells,
+  // cycling CRT cells and the packet traffic that used to be `anim_feed_cycle`
+  // are one object, so the whitebox strip and its component retire together. It
+  // keeps `groundShadow: false` and declares no `shadowWidth` — the display
+  // stands on nothing, and a pool under it would be a shadow cast by a wall.
+  // The 201x204 cell keeps 70 empty rows below the display, so `offsetY` puts
+  // its bottom edge back on the wall strip's bottom edge rather than 70px low.
+  // 6fps is one 1.333s feed cycle.
   Object.freeze({
     id: 'wall_feed_shells',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_wall_feed_shells.png`,
-    textureKey: 'prop_wall_feed_shells',
+    type: PROP_ANIMATED,
+    art: `${ART_ROOT}/anim_news_array_sheet.png`,
+    textureKey: 'anim_news_array',
+    sheetWidth: 1608,
+    sheetHeight: 204,
+    frameWidth: 201,
+    frameHeight: 204,
+    frames: 8,
+    fps: 6,
+    repeat: -1,
+    offsetY: 70,
     groundShadow: false,
     covers: Object.freeze(['prop_wall_feed_shells']),
     coversComponents: Object.freeze(['anim_feed_cycle'])
@@ -215,11 +232,27 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_x_console', 'prop_x_mast']),
     coversComponents: Object.freeze(['anim_x_crt', 'anim_x_lamps', 'anim_x_dish'])
   }),
+  // Publish Transmitter (zone 07). Cabinet, CRT, charge meter and pilot lamp are
+  // one object, so all three whitebox components retire with the body. Unlike
+  // the X Uplink mast this export does NOT fold in its neighbour: the art is
+  // 85px wide centred on x780 and `prop_wall_receptacle` is a 24px wall box at
+  // x912, so the receptacle keeps its own entry and its own whitebox. The
+  // 149x144 cell keeps 32 empty rows under the cabinet feet. 6fps is one 1.333s
+  // ambient cycle.
   Object.freeze({
     id: 'tx_body',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_tx_body.png`,
-    textureKey: 'prop_tx_body',
+    type: PROP_ANIMATED,
+    art: `${ART_ROOT}/anim_publish_transmitter_sheet.png`,
+    textureKey: 'anim_publish_transmitter',
+    sheetWidth: 1192,
+    sheetHeight: 144,
+    frameWidth: 149,
+    frameHeight: 144,
+    frames: 8,
+    fps: 6,
+    repeat: -1,
+    offsetY: 32,
+    shadowWidth: 85,
     covers: Object.freeze(['prop_tx_body']),
     coversComponents: Object.freeze(['anim_tx_crt', 'anim_tx_charge', 'anim_tx_pilot'])
   }),
@@ -290,14 +323,25 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_creator_console']),
     coversComponents: Object.freeze(['anim_creator_screens'])
   }),
-  // Profit Analyzer (zone 11) was split off the same wall strip but its file does
-  // not exist yet and is not listed in the manifest, so it makes zero requests
-  // and keeps its whitebox.
+  // Profit Analyzer (zone 11). Split off `prop_wall_feed_shells` onto a floor
+  // console of its own during the geometry pass, and now shipping as one
+  // full-object sheet: cabinet, the gold analysis CRT row and its pulses all
+  // move in frame, so the whitebox screens retire with the body. The 197x197
+  // cell keeps 19 empty rows under the plinth. 6fps is one 1.333s ambient cycle.
   Object.freeze({
     id: 'profit_analyzer',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_profit_analyzer.png`,
-    textureKey: 'prop_profit_analyzer',
+    type: PROP_ANIMATED,
+    art: `${ART_ROOT}/anim_profit_analyzer_sheet.png`,
+    textureKey: 'anim_profit_analyzer',
+    sheetWidth: 1576,
+    sheetHeight: 197,
+    frameWidth: 197,
+    frameHeight: 197,
+    frames: 8,
+    fps: 6,
+    repeat: -1,
+    offsetY: 19,
+    shadowWidth: 133,
     covers: Object.freeze(['prop_profit_analyzer']),
     coversComponents: Object.freeze(['anim_profit_screens'])
   }),
