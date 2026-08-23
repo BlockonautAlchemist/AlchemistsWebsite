@@ -10,6 +10,11 @@
 // carries the section 08 filename it is waiting for, so generated pixel art drops
 // into the same rectangle without touching a single coordinate.
 
+import {
+  areaIdForWorkflow as areaIdForMachineWorkflow
+} from './machineConfig.mjs';
+export { COMMAND_CENTER_WORKFLOW_AREAS } from './machineConfig.mjs';
+
 // Section 09 palette block. The whole facility is drawn from this 16-colour ramp.
 export const COMMAND_CENTER_PALETTE = Object.freeze({
   void: 0x0d0214,
@@ -689,22 +694,6 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   })
 ]);
 
-// Section 03: every anchor sits south of its machine, so one `operate` animation
-// serves all eight working stations. Zone 09 is ambient-only and never attended.
-export const COMMAND_CENTER_WORKFLOW_AREAS = Object.freeze({
-  'ai-news': 'intelligence-research',
-  'new-tools': 'scanner-bench',
-  agents: 'scanner-bench',
-  playbooks: 'scanner-bench',
-  'creator-content': 'intelligence-research',
-  monetization: 'intelligence-research',
-  github: 'github-code',
-  'models-infra': 'model-infrastructure',
-  newsletter: 'newsletter',
-  'social-x': 'x-communications',
-  'terminal-publisher': 'terminal-transmitter'
-});
-
 export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   home: 'central-operations',
   idle: 'central-operations',
@@ -778,8 +767,7 @@ export function areaIdForWorkflow(workflow) {
   const contextArea = canonicalAreaId(context && (context.area || context.station));
   if (contextArea) return contextArea;
 
-  const workflowId = cleanAreaToken(workflow && workflow.workflow);
-  return COMMAND_CENTER_WORKFLOW_AREAS[workflowId] || COMMAND_CENTER_FALLBACK_AREA_ID;
+  return areaIdForMachineWorkflow(workflow) || COMMAND_CENTER_FALLBACK_AREA_ID;
 }
 
 export function stationIdForWorkflow(workflow) {

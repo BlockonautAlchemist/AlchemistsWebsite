@@ -3,6 +3,30 @@
 Generated pixel art goes here. The scene ships as the design's scale-true whitebox and
 swaps to art **per file**, so this directory can fill up one asset at a time.
 
+## Machine → Hermes workflow mapping
+
+This is semantic mapping only. Coordinates stay in `src/command-center/sceneConfig.mjs`,
+and production art stays in `src/command-center/propSheets.mjs`.
+
+| machine | Hermes job(s) | workflow/lane | purpose | pixel-art visual description |
+| --- | --- | --- | --- | --- |
+| News Array | AI News | `ai-news` | AI gaming news intelligence | Wall feed shells with cycling CRT cells and cyan packets |
+| Repo Forge | GitHub | `github` | Repository and code-signal watch | Green code bench, phosphor terminal, disk tower |
+| Tool Scanner | New Tools | `new-tools` | New AI/game-dev tool discovery | Long scanner bench, cyan scan bar, ready lamp |
+| Agent Lab | Agents | `agents` | Agent workflow and automation review | Shared scanner bench with compact lab sweeps |
+| Model Furnace | Models Infra | `models-infra` | Model routing and infrastructure evaluation | Twin racks feeding a heated processing chamber |
+| Creator Console | Creator Content | `creator-content` | Creator-facing intelligence angles | Research feed shells with editorial signal traffic |
+| Profit Analyzer | Monetization | `monetization` | Monetization and partner opportunity review | Research feed shells with warmer analysis pulses |
+| Experiment Bench | Playbooks | `playbooks` | Playbooks and repeatable experiments | Shared scanner bench with test sweeps and status lamps |
+| Newsletter Still | Newsletter, Finisher | `newsletter` | Longer-form newsletter distillation | Tall still column, coil, chamber fill, output tray |
+| X Uplink | X Draft, X Publish, X Amplify | `social-x` | Public X formatting and transmission | Communications console, transport CRT, antenna mast |
+| Publish Transmitter | Beehiiv Draft | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, wall receptacle, charge meter |
+| Opportunity Radar | `254525fa846f` / Opportunity Scout | Hermes-only, no workflow lane yet | Opportunity scouting reserve mapping | Ribbed radar drum with a dominant circular sweep |
+
+Opportunity Radar is configured for Hermes semantics, but no frontend workflow key is
+invented until real telemetry emits one. Sprite Fusion prompts should use one dominant
+silhouette, one obvious functional feature, and a few accents.
+
 ## Two production asset types — and nothing else
 
 Every machine and prop is delivered as **exactly one** of these:

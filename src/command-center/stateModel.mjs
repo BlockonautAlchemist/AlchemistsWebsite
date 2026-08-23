@@ -4,6 +4,10 @@ import {
   COMMAND_CENTER_FALLBACK_AREA_ID,
   areaIdForWorkflow
 } from './sceneConfig.mjs';
+import {
+  machineDisplay,
+  machineForWorkflow
+} from './machineConfig.mjs';
 
 export const COMMAND_CENTER_STATES = Object.freeze([
   'idle',
@@ -146,6 +150,7 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   const stale = expired || Boolean(entry.isStale);
   const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
+  const displayMachine = machineDisplay(machineForWorkflow(entry.workflow));
   const areaId = areaIdForWorkflow({
     workflow: entry.workflow,
     context
@@ -177,7 +182,13 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     isVisible: displayState !== 'idle',
     sortTime,
     areaId,
-    stationId: areaId
+    stationId: areaId,
+    machineId: displayMachine?.id || null,
+    machineName: displayMachine?.name || '',
+    machineShortName: displayMachine?.shortName || '',
+    machineDescription: displayMachine?.description || '',
+    machineVisualDescription: displayMachine?.visualDescription || '',
+    displayMachine
   };
 
   return workflow;
@@ -234,6 +245,7 @@ export function groupWorkflowsByArea(workflows) {
       activeWorkflows,
       staleWorkflows,
       displayWorkflow,
+      displayMachine: displayWorkflow?.displayMachine || null,
       displayState: displayWorkflow ? displayWorkflow.displayState : 'idle',
       isActiveArea: Boolean(displayWorkflow)
     };

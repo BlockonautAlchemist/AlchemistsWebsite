@@ -18,6 +18,9 @@ const originalDatabaseUrl = process.env.DATABASE_URL;
 let fallbackCommandCenterState;
 let areaIdForWorkflow;
 let canonicalAreaId;
+let machineAreaIdForWorkflow;
+let machineForWorkflow;
+let machineForHermesJobId;
 let STATE_VISUALS;
 let CAMPER_ANIMATIONS;
 let visualForState;
@@ -32,6 +35,7 @@ let COMMAND_CENTER_PROPS;
 let COMMAND_CENTER_WALK_GRAPH;
 let routeThroughWalkGraph;
 let COMMAND_CENTER_WORKFLOW_AREAS;
+let COMMAND_CENTER_MACHINES;
 let CAMPER_SHEETS;
 let camperSheetFor;
 let camperAnimationKeyFor;
@@ -75,6 +79,12 @@ test.before(async () => {
     COMMAND_CENTER_WALK_GRAPH,
     COMMAND_CENTER_WORKFLOW_AREAS
   } = await import('../src/command-center/sceneConfig.mjs'));
+  ({
+    COMMAND_CENTER_MACHINES,
+    areaIdForWorkflow: machineAreaIdForWorkflow,
+    machineForWorkflow,
+    machineForHermesJobId
+  } = await import('../src/command-center/machineConfig.mjs'));
   ({
     STATE_VISUALS,
     CAMPER_ANIMATIONS,
@@ -456,10 +466,13 @@ test('normalizes command center public state and expires stale workflows visuall
   const researchArea = state.areaGroups.find((area) => area.id === 'scanner-bench');
   assert.equal(researchArea.displayState, 'researching');
   assert.equal(researchArea.activeWorkflows.length, 1);
+  assert.equal(researchArea.displayMachine.id, 'tool-scanner');
+  assert.equal(state.primaryWorkflow.machineName, 'Tool Scanner');
 
   const newsletterArea = state.areaGroups.find((area) => area.id === 'newsletter');
   assert.equal(newsletterArea.displayState, 'idle');
   assert.equal(newsletterArea.staleWorkflows.length, 1);
+  assert.equal(stale.machineId, 'newsletter-still');
 
   const fallback = fallbackCommandCenterState({ message: 'database unavailable', now });
   assert.equal(fallback.overallStatus, 'offline');
@@ -493,6 +506,94 @@ test('maps workflows and context aliases to command center room areas', () => {
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'social-x' } }), 'x-communications');
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'terminal-publisher' } }), 'terminal-transmitter');
   assert.equal(canonicalAreaId('central-operations'), 'central-operations');
+});
+
+test('canonical command center machines map the core research lanes exactly once', () => {
+  const machineIds = COMMAND_CENTER_MACHINES.map((machine) => machine.id);
+  const machineNames = COMMAND_CENTER_MACHINES.map((machine) => machine.name);
+  assert.equal(new Set(machineIds).size, machineIds.length, 'duplicate machine id');
+  assert.equal(new Set(machineNames).size, machineNames.length, 'duplicate machine name');
+
+  const expectedCoreLanes = new Map([
+    ['ai-news', 'news-array'],
+    ['github', 'repo-forge'],
+    ['new-tools', 'tool-scanner'],
+    ['agents', 'agent-lab'],
+    ['models-infra', 'model-furnace'],
+    ['creator-content', 'creator-console'],
+    ['monetization', 'profit-analyzer'],
+    ['playbooks', 'experiment-bench']
+  ]);
+
+  expectedCoreLanes.forEach((machineId, workflow) => {
+    const machine = machineForWorkflow(workflow);
+    assert.equal(machine?.id, machineId, `${workflow} canonical machine`);
+    assert.equal(machineAreaIdForWorkflow(workflow), machine.areaId, `${workflow} area`);
+    assert.equal(
+      Object.entries(COMMAND_CENTER_WORKFLOW_AREAS).filter(([key]) => key === workflow).length,
+      1,
+      `${workflow} workflow area declaration`
+    );
+  });
+
+  assert.equal(machineForWorkflow('newsletter').id, 'newsletter-still');
+  assert.equal(machineForWorkflow('social-x').id, 'x-uplink');
+  assert.equal(machineForWorkflow('terminal-publisher').id, 'publish-transmitter');
+  assert.equal(machineForWorkflow('opportunity-scout'), null);
+  assert.equal(machineAreaIdForWorkflow('unknown-workflow'), '');
+});
+
+test('canonical machines resolve Hermes jobs without inventing workflow telemetry', () => {
+  ['newsletter', 'finisher'].forEach((jobId) => {
+    assert.equal(machineForHermesJobId(jobId)?.id, 'newsletter-still', `${jobId} Hermes job`);
+  });
+
+  ['x-draft', 'x-publish', 'x-amplify'].forEach((jobId) => {
+    assert.equal(machineForHermesJobId(jobId)?.id, 'x-uplink', `${jobId} Hermes job`);
+  });
+
+  assert.equal(machineForHermesJobId('Beehiiv Draft')?.id, 'publish-transmitter');
+  assert.equal(machineForHermesJobId({ jobId: 'beehiiv-draft' })?.id, 'publish-transmitter');
+  assert.equal(machineForHermesJobId('254525fa846f')?.id, 'opportunity-radar');
+  assert.equal(machineForHermesJobId('Opportunity Scout')?.id, 'opportunity-radar');
+  assert.equal(machineForWorkflow('254525fa846f'), null, 'Hermes-only job must not become a workflow lane');
+});
+
+test('machine metadata stays semantic and has no geometry or production-art fields', () => {
+  const forbiddenFields = [
+    'x', 'y', 'w', 'h', 'width', 'height', 'bounds', 'hitRects', 'destination',
+    'color', 'accent', 'conduits', 'depth', 'art', 'textureKey', 'sheetWidth',
+    'sheetHeight', 'frameWidth', 'frameHeight', 'frames', 'fps', 'repeat',
+    'covers', 'coversComponents', 'originX', 'originY', 'scale'
+  ];
+  const propKeys = new Set(COMMAND_CENTER_PROPS.map((prop) => prop.key));
+
+  COMMAND_CENTER_MACHINES.forEach((machine) => {
+    assert.equal(Object.isFrozen(machine), true, `${machine.id} is frozen`);
+    assert.equal(Object.isFrozen(machine.workflows), true, `${machine.id} workflows frozen`);
+    assert.equal(Object.isFrozen(machine.hermesJobs), true, `${machine.id} jobs frozen`);
+    assert.equal(Object.isFrozen(machine.propKeys), true, `${machine.id} propKeys frozen`);
+    forbiddenFields.forEach((field) => {
+      assert.equal(Object.hasOwn(machine, field), false, `${machine.id} must not carry ${field}`);
+    });
+    machine.propKeys.forEach((key) => {
+      assert.equal(propKeys.has(key), true, `${machine.id} references unknown prop ${key}`);
+    });
+  });
+});
+
+test('Hermes job ids are assigned to only one canonical machine', () => {
+  const jobIds = COMMAND_CENTER_MACHINES.flatMap((machine) => (
+    machine.hermesJobs.map((hermesJob) => hermesJob.id)
+  ));
+
+  assert.equal(new Set(jobIds).size, jobIds.length, 'duplicate Hermes job id');
+
+  COMMAND_CENTER_MACHINES.forEach((machine) => {
+    machine.hermesJobs.forEach((hermesJob) => {
+      assert.equal(machineForHermesJobId(hermesJob.id)?.id, machine.id, `${hermesJob.id} owner`);
+    });
+  });
 });
 
 test('selects command center focus by attention, transmission, active, then fresh complete', () => {
@@ -649,8 +750,12 @@ test('groups simultaneous workflows by independently animated room areas', () =>
   assert.equal(groups['scanner-bench'].displayState, 'scanning');
   assert.equal(groups['github-code'].displayState, 'coding');
   assert.equal(groups['x-communications'].displayState, 'posting_to_x');
+  assert.equal(groups['scanner-bench'].displayMachine.name, 'Tool Scanner');
+  assert.equal(groups['github-code'].displayMachine.name, 'Repo Forge');
+  assert.equal(groups['x-communications'].displayMachine.name, 'X Uplink');
   assert.equal(state.activeWorkflows.length, 3);
   assert.equal(state.primaryWorkflow.workflow, 'social-x');
+  assert.equal(state.primaryWorkflow.machineName, 'X Uplink');
 });
 
 test('uses generalized SpawnCamper modes instead of human walking animation names', () => {
@@ -868,6 +973,19 @@ test('command center page is wired as a public read-only route', () => {
   assert.match(vercelConfig, /"source": "\/command-center"/);
 });
 
+test('command center labels prefer canonical machine names where available', () => {
+  const script = fs.readFileSync(`${__dirname}/../command-center.js`, 'utf8');
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  assert.match(script, /function workflowDisplayName\(workflow\)/);
+  assert.match(script, /workflow\?\.machineName \|\| workflow\?\.workflowLabel/);
+  assert.match(script, /hudTitle\.textContent = displayNameForArea\(area\)\.toUpperCase\(\)/);
+  assert.match(script, /selectedTitle\.textContent = displayNameForArea\(area\)/);
+  assert.match(script, /workflowDisplayName\(event\)/);
+  assert.match(scene, /const machineLabel = primary\.machineName \|\| area\.shortLabel/);
+  assert.match(scene, /group\.displayMachine\?\.name \|\| object\.displayWorkflow\?\.machineName/);
+});
+
 test('command center fullscreen toggle is wired to the native Fullscreen API', () => {
   const html = fs.readFileSync(`${__dirname}/../command-center.html`, 'utf8');
   const script = fs.readFileSync(`${__dirname}/../command-center.js`, 'utf8');
@@ -902,6 +1020,7 @@ test('command center shipped frontend contains no Star Office mutation endpoints
     'command-center.js',
     'command-center.css',
     'src/command-center/CommandCenterScene.mjs',
+    'src/command-center/machineConfig.mjs',
     'src/command-center/propSheets.mjs',
     'src/command-center/sceneConfig.mjs',
     'src/command-center/stateModel.mjs',
@@ -1663,6 +1782,7 @@ test('foreground occlusion stays independent of the prop art registry', () => {
 test('the prop art registry leaves the SpawnCamper systems alone', () => {
   const propSource = fs.readFileSync(`${__dirname}/../src/command-center/propSheets.mjs`, 'utf8');
   assert.doesNotMatch(propSource, /spawncamper|camper|walk_front|operate_back/i);
+  assert.doesNotMatch(propSource, /Hermes|hermesJobs|workflow|COMMAND_CENTER_MACHINES|machineConfig/i);
 
   // The character keeps its own registry, its own keys and its own animations.
   const camperKeys = new Set(CAMPER_SHEETS.map((sheet) => sheet.key));

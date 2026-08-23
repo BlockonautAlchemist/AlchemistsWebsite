@@ -1481,10 +1481,11 @@ export class CommandCenterScene extends Phaser.Scene {
     if (primary) {
       const area = areaById(primary.areaId);
       const visual = visualForState(primary.displayState);
+      const machineLabel = primary.machineName || area.shortLabel;
       this.pendingCamperAnim = visual.camperAnim;
       this.moveCamperTo(area.destination, {
         immediate: firstPaint,
-        label: `${visual.label.toUpperCase()} · ${area.shortLabel.toUpperCase()}`
+        label: `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
       });
       if (firstPaint || this.reducedMotion) this.playCamperAnimation(visual.camperAnim);
       this.focusZone(primary.areaId);
@@ -1526,6 +1527,7 @@ export class CommandCenterScene extends Phaser.Scene {
     object.workflows = group.workflows || [];
     object.displayWorkflow = group.displayWorkflow || null;
     object.displayState = group.displayState;
+    object.nameTag.setText((group.displayMachine?.name || object.displayWorkflow?.machineName || object.area.label).toUpperCase());
 
     const nextKeys = new Set(visual.components);
     // Only touch components that actually changed mode.

@@ -160,6 +160,15 @@ async function initCommandCenter() {
     return STATUS_LABELS[value] || value;
   }
 
+  function workflowDisplayName(workflow) {
+    return workflow?.machineName || workflow?.workflowLabel || 'Unknown';
+  }
+
+  function displayNameForArea(area) {
+    const group = latestState?.areaGroups?.find((entry) => entry.id === area.id);
+    return group?.displayMachine?.name || area.label;
+  }
+
   function setNetworkStatus(value, copy) {
     status.textContent = statusText(value);
     status.dataset.state = value;
@@ -194,7 +203,7 @@ async function initCommandCenter() {
     const live = workflows.filter((workflow) => workflow.isVisible).length;
 
     hudEyebrow.textContent = `ZONE ${area.zoneNumber} · INSPECT`;
-    hudTitle.textContent = area.label.toUpperCase();
+    hudTitle.textContent = displayNameForArea(area).toUpperCase();
     renderRows([
       ['STATUS', (group?.staleWorkflows?.length && displayState === 'idle' ? 'STALE' : visual.label).toUpperCase()],
       ['ACTIVITY', focus?.activity || 'No active workflow'],
@@ -212,7 +221,7 @@ async function initCommandCenter() {
     hudTitle.textContent = 'SPAWNCAMPER9000';
     renderRows([
       ['STATUS', visual.label.toUpperCase()],
-      ['WORKFLOW', workflow?.workflowLabel || 'None'],
+      ['MACHINE', workflow ? workflowDisplayName(workflow) : 'None'],
       ['ACTIVITY', workflow?.activity || 'Standing by'],
       ['MODE', anim.replace(/_/g, ' ').toUpperCase()],
       ['POSITION', `${position.x},${position.y}`],
@@ -249,7 +258,7 @@ async function initCommandCenter() {
 
     stripState.textContent = (focus ? visual.label : state.overallStatus === 'offline' ? 'Offline' : 'Idle').toUpperCase();
     stripCaption.textContent = focus
-      ? `${active} CONCURRENT · ${focus.workflowLabel.toUpperCase()}`
+      ? `${active} CONCURRENT · ${workflowDisplayName(focus).toUpperCase()}`
       : state.overallStatus === 'offline'
         ? 'UPLINK OFFLINE · LAST KNOWN STATE'
         : 'NO WORKFLOWS · ROOM ALIVE, NOTHING OPERATIONAL';
@@ -263,7 +272,7 @@ async function initCommandCenter() {
       .slice(0, 2)
       .map((workflow) => {
         const item = el('li', 'mono');
-        item.textContent = `▸ ${workflow.workflowLabel.toLowerCase()} · ${visualForState(workflow.displayState).label.toLowerCase()}`;
+        item.textContent = `▸ ${workflowDisplayName(workflow).toLowerCase()} · ${visualForState(workflow.displayState).label.toLowerCase()}`;
         return item;
       });
     stripUnattended.replaceChildren(...unattended);
@@ -281,7 +290,7 @@ async function initCommandCenter() {
   }
 
   function renderSelectedArea(area, workflows = []) {
-    selectedTitle.textContent = area.label;
+    selectedTitle.textContent = displayNameForArea(area);
 
     const visible = workflows
       .filter((workflow) => workflow.isVisible || workflow.isStale || workflow.isComplete)
@@ -295,7 +304,7 @@ async function initCommandCenter() {
     selectedBody.replaceChildren(...visible.map((workflow) => {
       const visual = visualForState(workflow.displayState);
       const block = el('article');
-      block.appendChild(el('h3', '', workflow.workflowLabel));
+      block.appendChild(el('h3', '', workflowDisplayName(workflow)));
       block.appendChild(el('p', '', `${workflow.isStale ? 'Stale' : visual.label}: ${workflow.activity}`));
       block.appendChild(el('span', 'mono', `${workflow.state} · ${relativeTime(workflow.timestamp)}`));
       if (workflow.publicUrl) {
@@ -313,7 +322,7 @@ async function initCommandCenter() {
     const items = state.recentHistory.slice(0, 6).map((event) => {
       const visual = visualForState(event.state);
       const item = el('li');
-      item.appendChild(el('span', '', event.workflowLabel));
+      item.appendChild(el('span', '', workflowDisplayName(event)));
       item.appendChild(el('span', 'mono', visual.label));
       item.appendChild(el('span', 'mono', relativeTime(event.timestamp)));
       return item;
