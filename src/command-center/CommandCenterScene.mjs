@@ -24,6 +24,7 @@ import {
   ensurePropAnimation,
   isAnimatedProp,
   propAnchorFor,
+  propShadowFor,
   propPlaybackFor,
   propsToPreload,
   queuePropArt,
@@ -69,6 +70,13 @@ export class CommandCenterScene extends Phaser.Scene {
     this.artManifest = new Set(options.artManifest || []);
     this.zoneObjects = new Map();
     this.propObjects = new Map();
+    // Animated machine art indexed by the zone it stands in, so the station seam
+    // can wake or freeze one machine without searching the whole registry.
+    this.propArtByZone = new Map();
+    // The zone SpawnCamper is currently working at, '' when he is travelling or
+    // idling at home. The only thing that grants a machine its loop.
+    this.camperStationZoneId = '';
+    this.pendingCamperZoneId = '';
     this.replacedComponents = new Set();
     this.componentObjects = new Map();
     this.conduitObjects = new Map();
@@ -382,13 +390,85 @@ export class CommandCenterScene extends Phaser.Scene {
       : this.add.image(at.x, at.y, entry.textureKey);
     object.setOrigin(at.originX, at.originY).setScale(at.scale).setDepth(DEPTH.props);
 
-    // Ambient machine animation is simply on. Reduced motion holds a frame out
-    // of the same sheet rather than needing a second, static PNG.
-    const playback = propPlaybackFor(entry, { reducedMotion: this.reducedMotion });
+    // Turning a machine around is a registry edit, not an art edit: the sheet on
+    // disk stays exactly what Sprite Fusion exported. Safe about a centred
+    // origin, so the floor contact point is unmoved.
+    if (entry.flipX) object.setFlipX(true);
+
+    // Every machine builds still, holding the first frame of its own sheet. The
+    // loop is not an ambient default: it is granted by `setCamperStation` when
+    // SpawnCamper arrives to work here, and taken back when he leaves. Reduced
+    // motion holds the same frame permanently rather than needing a second PNG.
+    const playback = propPlaybackFor(entry, { reducedMotion: this.reducedMotion, active: false });
     if (playback?.kind === 'frame') object.setFrame(playback.frame);
     else if (playback?.kind === 'play' && this.anims.exists(playback.key)) object.play(playback.key, true);
 
     this.propObjects.set(entry.id, object);
+
+    // Indexed by the whitebox box's own zone — the registry carries no zone of
+    // its own, and does not need to: `covers[0]` already names the body, and the
+    // body already knows where it stands.
+    if (isAnimatedProp(entry) && box?.zone) {
+      const list = this.propArtByZone.get(box.zone) || [];
+      list.push({ entry, object });
+      this.propArtByZone.set(box.zone, list);
+    }
+  }
+
+  /**
+   * Play or freeze every animated machine standing in one zone. The only place
+   * machine playback is touched after build time, and the only reason a sheet
+   * ever runs: an unattended machine holds `propStaticFrameFor` — the first
+   * frame of the sheet it was exported from.
+   */
+  setZonePropArtActive(zoneId, active) {
+    (this.propArtByZone.get(zoneId) || []).forEach(({ entry, object }) => {
+      const playback = propPlaybackFor(entry, { reducedMotion: this.reducedMotion, active });
+      if (playback?.kind === 'frame') {
+        object.anims?.stop();
+        object.setFrame(playback.frame);
+      } else if (playback?.kind === 'play' && this.anims.exists(playback.key)) {
+        object.play(playback.key, true);
+      }
+    });
+  }
+
+  /**
+   * The station seam. One zone at a time holds SpawnCamper's attention, and only
+   * that zone's machine runs — its sheet loop and, for a machine still on the
+   * whitebox fallback, its operational components. Everything else in the room
+   * stays frozen no matter how many workflows are live, which is the whole point:
+   * motion means he is standing there, not that telemetry is busy.
+   *
+   * Re-running `applyAreaGroups` re-evaluates the zone being left and the zone
+   * being entered off the last telemetry; it is cheap because `applyZoneState`
+   * already skips components whose mode did not change.
+   */
+  setCamperStation(zoneId) {
+    const next = zoneId || '';
+    if (next === this.camperStationZoneId) return;
+
+    if (this.camperStationZoneId) this.setZonePropArtActive(this.camperStationZoneId, false);
+    this.camperStationZoneId = next;
+    if (next) this.setZonePropArtActive(next, true);
+
+    if (this.latestState) this.applyAreaGroups(this.latestState.areaGroups || []);
+  }
+
+  /**
+   * The contact shadow under one piece of art. Machine sheets bake no shadow —
+   * they cannot, since the same object is reused wherever the registry anchors
+   * it — so the floor pool is generated here from the existing radial texture,
+   * tinted void and squashed flat. `DEPTH.props - 1` keeps it under every prop
+   * without inventing a layer the DEPTH map would have to name.
+   */
+  addPropShadow(entry) {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
+    const at = propShadowFor(entry, box);
+    if (!at) return;
+
+    this.addGlow(at.x, at.y, at.width, at.height, P.void, at.alpha, false)
+      .setDepth(DEPTH.props - 1);
   }
 
   buildProps() {
@@ -413,6 +493,10 @@ export class CommandCenterScene extends Phaser.Scene {
       }
     });
 
+    // Shadows first, as one pass: every pool has to end up under every machine,
+    // not just under its own, and art is drawn in registry order at one flat
+    // depth.
+    live.forEach((entry) => this.addPropShadow(entry));
     live.forEach((entry) => this.addPropArt(entry));
 
     // Zone number stencils, as in the design's whitebox.
@@ -1127,6 +1211,7 @@ export class CommandCenterScene extends Phaser.Scene {
       // walk there.
       place(target.x, target.y);
       this.applyCamperVisual(this.camperVisuals.endRoute());
+      this.setCamperStation(this.pendingCamperZoneId);
       this.focusCamera(target, true);
       return;
     }
@@ -1136,6 +1221,7 @@ export class CommandCenterScene extends Phaser.Scene {
     // would hold the last walk frame forever instead of settling.
     if (Math.abs(this.camperRig.x - target.x) < 2 && Math.abs(this.camperRig.y - target.y) < 2) {
       this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
+      this.setCamperStation(this.pendingCamperZoneId);
       return;
     }
 
@@ -1151,8 +1237,16 @@ export class CommandCenterScene extends Phaser.Scene {
     if (!timeline.length) {
       place(target.x, target.y);
       this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
+      this.setCamperStation(this.pendingCamperZoneId);
       return;
     }
+
+    // A walk is actually happening, so he stops working: the machine he was at
+    // goes still for the whole flight, and nothing he passes on the way wakes up.
+    // Released here rather than at the top of the function on purpose — the
+    // early returns above are the cases where he does not move, and releasing
+    // before them would restart his machine on every telemetry tick.
+    this.setCamperStation('');
 
     // For the whole flight the visual belongs to the segment being walked, not
     // to the telemetry mode. `playCamperAnimation` keeps recording the logical
@@ -1165,6 +1259,9 @@ export class CommandCenterScene extends Phaser.Scene {
         // workstation job resolves to operate_back and home resolves to idle.
         this.camperVisuals.endRoute();
         this.playCamperAnimation(this.pendingCamperAnim || 'idle');
+        // And the machine he walked over to starts running, on this frame and
+        // not before. Walking home stations nowhere, so the room goes still.
+        this.setCamperStation(this.pendingCamperZoneId);
         return;
       }
       const leg = timeline[index];
@@ -1461,7 +1558,9 @@ export class CommandCenterScene extends Phaser.Scene {
 
   // -------------------------------------------------------------------------
   // Telemetry → visual. Section 11: one function, zone-scoped. Nothing else in
-  // the scene reads telemetry, and ambient loops never consult state.
+  // the scene reads telemetry. Machine motion is gated on `camperStationZoneId`
+  // rather than on state: telemetry decides where he goes, standing there is what
+  // starts the machine.
   // -------------------------------------------------------------------------
 
   updatePublicState(state) {
@@ -1483,6 +1582,9 @@ export class CommandCenterScene extends Phaser.Scene {
       const visual = visualForState(primary.displayState);
       const machineLabel = primary.machineName || area.shortLabel;
       this.pendingCamperAnim = visual.camperAnim;
+      // Standing somewhere idle is not working there: a machine wakes only for a
+      // pose he actually operates it in.
+      this.pendingCamperZoneId = visual.camperAnim === 'idle' ? '' : primary.areaId;
       this.moveCamperTo(area.destination, {
         immediate: firstPaint,
         label: `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
@@ -1491,6 +1593,7 @@ export class CommandCenterScene extends Phaser.Scene {
       this.focusZone(primary.areaId);
     } else {
       this.pendingCamperAnim = 'idle';
+      this.pendingCamperZoneId = '';
       const offline = state.overallStatus === 'offline';
       this.moveCamperTo(COMMAND_CENTER_CANVAS.homePoint, {
         immediate: firstPaint,
@@ -1529,7 +1632,13 @@ export class CommandCenterScene extends Phaser.Scene {
     object.displayState = group.displayState;
     object.nameTag.setText((group.displayMachine?.name || object.displayWorkflow?.machineName || object.area.label).toUpperCase());
 
-    const nextKeys = new Set(visual.components);
+    // A whitebox machine follows the same rule its finished-art siblings do: it
+    // runs while SpawnCamper is working at it and holds still otherwise, however
+    // busy telemetry says this zone is. The status readouts below — glow, warning
+    // lamp, glitch, conduits, the complete flash — are deliberately NOT gated:
+    // those report state, and freezing them would read as offline rather than calm.
+    const attended = this.camperStationZoneId === zoneId;
+    const nextKeys = attended ? new Set(visual.components) : new Set();
     // Only touch components that actually changed mode.
     this.componentsForArea(zoneId).forEach((component) => {
       const shouldRun = nextKeys.has(component.spec.key);

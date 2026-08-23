@@ -246,13 +246,28 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     x: 408, y: 264, w: 144, h: 96,
     parts: Object.freeze([{ x: 0, y: 0, w: 144, h: 96, fill: COMMAND_CENTER_PALETTE.bg0, stroke: SHELL_TOP, strokeWidth: 2, recessed: true }])
   }),
-  // Unzoned dressing: crates, wall sigil, cabling boxes.
+  // Zone 10 and 11. Creator Console and Profit Analyzer used to hang off
+  // `prop_wall_feed_shells` alongside News Array — three unrelated workflow
+  // machines on one 232x38 wall strip. Production art is one sprite per machine,
+  // so each now owns a floor-standing console box of its own. Both footprints
+  // were checked clash-free against every other prop and sit one axis-aligned
+  // spur off an existing lane.
   Object.freeze({
-    key: 'prop_crate_small',
-    zone: '',
-    x: 300, y: 180, w: 24, h: 24,
-    parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
+    key: 'prop_creator_console',
+    zone: 'creator-console',
+    x: 264, y: 204, w: 120, h: 72,
+    parts: Object.freeze(deskParts(120, 72, 22))
   }),
+  Object.freeze({
+    key: 'prop_profit_analyzer',
+    zone: 'profit-analyzer',
+    x: 636, y: 240, w: 108, h: 72,
+    parts: Object.freeze(deskParts(108, 72, 22))
+  }),
+  // Unzoned dressing: crates, wall sigil, cabling boxes. `prop_crate_small` used
+  // to sit at 300,180 — inside the Creator Console's floor pocket, which was
+  // harmless while that console was a 120x72 whitebox but is fully swallowed by
+  // the real 123x109 art. Removed rather than relocated: it decorated nothing.
   Object.freeze({
     key: 'prop_crate_wide_a',
     zone: '',
@@ -445,6 +460,18 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
     key: 'anim_core_seed', zone: 'power-core', kind: 'core-seed',
     x: 474, y: 306, w: 12, h: 12,
     color: COMMAND_CENTER_PALETTE.gold, ambient: 'glow'
+  }),
+  Object.freeze({
+    key: 'anim_creator_screens', zone: 'creator-console', kind: 'crt-row',
+    x: 276, y: 214, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
+    color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
+    ambient: 'flicker', operational: 'screens'
+  }),
+  Object.freeze({
+    key: 'anim_profit_screens', zone: 'profit-analyzer', kind: 'crt-row',
+    x: 648, y: 250, w: 84, h: 26, cells: 3, cellWidth: 24, cellGap: 6,
+    color: COMMAND_CENTER_PALETTE.gold, screen: 0x1b1405, bezel: 0x4a3a0e,
+    ambient: 'flicker', operational: 'screens'
   })
 ]);
 
@@ -526,7 +553,7 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
 ]);
 
 // ---------------------------------------------------------------------------
-// Walk graph (section 01): 4 lanes + 6 spurs, every segment axis-aligned so the
+// Walk graph (section 01): 4 lanes + 8 spurs, every segment axis-aligned so the
 // hover rig only ever needs L/R + up/down translation, never a diagonal cel.
 // ---------------------------------------------------------------------------
 
@@ -543,7 +570,9 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'core-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 622, y: 372 }) }),
     Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 300, y: 480 }), to: Object.freeze({ x: 300, y: 490 }) }),
     Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
-    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 780, y: 480 }), to: Object.freeze({ x: 780, y: 490 }) })
+    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 780, y: 480 }), to: Object.freeze({ x: 780, y: 490 }) }),
+    Object.freeze({ id: 'creator-spur', from: Object.freeze({ x: 240, y: 288 }), to: Object.freeze({ x: 324, y: 288 }) }),
+    Object.freeze({ id: 'profit-spur', from: Object.freeze({ x: 622, y: 324 }), to: Object.freeze({ x: 690, y: 324 }) })
   ])
 });
 
@@ -691,6 +720,37 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     accent: COMMAND_CENTER_PALETTE.cyan,
     conduits: Object.freeze(['D3']),
     depth: 20
+  }),
+  // Zones 10 and 11 exist because a walk destination is per-zone, not per-machine:
+  // while Creator Console and Profit Analyzer lived in zone 02 the camper walked to
+  // (132, 324) for them, which is now across the room from where they stand. Their
+  // workflow keys, Hermes jobs and telemetry state names are untouched — only which
+  // zone the machine physically occupies moved.
+  Object.freeze({
+    id: 'creator-console', zoneNumber: '10',
+    label: 'Creator Console', shortLabel: 'Creator',
+    description: 'Creator-facing intelligence console',
+    x: 324, y: 240,
+    destination: Object.freeze({ x: 324, y: 288 }),
+    bounds: Object.freeze({ x: 264, y: 204, width: 120, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 264, y: 204, width: 120, height: 72 })]),
+    color: COMMAND_CENTER_PALETTE.cyan,
+    accent: COMMAND_CENTER_PALETTE.magenta,
+    conduits: Object.freeze([]),
+    depth: 20
+  }),
+  Object.freeze({
+    id: 'profit-analyzer', zoneNumber: '11',
+    label: 'Profit Analyzer', shortLabel: 'Profit',
+    description: 'Monetization and partner opportunity console',
+    x: 690, y: 276,
+    destination: Object.freeze({ x: 690, y: 324 }),
+    bounds: Object.freeze({ x: 636, y: 240, width: 108, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 636, y: 240, width: 108, height: 72 })]),
+    color: COMMAND_CENTER_PALETTE.gold,
+    accent: COMMAND_CENTER_PALETTE.phosphor,
+    conduits: Object.freeze([]),
+    depth: 20
   })
 ]);
 
@@ -703,8 +763,12 @@ export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   servers: 'central-operations',
   research: 'intelligence-research',
   intel: 'intelligence-research',
-  creator: 'intelligence-research',
-  monetization: 'intelligence-research',
+  creator: 'creator-console',
+  'creator-content': 'creator-console',
+  'creator-console': 'creator-console',
+  monetization: 'profit-analyzer',
+  profit: 'profit-analyzer',
+  'profit-analyzer': 'profit-analyzer',
   'ai-news': 'intelligence-research',
   scanner: 'scanner-bench',
   bench: 'scanner-bench',

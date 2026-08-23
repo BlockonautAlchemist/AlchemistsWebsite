@@ -1,6 +1,13 @@
 {
   "files": [
     "/assets/command-center/env_floor_wall.png",
+    "/assets/command-center/anim_opportunity_radar_sheet.png",
+    "/assets/command-center/anim_tool_scanner_sheet.png",
+    "/assets/command-center/anim_x_uplink_sheet.png",
+    "/assets/command-center/anim_newsletter_still_sheet.png",
+    "/assets/command-center/anim_creator_console_sheet.png",
+    "/assets/command-center/anim_repo_forge_sheet.png",
+    "/assets/command-center/anim_model_furnace_sheet.png",
     "/assets/command-center/spawncamper_idle_sheet.png",
     "/assets/command-center/spawncamper_walk_front_sheet.png",
     "/assets/command-center/spawncamper_walk_back_sheet.png",

@@ -82,29 +82,29 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     workflows: ['models-infra'],
     hermesJobs: [job('models-infra', 'Models Infra')],
     areaId: 'model-infrastructure',
-    propKeys: ['prop_rack_a', 'prop_rack_b', 'prop_furnace_chamber']
+    propKeys: ['prop_furnace_chamber', 'prop_rack_a', 'prop_rack_b']
   }),
   machine({
     id: 'creator-console',
     name: 'Creator Console',
     shortName: 'Creator',
     description: 'Shapes creator-facing intelligence and content angles.',
-    visualDescription: 'Shared research feed shells showing editorial signal traffic.',
+    visualDescription: 'Floor console with a three-cell editorial CRT row and signal traffic.',
     workflows: ['creator-content'],
     hermesJobs: [job('creator-content', 'Creator Content')],
-    areaId: 'intelligence-research',
-    propKeys: ['prop_wall_feed_shells']
+    areaId: 'creator-console',
+    propKeys: ['prop_creator_console']
   }),
   machine({
     id: 'profit-analyzer',
     name: 'Profit Analyzer',
     shortName: 'Profit',
     description: 'Reviews monetization, partner, and market opportunity signals.',
-    visualDescription: 'Shared research feed shells with warmer analysis pulses.',
+    visualDescription: 'Floor console with a gold analysis CRT row and warmer pulses.',
     workflows: ['monetization'],
     hermesJobs: [job('monetization', 'Monetization')],
-    areaId: 'intelligence-research',
-    propKeys: ['prop_wall_feed_shells']
+    areaId: 'profit-analyzer',
+    propKeys: ['prop_profit_analyzer']
   }),
   machine({
     id: 'experiment-bench',

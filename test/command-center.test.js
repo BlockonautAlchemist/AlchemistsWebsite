@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
+const zlib = require('node:zlib');
 
 const commandCenterStateHandler = require('../api/command-center/state');
 const commandCenterTelemetryHandler = require('../api/command-center/telemetry');
@@ -21,6 +22,7 @@ let canonicalAreaId;
 let machineAreaIdForWorkflow;
 let machineForWorkflow;
 let machineForHermesJobId;
+let machineById;
 let STATE_VISUALS;
 let CAMPER_ANIMATIONS;
 let visualForState;
@@ -50,6 +52,7 @@ let PROP_STATIC;
 let PROP_ANIMATED;
 let propSheetFor;
 let propAnchorFor;
+let propShadowFor;
 let isAnimatedProp;
 let propAnimationKeyFor;
 let propFrameOrderFor;
@@ -83,7 +86,8 @@ test.before(async () => {
     COMMAND_CENTER_MACHINES,
     areaIdForWorkflow: machineAreaIdForWorkflow,
     machineForWorkflow,
-    machineForHermesJobId
+    machineForHermesJobId,
+    machineById
   } = await import('../src/command-center/machineConfig.mjs'));
   ({
     STATE_VISUALS,
@@ -108,6 +112,7 @@ test.before(async () => {
     PROP_ANIMATED,
     propSheetFor,
     propAnchorFor,
+    propShadowFor,
     isAnimatedProp,
     propAnimationKeyFor,
     propFrameOrderFor,
@@ -485,8 +490,8 @@ test('maps workflows and context aliases to command center room areas', () => {
     ['ai-news', 'intelligence-research'],
     ['new-tools', 'scanner-bench'],
     ['agents', 'scanner-bench'],
-    ['creator-content', 'intelligence-research'],
-    ['monetization', 'intelligence-research'],
+    ['creator-content', 'creator-console'],
+    ['monetization', 'profit-analyzer'],
     ['playbooks', 'scanner-bench'],
     ['github', 'github-code'],
     ['models-infra', 'model-infrastructure'],
@@ -501,7 +506,7 @@ test('maps workflows and context aliases to command center room areas', () => {
   });
 
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'scanner' } }), 'scanner-bench');
-  assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'creator' } }), 'intelligence-research');
+  assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'creator' } }), 'creator-console');
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'models' } }), 'model-infrastructure');
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'social-x' } }), 'x-communications');
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'terminal-publisher' } }), 'terminal-transmitter');
@@ -1052,6 +1057,77 @@ function readPngColorType(file) {
   return fs.readFileSync(file)[25];
 }
 
+// Fully decodes an RGBA8 sprite strip and reports the opaque bounding box of its
+// frames, in frame-local coordinates and unioned across every frame. This is what
+// makes the two art-derived registry numbers checkable: `offsetY` is the empty
+// rows under the machine, and `shadowWidth` is how wide the machine really is —
+// neither is visible in IHDR, and eyeballing them is how they drift.
+function readPngOpaqueBounds(file, frameWidth, frameHeight) {
+  const buffer = fs.readFileSync(file);
+  assert.equal(buffer[24], 8, `${file} is not 8-bit`);
+  assert.equal(buffer[25], 6, `${file} is not RGBA`);
+  assert.equal(buffer[28], 0, `${file} is interlaced`);
+
+  const { width, height } = readPngSize(file);
+  const idat = [];
+  let pos = 8;
+  while (pos < buffer.length) {
+    const length = buffer.readUInt32BE(pos);
+    const type = buffer.toString('ascii', pos + 4, pos + 8);
+    if (type === 'IDAT') idat.push(buffer.subarray(pos + 8, pos + 8 + length));
+    if (type === 'IEND') break;
+    pos += 12 + length;
+  }
+
+  // Undo the per-scanline filters; only the alpha byte of each pixel is read
+  // afterwards, but every channel has to be reconstructed to get to it.
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const bpp = 4;
+  const stride = width * bpp;
+  const out = Buffer.alloc(height * stride);
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let x = 0; x < stride; x += 1) {
+      const a = x >= bpp ? out[y * stride + x - bpp] : 0;
+      const b = y > 0 ? out[(y - 1) * stride + x] : 0;
+      const c = x >= bpp && y > 0 ? out[(y - 1) * stride + x - bpp] : 0;
+      let value = line[x];
+      if (filter === 1) value += a;
+      else if (filter === 2) value += b;
+      else if (filter === 3) value += (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        value += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      out[y * stride + x] = value & 0xff;
+    }
+  }
+
+  const frames = Math.round(width / frameWidth);
+  const bounds = { minX: frameWidth, maxX: -1, minY: frameHeight, maxY: -1 };
+  for (let frame = 0; frame < frames; frame += 1) {
+    for (let y = 0; y < frameHeight; y += 1) {
+      for (let x = 0; x < frameWidth; x += 1) {
+        if (out[y * stride + (frame * frameWidth + x) * bpp + 3] === 0) continue;
+        bounds.minX = Math.min(bounds.minX, x);
+        bounds.maxX = Math.max(bounds.maxX, x);
+        bounds.minY = Math.min(bounds.minY, y);
+        bounds.maxY = Math.max(bounds.maxY, y);
+      }
+    }
+  }
+  return {
+    width: bounds.maxX - bounds.minX + 1,
+    height: bounds.maxY - bounds.minY + 1,
+    centreX: (bounds.minX + bounds.maxX + 1) / 2,
+    bottomSlack: frameHeight - 1 - bounds.maxY
+  };
+}
+
 test('env_floor_wall.png is the real 960x528 opaque L1 shell the scene expects', () => {
   const file = `${__dirname}/../public${COMMAND_CENTER_ENVIRONMENT.art}`;
 
@@ -1349,10 +1425,18 @@ test('the mirrored walk_right sheet is an independent texture played in its auth
   assert.equal(right.frames, left.frames);
 
   // Increasing X selects it, and no second flip is ever applied on top of a PNG
-  // that is already physically mirrored.
+  // that is already physically mirrored. Machine art *may* be mirrored — that is
+  // a registry knob — so the guard is that the scene's only flip is the
+  // registry-driven one on prop art, and that nothing in the character build
+  // path flips at all.
   assert.equal(camperWalkVisualFor(120, 0), 'walk_right');
   const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
-  assert.doesNotMatch(scene, /flipX|setFlip|toggleFlip/i);
+  const flips = (scene.match(/^.*(?:flipX|setFlip|toggleFlip).*$/gim) || []).map((line) => line.trim());
+  assert.deepEqual(flips, ['if (entry.flipX) object.setFlipX(true);']);
+
+  const camperSection = scene.slice(scene.indexOf('buildCamper() {'));
+  assert.notEqual(camperSection, '');
+  assert.doesNotMatch(camperSection, /flipX|setFlip|toggleFlip/i);
 });
 
 test('the scene creates the camper animations it plays and sizes the hit box from the sheet', () => {
@@ -1619,25 +1703,40 @@ test('a real machine asset retires its whitebox body and every whitebox componen
   );
 });
 
-test('reduced motion holds a frame from the same sheet instead of needing a second PNG', () => {
+test('an unattended machine and reduced motion both hold a frame from the same sheet', () => {
   const entry = animatedFixture();
 
-  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: false }), {
+  // A machine runs only while it is being worked at. `active` is the grant, and
+  // it is off by default: asking without it is asking for the still frame.
+  assert.deepEqual(propPlaybackFor(entry, { active: true }), {
     kind: 'play',
     key: 'prop_radar_drum'
   });
-  // The still frame comes out of the animated sheet. No separate fallback file
-  // is registered, requested or required.
-  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: true }), { kind: 'frame', frame: 0 });
+  assert.deepEqual(propPlaybackFor(entry, { active: false }), { kind: 'frame', frame: 0 });
+  assert.deepEqual(propPlaybackFor(entry, {}), { kind: 'frame', frame: 0 });
+  assert.deepEqual(propPlaybackFor(entry), { kind: 'frame', frame: 0 });
+
+  // Reduced motion outranks attendance: the machine he is standing at still
+  // holds its frame. Both still frames come out of the animated sheet, so no
+  // separate fallback file is registered, requested or required.
+  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: true, active: true }), { kind: 'frame', frame: 0 });
+  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: true, active: false }), { kind: 'frame', frame: 0 });
   assert.equal(propStaticFrameFor(entry), 0);
   assert.equal(propStaticFrameFor(animatedFixture({ staticFrame: 5 })), 5);
+  assert.deepEqual(
+    propPlaybackFor(animatedFixture({ staticFrame: 5 }), { active: false }),
+    { kind: 'frame', frame: 5 }
+  );
 
-  // Static props have no playback either way.
-  assert.equal(propPlaybackFor(propSheetFor('ops_console'), { reducedMotion: false }), null);
+  // Static props have no playback under any combination.
+  assert.equal(propPlaybackFor(propSheetFor('ops_console'), { active: true }), null);
+  assert.equal(propPlaybackFor(propSheetFor('ops_console'), { active: false }), null);
   assert.equal(propPlaybackFor(propSheetFor('ops_console'), { reducedMotion: true }), null);
 
   const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
-  assert.match(source, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion \}\)/);
+  // Built still, and woken only from the station seam.
+  assert.match(source, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion, active: false \}\)/);
+  assert.match(source, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion, active \}\)/);
   assert.match(source, /playback\?\.kind === 'frame'\) object\.setFrame\(playback\.frame\)/);
 });
 
@@ -1655,11 +1754,13 @@ test('the prop registry rides the manifest seam and unlisted art keeps its white
   assert.deepEqual(propsToPreload(new Set()), []);
 
   // One file shared by two instances is fetched once, but both instances render.
-  const both = new Set(['/assets/command-center/prop_rack.png']);
+  // The racks used to demonstrate this; the Model Furnace sheet swallowed both,
+  // so the wide crates are now the registry's only shared-texture pair.
+  const both = new Set(['/assets/command-center/prop_crate_wide.png']);
   const queued = propsToPreload(both);
   assert.equal(queued.length, 1);
-  assert.equal(queued[0].textureKey, 'prop_rack');
-  assert.equal(PROP_SHEETS.filter((sheet) => sheet.textureKey === 'prop_rack').length, 2);
+  assert.equal(queued[0].textureKey, 'prop_crate_wide');
+  assert.equal(PROP_SHEETS.filter((sheet) => sheet.textureKey === 'prop_crate_wide').length, 2);
 
   // Every registry file the manifest does ship must exist on disk at the
   // dimensions its entry claims — measure the PNG, do not guess.
@@ -1716,16 +1817,206 @@ test('static and animated machine art render at the same prop depth, on one code
   );
 });
 
-test('a machine loop is started once at build time and never restarted on an update tick', () => {
+test('machines build still, and playback is only ever issued from the station seam', () => {
   const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
 
+  // Machine playback is not a per-frame concern: it changes when attendance
+  // changes, never on a tick.
   const updateBlock = source.slice(source.indexOf('  update() {'), source.indexOf('  buildEnvironment() {'));
   assert.equal(updateBlock.length > 0, true, 'could not isolate update()');
-  assert.doesNotMatch(updateBlock, /propObjects|addPropArt|ensurePropAnimations|\.play\(/);
+  assert.doesNotMatch(updateBlock, /propObjects|propArtByZone|addPropArt|ensurePropAnimations|setCamperStation|\.play\(/);
 
   // Built once, from buildProps, and guarded by anims.exists inside the registry.
   assert.equal(source.match(/this\.ensurePropAnimations\(\)/g).length, 1);
   assert.equal(source.match(/live\.forEach\(\(entry\) => this\.addPropArt\(entry\)\)/g).length, 1);
+
+  // The build pass is explicitly inactive: no machine is running when the room
+  // first paints, however busy telemetry is.
+  const artBlock = source.slice(source.indexOf('  addPropArt(entry) {'), source.indexOf('  setZonePropArtActive('));
+  assert.equal(artBlock.length > 0, true, 'could not isolate addPropArt()');
+  assert.match(artBlock, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion, active: false \}\)/);
+  assert.doesNotMatch(artBlock, /active: true/);
+
+  // And exactly one function after build time may start or stop a machine.
+  const playCalls = source.match(/\bobject\.play\(playback\.key, true\)/g) || [];
+  assert.equal(playCalls.length, 2, 'machine playback issued outside build + station seam');
+  const stationBlock = source.slice(
+    source.indexOf('  setZonePropArtActive('),
+    source.indexOf('  setCamperStation(')
+  );
+  assert.match(stationBlock, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion, active \}\)/);
+  // Freezing stops the loop rather than leaving it paused on an arbitrary frame.
+  assert.match(stationBlock, /object\.anims\?\.stop\(\);\s*\n\s*object\.setFrame\(playback\.frame\)/);
+});
+
+test('every animated machine resolves to a real zone SpawnCamper can walk to', () => {
+  // This is the whole join the station seam runs on, and it carries no new data:
+  // the sheet names the whitebox body it covers, and the body already knows its
+  // zone. A machine whose anchor lost its zone would silently never wake.
+  const areaIds = new Set(COMMAND_CENTER_AREAS.map((area) => area.id));
+  const animated = PROP_SHEETS.filter(isAnimatedProp);
+  assert.equal(animated.length, 7, 'the shipped animated machine count changed');
+
+  animated.forEach((entry) => {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
+    assert.ok(box, `${entry.id} anchors on a prop that does not exist`);
+    assert.equal(areaIds.has(box.zone), true, `${entry.id} anchors in unknown zone ${box.zone}`);
+
+    // The zone the art physically stands in is the zone the semantic registry
+    // sends him to. If these two ever drift he walks to one place and a machine
+    // somewhere else lights up.
+    const owners = COMMAND_CENTER_MACHINES.filter((machine) => (
+      machine.propKeys.some((key) => entry.covers.includes(key))
+    ));
+    assert.ok(owners.length > 0, `${entry.id} is owned by no machine`);
+    owners.forEach((machine) => {
+      assert.equal(machine.areaId, box.zone, `${machine.id} areaId disagrees with ${entry.id} art zone`);
+    });
+
+    // And he can actually get there, or the machine is unreachable by design.
+    const area = COMMAND_CENTER_AREAS.find((candidate) => candidate.id === box.zone);
+    const route = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, area.destination);
+    assert.ok(route.length > 0, `${box.zone} is unreachable from home`);
+  });
+});
+
+test('only the machine SpawnCamper stands at runs; every other one holds frame 0', () => {
+  // The scene's index, rebuilt from the same two facts it uses.
+  const byZone = new Map();
+  PROP_SHEETS.filter(isAnimatedProp).forEach((entry) => {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
+    const list = byZone.get(box.zone) || [];
+    list.push(entry);
+    byZone.set(box.zone, list);
+  });
+
+  // Given one attended zone, what the whole room does.
+  const room = (stationZoneId, { reducedMotion = false } = {}) => {
+    const running = [];
+    byZone.forEach((entries, zoneId) => {
+      entries.forEach((entry) => {
+        const playback = propPlaybackFor(entry, { reducedMotion, active: stationZoneId === zoneId });
+        if (playback.kind === 'play') running.push(entry.id);
+        else assert.equal(playback.frame, propStaticFrameFor(entry), `${entry.id} froze on the wrong frame`);
+      });
+    });
+    return running.sort();
+  };
+
+  // Nothing attended — first paint, and walking home — is a completely still room.
+  assert.deepEqual(room(''), []);
+
+  // Standing at one zone runs that zone's machines and strictly nothing else,
+  // however many other workflows telemetry says are live.
+  assert.deepEqual(room('github-code'), ['code_bench']);
+  assert.deepEqual(room('intelligence-research'), ['radar_drum']);
+  assert.deepEqual(room('model-infrastructure'), ['furnace_chamber']);
+  assert.deepEqual(room('newsletter'), ['still_column']);
+
+  // Every zone that owns art wakes exactly its own art, one zone at a time.
+  byZone.forEach((entries, zoneId) => {
+    assert.deepEqual(room(zoneId), entries.map((entry) => entry.id).sort(), `${zoneId} station`);
+  });
+
+  // A zone with no art of its own leaves the room still rather than throwing.
+  assert.deepEqual(room('central-operations'), []);
+  assert.deepEqual(room('power-core'), []);
+
+  // Reduced motion outranks attendance everywhere.
+  byZone.forEach((entries, zoneId) => {
+    assert.deepEqual(room(zoneId, { reducedMotion: true }), [], `${zoneId} moved under reduced motion`);
+  });
+});
+
+test('arriving at a machine is what starts it, and leaving is what stops it', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const moveBlock = source.slice(
+    source.indexOf('  moveCamperTo(point, {'),
+    source.indexOf('  // -------------------------------------------------------------------------\n  // L5 · conduits')
+  );
+  assert.equal(moveBlock.length > 0, true, 'could not isolate moveCamperTo()');
+
+  // He gives the machine up when a walk actually begins, so nothing is running
+  // while he travels and nothing he passes on the way wakes up.
+  assert.equal((moveBlock.match(/this\.setCamperStation\(''\);/g) || []).length, 1);
+  assert.equal(
+    moveBlock.indexOf("this.setCamperStation('')") < moveBlock.indexOf('this.camperVisuals.beginRoute()'),
+    true,
+    'the station is released after the route starts'
+  );
+
+  // Crucially it is released *after* the early returns, not at the top of the
+  // function: telemetry re-polls while he stands at one machine, and releasing
+  // first would stop and restart that machine on every tick. Standing still
+  // through an update must be a no-op, which setCamperStation's identity guard
+  // only delivers if the release never runs in that path.
+  assert.equal(
+    moveBlock.indexOf('if (immediate || this.reducedMotion)') < moveBlock.indexOf("this.setCamperStation('')"),
+    true,
+    'the immediate branch is reached before the station is released'
+  );
+  assert.equal(
+    moveBlock.indexOf('// Already standing there.') < moveBlock.indexOf("this.setCamperStation('')"),
+    true,
+    'the already-standing-there branch is reached before the station is released'
+  );
+
+  // And every way a route can finish stations him: the walked arrival, the
+  // immediate snap, the already-standing-there case and the zero-leg route.
+  assert.equal((moveBlock.match(/this\.setCamperStation\(this\.pendingCamperZoneId\)/g) || []).length, 4);
+
+  // The walked arrival stations him only after the whole leg timeline is spent.
+  const arrival = moveBlock.slice(moveBlock.indexOf('if (index >= timeline.length) {'));
+  assert.match(arrival, /playCamperAnimation\(this\.pendingCamperAnim \|\| 'idle'\);\s*\n(\s*\/\/.*\n)*\s*this\.setCamperStation\(this\.pendingCamperZoneId\);/);
+
+  // Telemetry chooses the destination; the pose decides whether it counts as
+  // work. Idling at a machine — or at home — stations nowhere.
+  const updateBlock = source.slice(
+    source.indexOf('  updatePublicState(state) {'),
+    source.indexOf('  applyAreaGroups(areaGroups) {')
+  );
+  assert.equal(updateBlock.length > 0, true, 'could not isolate updatePublicState()');
+  assert.match(updateBlock, /this\.pendingCamperZoneId = visual\.camperAnim === 'idle' \? '' : primary\.areaId;/);
+  assert.match(updateBlock, /this\.pendingCamperZoneId = '';/);
+
+  // Every state that maps to an idle pose therefore leaves the room still.
+  const idleStates = Object.entries(STATE_VISUALS)
+    .filter(([, visual]) => visual.camperAnim === 'idle')
+    .map(([state]) => state);
+  assert.deepEqual(idleStates.sort(), ['complete', 'idle', 'waiting']);
+});
+
+test('the whitebox fallback is gated on attendance, but the status readouts are not', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const zoneBlock = source.slice(
+    source.indexOf('  applyZoneState(zoneId, group) {'),
+    source.indexOf('  componentsForArea(zoneId) {')
+  );
+  assert.equal(zoneBlock.length > 0, true, 'could not isolate applyZoneState()');
+
+  // A machine still on the whitebox fallback behaves exactly like one with
+  // finished art: its sweeps, scan bars, coils and fans run only where he stands.
+  assert.match(zoneBlock, /const attended = this\.camperStationZoneId === zoneId;/);
+  assert.match(zoneBlock, /const nextKeys = attended \? new Set\(visual\.components\) : new Set\(\);/);
+
+  // Everything below the component gate reports state and must keep doing so
+  // regardless of where he is standing, or an unattended zone reads as offline
+  // rather than merely quiet.
+  const readouts = zoneBlock.slice(zoneBlock.indexOf('// Conduits belonging to this zone'));
+  assert.doesNotMatch(readouts, /attended|camperStationZoneId/);
+  ['setConduitActive', 'setLocalGlow', 'setWarningLamp', 'setGlitch', 'emitCompleteFlash'].forEach((call) => {
+    assert.match(readouts, new RegExp(`this\\.${call}\\(`), `${call} left the ungated readout block`);
+  });
+
+  // Changing where he stands re-evaluates both zones off the last telemetry
+  // rather than inventing a second state path.
+  const stationBlock = source.slice(
+    source.indexOf('  setCamperStation(zoneId) {'),
+    source.indexOf('  addPropShadow(entry) {')
+  );
+  assert.equal(stationBlock.length > 0, true, 'could not isolate setCamperStation()');
+  assert.match(stationBlock, /if \(next === this\.camperStationZoneId\) return;/);
+  assert.match(stationBlock, /this\.applyAreaGroups\(this\.latestState\.areaGroups \|\| \[\]\)/);
 });
 
 test('the prop registry holds no coordinates: sceneConfig geometry stays authoritative', () => {
@@ -1795,4 +2086,756 @@ test('the prop art registry leaves the SpawnCamper systems alone', () => {
   assert.match(source, /this\.load\.spritesheet\(sheet\.key, sheet\.art/);
   assert.match(source, /ensureCamperAnimations\(\)/);
   assert.match(source, /setOrigin\(sheet\.originX, sheet\.originY\)/);
+});
+
+// ---------------------------------------------------------------------------
+// The seven machine sheets that actually ship today (section 08 art passes 1-2).
+// ---------------------------------------------------------------------------
+
+// Measured off the real PNGs, not copied from a design contract: each file was
+// decoded and its alpha walked per frame. All seven are one horizontal strip of
+// cells, zero margin, zero spacing, binary alpha. The invariant that holds is
+// `frameHeight == sheetHeight`, not squareness: the Repo Forge cell is 203x202
+// and the Model Furnace cell 202x203.
+//
+// `offsetY` is the only *positional* override any of them carries, and four do:
+// each of those cells leaves empty rows under the machine's floor contact, so
+// without the nudge it hangs that far off its box. Alongside it sit two more
+// measured facts — `shadowWidth`, how wide the art really is, which sizes the
+// generated contact shadow, and `flipX` on the two machines that were exported
+// facing the wrong way. Everything else stays derived from sceneConfig.
+const SHIPPED_MACHINE_SHEETS = [
+  {
+    id: 'radar_drum',
+    machine: 'Opportunity Radar',
+    art: '/assets/command-center/anim_opportunity_radar_sheet.png',
+    textureKey: 'anim_opportunity_radar',
+    sheetWidth: 544, sheetHeight: 68, frameWidth: 68, frameHeight: 68, frames: 8, fps: 8,
+    anchorProp: 'prop_radar_drum',
+    shadowWidth: 54
+  },
+  {
+    id: 'scanner_bench',
+    machine: 'Tool Scanner',
+    art: '/assets/command-center/anim_tool_scanner_sheet.png',
+    textureKey: 'anim_tool_scanner',
+    sheetWidth: 576, sheetHeight: 72, frameWidth: 72, frameHeight: 72, frames: 8, fps: 6,
+    anchorProp: 'prop_scanner_bench',
+    shadowWidth: 68
+  },
+  {
+    id: 'still_column',
+    machine: 'Newsletter Still',
+    art: '/assets/command-center/anim_newsletter_still_sheet.png',
+    textureKey: 'anim_newsletter_still',
+    sheetWidth: 1624, sheetHeight: 203, frameWidth: 203, frameHeight: 203, frames: 8, fps: 6,
+    anchorProp: 'prop_still_column',
+    // Measured bottom slack: content ends at frame y=181 of a 203px cell.
+    offsetY: 21,
+    shadowWidth: 98
+  },
+  {
+    id: 'x_console',
+    machine: 'X Uplink',
+    art: '/assets/command-center/anim_x_uplink_sheet.png',
+    textureKey: 'anim_x_uplink',
+    sheetWidth: 512, sheetHeight: 64, frameWidth: 64, frameHeight: 64, frames: 8, fps: 6,
+    anchorProp: 'prop_x_console',
+    shadowWidth: 60
+  },
+  {
+    id: 'creator_console',
+    machine: 'Creator Console',
+    art: '/assets/command-center/anim_creator_console_sheet.png',
+    textureKey: 'anim_creator_console',
+    sheetWidth: 1320, sheetHeight: 151, frameWidth: 165, frameHeight: 151, frames: 8, fps: 6,
+    anchorProp: 'prop_creator_console',
+    // Measured bottom slack: content ends at frame y=128 of a 151px cell.
+    offsetY: 22,
+    shadowWidth: 123,
+    flipX: true
+  },
+  {
+    id: 'code_bench',
+    machine: 'Repo Forge',
+    art: '/assets/command-center/anim_repo_forge_sheet.png',
+    textureKey: 'anim_repo_forge',
+    sheetWidth: 1624, sheetHeight: 202, frameWidth: 203, frameHeight: 202, frames: 8, fps: 6,
+    anchorProp: 'prop_code_bench',
+    // Measured bottom slack: content ends at frame y=172 of a 202px cell.
+    offsetY: 29,
+    shadowWidth: 163,
+    flipX: true
+  },
+  {
+    id: 'furnace_chamber',
+    machine: 'Model Furnace',
+    art: '/assets/command-center/anim_model_furnace_sheet.png',
+    textureKey: 'anim_model_furnace',
+    sheetWidth: 1616, sheetHeight: 203, frameWidth: 202, frameHeight: 203, frames: 8, fps: 6,
+    anchorProp: 'prop_furnace_chamber',
+    // Measured bottom slack: content ends at frame y=161 of a 203px cell.
+    offsetY: 41,
+    shadowWidth: 165
+  }
+];
+
+test('the seven shipped machine sheets resolve as animated art in the registry', () => {
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    assert.notEqual(entry, null, `${expected.machine} is not in the prop registry`);
+    assert.equal(entry.type, PROP_ANIMATED, `${expected.machine} is not an animated entry`);
+    assert.equal(isAnimatedProp(entry), true, `${expected.machine} does not resolve as animated`);
+
+    // The sheet is the whole machine: one file, one texture, no static base.
+    assert.equal(entry.art, expected.art, `${expected.machine} art path`);
+    assert.equal(entry.textureKey, expected.textureKey, `${expected.machine} texture key`);
+    assert.equal(entry.covers[0], expected.anchorProp, `${expected.machine} anchor prop`);
+    assert.equal(entry.repeat, -1, `${expected.machine} must loop`);
+    assert.equal(entry.fps, expected.fps, `${expected.machine} fps`);
+
+    // Native scale and native origin, no export fudging. The override budget is
+    // measured numbers and a mirror: a vertical nudge, an optional flip, and the
+    // measured art width the contact shadow is sized from. Anything that would
+    // rescale or re-origin the art belongs back in Sprite Fusion, not here.
+    assert.equal(entry.scale, undefined, `${expected.machine} must not override scale`);
+    assert.equal(entry.offsetX, undefined, `${expected.machine} must not override offsetX`);
+    assert.equal(entry.originX, undefined, `${expected.machine} must not override originX`);
+    assert.equal(entry.originY, undefined, `${expected.machine} must not override originY`);
+    assert.equal(entry.offsetY, expected.offsetY, `${expected.machine} offsetY`);
+
+    // And the registry still carries no coordinates of its own.
+    assert.equal(entry.x, undefined, `${expected.machine} must not carry an x`);
+    assert.equal(entry.y, undefined, `${expected.machine} must not carry a y`);
+  });
+});
+
+test('only the two machines exported facing the wrong way are mirrored, and only from registry data', () => {
+  const flipped = PROP_SHEETS.filter((entry) => entry.flipX);
+  assert.deepEqual(flipped.map((entry) => entry.id).sort(), ['code_bench', 'creator_console']);
+
+  // A mirror is for art that reads the wrong way round, not a positioning trick:
+  // no static prop needs one, and nothing pairs it with an origin override that
+  // would move the machine sideways as it flipped.
+  flipped.forEach((entry) => {
+    assert.equal(entry.type, PROP_ANIMATED, `${entry.id} flips but is not animated art`);
+    assert.equal(entry.originX, undefined, `${entry.id} flips about a moved origin`);
+    assert.equal(entry.offsetX, undefined, `${entry.id} flips and slides`);
+  });
+  PROP_SHEETS.filter((entry) => entry.type === PROP_STATIC).forEach((entry) => {
+    assert.equal(entry.flipX, undefined, `${entry.id} is a static prop and must not flip`);
+  });
+
+  // Mirroring is only harmless because the art sits centred in its cell: flipping
+  // about a centred origin lands the machine back on the same floor spot. If a
+  // re-export ever shifts the art off centre, the flip starts sliding it.
+  flipped.forEach((entry) => {
+    const measured = readPngOpaqueBounds(`${__dirname}/../public${entry.art}`, entry.frameWidth, entry.frameHeight);
+    const drift = Math.abs(measured.centreX - entry.frameWidth / 2);
+    assert.ok(drift <= 0.5, `${entry.id} art is ${drift}px off its cell centre, so flipping slides it`);
+  });
+
+  // And the flip is data, applied in one place: the scene never names a machine.
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(scene, /if \(entry\.flipX\) object\.setFlipX\(true\);/);
+  assert.doesNotMatch(scene, /creator_console|code_bench|anim_repo_forge|anim_creator_console/);
+});
+
+test('every shipped sheet records the art width its generated shadow is sized from', () => {
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    assert.equal(entry.shadowWidth, expected.shadowWidth, `${expected.machine} shadowWidth`);
+    assert.equal(entry.flipX, expected.flipX, `${expected.machine} flipX`);
+
+    // The recorded width is the art's, not the box's — that is the whole point of
+    // carrying it. Checked against the real pixels, unioned over every frame.
+    const measured = readPngOpaqueBounds(`${__dirname}/../public${entry.art}`, entry.frameWidth, entry.frameHeight);
+    assert.equal(entry.shadowWidth, measured.width, `${expected.machine} shadowWidth is not the art's real width`);
+
+    // While the pixels are decoded anyway: the vertical nudge is the empty rows
+    // under the machine, and the sheets that declare none have none worth naming.
+    if (entry.offsetY === undefined) {
+      assert.ok(measured.bottomSlack <= 2, `${expected.machine} floats ${measured.bottomSlack}px and declares no offsetY`);
+    } else {
+      assert.equal(entry.offsetY, measured.bottomSlack, `${expected.machine} offsetY is not its measured bottom slack`);
+    }
+  });
+
+  // Anchor boxes are floor plans, not outlines, so most of these differ — which
+  // is exactly why a box-derived shadow would have been wrong.
+  const scanner = propSheetFor('scanner_bench');
+  const scannerBox = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_scanner_bench');
+  assert.notEqual(scanner.shadowWidth, scannerBox.w);
+});
+
+test('machine art casts a generated contact shadow on the floor line it stands on', () => {
+  const boxFor = (key) => COMMAND_CENTER_PROPS.find((prop) => prop.key === key);
+
+  // Centred on the anchor, sitting on the box's bottom edge — the same floor
+  // contact point offsetY exists to preserve — and sized from the measured art.
+  assert.deepEqual(propShadowFor(propSheetFor('creator_console'), boxFor('prop_creator_console')), {
+    x: 324, y: 276, width: 123 * 1.4, height: 123 * 1.4 * 0.22, alpha: 0.55
+  });
+
+  // Anchors on a 120px chamber but spans 165px of racks: the pool follows the art.
+  assert.deepEqual(propShadowFor(propSheetFor('furnace_chamber'), boxFor('prop_furnace_chamber')), {
+    x: 828, y: 360, width: 165 * 1.4, height: 165 * 1.4 * 0.22, alpha: 0.55
+  });
+
+  // Small machines stop squashing: below the floor the pool would read as a line.
+  assert.deepEqual(propShadowFor(propSheetFor('radar_drum'), boxFor('prop_radar_drum')), {
+    x: 120, y: 240, width: 54 * 1.4, height: 18, alpha: 0.55
+  });
+
+  // Unmeasured art falls back to the whitebox footprint rather than casting none.
+  assert.deepEqual(propShadowFor({}, { x: 0, y: 0, w: 100, h: 10 }), {
+    x: 50, y: 10, width: 140, height: 140 * 0.22, alpha: 0.55
+  });
+
+  // Wall-mounted art stands on nothing.
+  PROP_SHEETS.filter((entry) => entry.groundShadow === false).forEach((entry) => {
+    assert.match(entry.id, /^wall_/, `${entry.id} opts out of a floor shadow but is not wall art`);
+    assert.equal(propShadowFor(entry, { x: 0, y: 0, w: 10, h: 10 }), null, `${entry.id} still pools a shadow`);
+  });
+  assert.equal(propShadowFor(propSheetFor('creator_console'), null), null);
+
+  // Drawn as its own pass before the art pass, so every pool ends up under every
+  // machine and not just its own, and under props without naming a new layer.
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const shadowPass = scene.indexOf('live.forEach((entry) => this.addPropShadow(entry));');
+  const artPass = scene.indexOf('live.forEach((entry) => this.addPropArt(entry));');
+  assert.notEqual(shadowPass, -1, 'buildProps never draws the shadows');
+  assert.ok(shadowPass < artPass, 'shadows are drawn over the machines');
+  assert.match(scene, /this\.addGlow\(at\.x, at\.y, at\.width, at\.height, P\.void, at\.alpha, false\)\s*\.setDepth\(DEPTH\.props - 1\)/);
+});
+
+test('the seven shipped sheets tile exactly at the dimensions their PNGs really are', () => {
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    const file = `${__dirname}/../public${entry.art}`;
+    assert.equal(fs.existsSync(file), true, `${expected.art} is missing from public/`);
+
+    // The exported grid is trusted over any prior assumption, but it has to
+    // divide exactly or Phaser slices partial frames out of the sheet.
+    const { width, height } = readPngSize(file);
+    assert.deepEqual(
+      { width, height },
+      { width: expected.sheetWidth, height: expected.sheetHeight },
+      `${expected.art} is ${width}x${height}, expected ${expected.sheetWidth}x${expected.sheetHeight}`
+    );
+    assert.deepEqual(
+      { sheetWidth: entry.sheetWidth, sheetHeight: entry.sheetHeight },
+      { sheetWidth: width, sheetHeight: height },
+      `${expected.machine} registry dimensions drifted from the file`
+    );
+
+    // A single horizontal strip; frameHeight is the sheet height, not
+    // necessarily the frame width.
+    assert.equal(entry.frames, expected.frames, `${expected.machine} frame count`);
+    assert.equal(entry.frameWidth, expected.frameWidth, `${expected.machine} frame width`);
+    assert.equal(entry.frameHeight, expected.frameHeight, `${expected.machine} frame height`);
+    assert.equal(entry.frameWidth * entry.frames, width, `${expected.machine} frames do not tile the width`);
+    assert.equal(entry.frameHeight, height, `${expected.machine} frame height is not the sheet height`);
+
+    // RGBA, or the transparent surround would render as a solid block.
+    assert.equal(readPngColorType(file), 6, `${expected.art} must be truecolour RGBA`);
+
+    // Every playback index is in bounds and used exactly once.
+    const order = propFrameOrderFor(entry);
+    assert.equal(order.length, entry.frames, `${expected.machine} frame order length`);
+    assert.deepEqual([...order].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7], `${expected.machine} frame order`);
+  });
+});
+
+test('the manifest ships the seven machine sheets so they actually preload', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+  const listed = new Set(manifest.files);
+
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    assert.equal(listed.has(expected.art), true, `${expected.art} missing from manifest.json`);
+  });
+
+  // Listed means queued, and queued means one spritesheet call at the measured
+  // frame size — never an image, and never a second file alongside it.
+  const queued = propsToPreload(listed);
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = queued.find((candidate) => candidate.id === expected.id);
+    assert.notEqual(entry, undefined, `${expected.machine} is listed but not queued for preload`);
+
+    const loader = fakeLoader();
+    queuePropArt(entry, loader);
+    assert.equal(loader.calls.length, 1, `${expected.machine} queued more than one file`);
+    assert.deepEqual(loader.calls[0], {
+      method: 'spritesheet',
+      key: expected.textureKey,
+      art: expected.art,
+      config: { frameWidth: expected.frameWidth, frameHeight: expected.frameHeight }
+    });
+  });
+});
+
+test('the seven shipped machines anchor bottom-centre on their whitebox box', () => {
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === expected.anchorProp);
+    assert.notEqual(box, undefined, `${expected.anchorProp} is not a whitebox prop`);
+
+    // sceneConfig geometry stays authoritative; the registry carries no
+    // coordinates, so art taller than its whitebox grows upward from the same
+    // floor contact point instead of sliding off station.
+    assert.deepEqual(propAnchorFor(entry, box), {
+      x: box.x + box.w / 2,
+      y: box.y + box.h + (expected.offsetY || 0),
+      originX: 0.5,
+      originY: 1,
+      scale: 1
+    }, `${expected.machine} anchor`);
+
+    // sceneConfig is the only source of position: with no box there is no anchor
+    // to fall back on, because the registry has no coordinates to fall back to.
+    assert.equal(propAnchorFor(entry, null), null, `${expected.machine} invented an anchor`);
+  });
+
+  // The Newsletter Still spelled out, since it is the one entry whose landing
+  // point is not simply the bottom edge of its box. `prop_still_column` is
+  // {264,312,72,144}; 312 + 144 + 21 puts the base plate's last opaque row on
+  // the same floor line every other machine contacts.
+  const still = propSheetFor('still_column');
+  const stillBox = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_still_column');
+  assert.deepEqual(propAnchorFor(still, stillBox), {
+    x: 300, y: 477, originX: 0.5, originY: 1, scale: 1
+  });
+});
+
+test('the seven shipped machines loop when worked at, and hold their first frame otherwise', () => {
+  const anims = fakeAnims();
+
+  SHIPPED_MACHINE_SHEETS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    const key = `prop_${expected.id}`;
+
+    assert.equal(propAnimationKeyFor(entry), key, `${expected.machine} animation key`);
+    assert.deepEqual(propPlaybackFor(entry, { active: true }), { kind: 'play', key });
+    // Unattended and reduced motion both land on frame 0 of the same sheet — no
+    // second, static PNG anywhere in the pipeline.
+    assert.deepEqual(propPlaybackFor(entry, { active: false }), { kind: 'frame', frame: 0 });
+    assert.deepEqual(
+      propPlaybackFor(entry, { reducedMotion: true, active: true }),
+      { kind: 'frame', frame: 0 },
+      `${expected.machine} runs under reduced motion`
+    );
+    assert.equal(propStaticFrameFor(entry), 0, `${expected.machine} static frame`);
+
+    assert.equal(ensurePropAnimation(entry, anims), key);
+    // Registered once, never restarted.
+    ensurePropAnimation(entry, anims);
+  });
+
+  assert.equal(anims.created.length, SHIPPED_MACHINE_SHEETS.length, 'a machine loop was created twice');
+  assert.deepEqual(anims.created.map((entry) => entry.frameRate), [8, 6, 6, 6, 6, 6, 6]);
+  anims.created.forEach((created) => {
+    assert.equal(created.repeat, -1, `${created.key} does not loop`);
+    assert.deepEqual(created.frames.frames, [0, 1, 2, 3, 4, 5, 6, 7], `${created.key} frames`);
+  });
+});
+
+test('the Newsletter Still sheet is the whole machine, column and tray both', () => {
+  const still = propSheetFor('still_column');
+
+  // One physical machine for both newsletter stages, and one sheet for all of
+  // it: the export animates the chamber, the coil and the output tray in frame,
+  // so both whitebox bodies and all three procedural components retire with it.
+  assert.equal(still.type, PROP_ANIMATED);
+  assert.deepEqual([...still.covers], ['prop_still_column', 'prop_still_tray']);
+  assert.deepEqual(
+    [...still.coversComponents],
+    ['anim_still_chamber', 'anim_still_coil', 'anim_tray_print']
+  );
+
+  // Folded in the way the mast was: a second entry would claim prop_still_tray
+  // twice and leave a duplicate whitebox under the real machine.
+  assert.equal(propSheetFor('still_tray'), null, 'the tray is folded into the still sheet');
+
+  // Both bodies and all three components really do stop being drawn.
+  const replacedProps = replacedWhiteboxKeys([still]);
+  const replacedComponents = replacedComponentKeys([still]);
+  ['prop_still_column', 'prop_still_tray'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_PROPS.find((prop) => prop.key === key),
+      undefined,
+      `${key} must stay in sceneConfig as the whitebox fallback`
+    );
+    assert.equal(replacedProps.has(key), true, `${key} still draws under the art`);
+  });
+  ['anim_still_chamber', 'anim_still_coil', 'anim_tray_print'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_COMPONENTS.find((component) => component.key === key),
+      undefined,
+      `${key} must stay in sceneConfig as the whitebox fallback`
+    );
+    assert.equal(replacedComponents.has(key), true, `${key} still renders over the art`);
+  });
+
+  // Nothing else in zone 05 is swept up: the foreground occluder is not machine
+  // art, it is on its own seam with its own file, and no registry entry may
+  // claim it. Removing it would let SpawnCamper walk through the still's base.
+  const base = COMMAND_CENTER_FOREGROUND.find((piece) => piece.key === 'fore_still_base');
+  assert.notEqual(base, undefined, 'fore_still_base was removed with the whitebox');
+  assert.deepEqual(
+    { x: base.x, y: base.y, w: base.w, h: base.h },
+    { x: 264, y: 444, w: 72, h: 14 }
+  );
+  assert.equal(base.art, '/assets/command-center/fore_still_base.png');
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.covers.includes('fore_still_base'), false, `${sheet.id} claims an occluder`);
+    assert.equal(
+      sheet.coversComponents.includes('fore_still_base'), false, `${sheet.id} claims an occluder`
+    );
+  });
+});
+
+test('the Newsletter Still art does not disturb routing, telemetry or the camper', () => {
+  // The still is one machine covering both newsletter Hermes jobs, and the art
+  // pass must not have split it or renamed its lane.
+  const machine = machineForWorkflow('newsletter');
+  assert.equal(machine.id, 'newsletter-still');
+  assert.equal(machine.areaId, 'newsletter');
+  assert.deepEqual(machine.workflows, ['newsletter']);
+  assert.deepEqual(machine.hermesJobs.map((job) => job.id).sort(), ['finisher', 'newsletter']);
+  assert.equal(machineForHermesJobId('newsletter').id, 'newsletter-still');
+  assert.equal(machineForHermesJobId('finisher').id, 'newsletter-still');
+
+  // Station geometry is untouched, so he still walks to the same anchor.
+  const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'newsletter');
+  assert.deepEqual(zone.destination, { x: 300, y: 480 });
+  assert.equal(zone.zoneNumber, '05');
+
+  // And still works the machine with operate_back, in front of it.
+  assert.equal(STATE_VISUALS.newsletter.camperAnim, 'operate');
+  assert.equal(camperStationaryVisualFor('operate'), 'operate_back');
+  assert.equal(CAMPER_VISUAL_FOR_MODE.operate, 'operate_back');
+
+  // The registry still knows nothing about telemetry: it declares a loop and the
+  // frame to hold, and the scene decides which of the two applies from where
+  // SpawnCamper is standing.
+  const still = propSheetFor('still_column');
+  assert.equal(still.repeat, -1);
+  assert.deepEqual(propPlaybackFor(still, { active: true }), { kind: 'play', key: 'prop_still_column' });
+  assert.deepEqual(propPlaybackFor(still, { active: false }), { kind: 'frame', frame: 0 });
+  const propSource = fs.readFileSync(`${__dirname}/../src/command-center/propSheets.mjs`, 'utf8');
+  assert.doesNotMatch(propSource, /telemetry|hermes|newsletterState|jobStatus/i);
+});
+
+test('the X Uplink sheet owns the mast, and the rest of the room stays whitebox', () => {
+  const uplink = propSheetFor('x_console');
+
+  // The export bakes the antenna mast into the console, so one entry owns both
+  // whitebox bodies and all three of their components. A separate mast entry
+  // would claim prop_x_mast twice and break the one-machine-one-owner rule.
+  assert.deepEqual([...uplink.covers], ['prop_x_console', 'prop_x_mast']);
+  assert.deepEqual([...uplink.coversComponents], ['anim_x_crt', 'anim_x_lamps', 'anim_x_dish']);
+  assert.equal(propSheetFor('x_mast'), null, 'the mast is folded into the uplink sheet');
+
+  const live = SHIPPED_MACHINE_SHEETS.map((expected) => propSheetFor(expected.id));
+
+  // Exactly these bodies and components retire — nothing else is suppressed.
+  assert.deepEqual([...replacedWhiteboxKeys(live)].sort(), [
+    'prop_code_bench', 'prop_creator_console', 'prop_disk_tower',
+    'prop_furnace_chamber', 'prop_rack_a', 'prop_rack_b',
+    'prop_radar_drum', 'prop_scanner_bench', 'prop_still_column', 'prop_still_tray',
+    'prop_x_console', 'prop_x_mast'
+  ]);
+  assert.deepEqual([...replacedComponentKeys(live)].sort(), [
+    'anim_code_leds', 'anim_code_scroll', 'anim_creator_screens', 'anim_disk_reel',
+    'anim_fan', 'anim_furnace_heat', 'anim_rack_leds',
+    'anim_radar_sweep', 'anim_scan_bar', 'anim_scan_lamp',
+    'anim_still_chamber', 'anim_still_coil', 'anim_tray_print',
+    'anim_x_crt', 'anim_x_dish', 'anim_x_lamps'
+  ]);
+
+  // Every other machine in the room is still waiting on art and keeps its
+  // procedural whitebox: unshipped entries make zero requests.
+  const listed = new Set(JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  ).files);
+  const shippedIds = new Set(SHIPPED_MACHINE_SHEETS.map((expected) => expected.id));
+  PROP_SHEETS.forEach((sheet) => {
+    if (shippedIds.has(sheet.id)) return;
+    assert.equal(sheet.type, PROP_STATIC, `${sheet.id} unexpectedly became animated`);
+    assert.equal(listed.has(sheet.art), false, `${sheet.id} is unshipped but listed in the manifest`);
+  });
+  assert.deepEqual(propsToPreload(listed).map((sheet) => sheet.id).sort(), [...shippedIds].sort());
+});
+
+test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox', () => {
+  // Same shape of case as the X Uplink mast and the Newsletter Still tray: the
+  // export is the whole workstation / the whole furnace assembly, so ONE entry
+  // owns every box in it. A second entry per body would claim a prop twice and
+  // leave a duplicate whitebox rendering under the real machine.
+  const forge = propSheetFor('code_bench');
+  assert.equal(forge.type, PROP_ANIMATED);
+  assert.deepEqual([...forge.covers], ['prop_code_bench', 'prop_disk_tower']);
+  assert.deepEqual(
+    [...forge.coversComponents],
+    ['anim_code_scroll', 'anim_code_leds', 'anim_disk_reel']
+  );
+  assert.equal(propSheetFor('disk_tower'), null, 'the disk tower is folded into the forge sheet');
+
+  const furnace = propSheetFor('furnace_chamber');
+  assert.equal(furnace.type, PROP_ANIMATED);
+  assert.deepEqual(
+    [...furnace.covers],
+    ['prop_furnace_chamber', 'prop_rack_a', 'prop_rack_b']
+  );
+  assert.deepEqual(
+    [...furnace.coversComponents],
+    ['anim_furnace_heat', 'anim_rack_leds', 'anim_fan']
+  );
+  assert.equal(propSheetFor('rack_a'), null, 'rack A is folded into the furnace sheet');
+  assert.equal(propSheetFor('rack_b'), null, 'rack B is folded into the furnace sheet');
+
+  // The anchor is the chamber, not a rack: the assembly's floor contact is the
+  // chamber's bottom edge, and anchoring on a rack would hang it 96px high.
+  assert.equal(furnace.covers[0], 'prop_furnace_chamber');
+  assert.equal(machineById('model-furnace').propKeys[0], 'prop_furnace_chamber');
+  assert.equal(machineById('repo-forge').propKeys[0], 'prop_code_bench');
+
+  // Every folded-in body survives in sceneConfig as the whitebox fallback, and
+  // every one of them really does stop being drawn under the art.
+  const live = [forge, furnace, propSheetFor('creator_console')];
+  const replacedProps = replacedWhiteboxKeys(live);
+  const replacedComponents = replacedComponentKeys(live);
+  ['prop_code_bench', 'prop_disk_tower', 'prop_furnace_chamber', 'prop_rack_a',
+    'prop_rack_b', 'prop_creator_console'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_PROPS.find((prop) => prop.key === key), undefined,
+      `${key} must stay in sceneConfig as the whitebox fallback`
+    );
+    assert.equal(replacedProps.has(key), true, `${key} still draws under the art`);
+  });
+  ['anim_code_scroll', 'anim_code_leds', 'anim_disk_reel', 'anim_furnace_heat',
+    'anim_rack_leds', 'anim_fan', 'anim_creator_screens'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_COMPONENTS.find((component) => component.key === key), undefined,
+      `${key} must stay in sceneConfig as the whitebox fallback`
+    );
+    assert.equal(replacedComponents.has(key), true, `${key} still renders over the art`);
+  });
+
+  // News Array is deliberately NOT part of this pass: it keeps its whitebox and
+  // its wall anchor, and nothing repurposed the strip it stands on.
+  const news = PROP_SHEETS.find((sheet) => sheet.covers.includes('prop_wall_feed_shells'));
+  assert.equal(news.type, PROP_STATIC, 'News Array must stay whitebox');
+  assert.equal(news.art, '/assets/command-center/prop_wall_feed_shells.png');
+  assert.equal(replacedProps.has('prop_wall_feed_shells'), false);
+  assert.deepEqual([...machineById('news-array').propKeys], ['prop_wall_feed_shells']);
+
+  // Nor is the deferred scanner triple: Tool Scanner keeps the sheet it already
+  // had, Agent Lab and Experiment Bench stay deferred behind it.
+  assert.equal(propSheetFor('scanner_bench').art, '/assets/command-center/anim_tool_scanner_sheet.png');
+  ['tool-scanner', 'agent-lab', 'experiment-bench'].forEach((id) => {
+    assert.deepEqual([...machineById(id).propKeys], ['prop_scanner_bench'], `${id} anchor moved`);
+  });
+
+  // The decorative crate at 300,180 sat inside the Creator Console's floor
+  // pocket, which the real 123x109 art fills. It is gone from both the geometry
+  // and the registry — a box left in one but not the other fails the
+  // every-prop-is-described invariant either way.
+  assert.equal(COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_crate_small'), undefined);
+  assert.equal(propSheetFor('crate_small'), null);
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.covers.includes('prop_crate_small'), false, `${sheet.id} covers a deleted prop`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Physical anchor audit (geometry pass 2).
+// ---------------------------------------------------------------------------
+
+// One production sprite per workflow machine means one primary whitebox anchor
+// per workflow machine. A machine may still own several boxes when they are
+// genuinely one physical object — the Model Furnace is a chamber plus two racks,
+// the X Uplink a console plus its mast — but unrelated machines must not share a
+// primary prop just because the original whitebox did.
+//
+// TODO: `prop_scanner_bench` is still shared by tool-scanner, agent-lab and
+// experiment-bench. Deferred, because the room has no third clean floor pocket
+// for a console with camper standing room. This list is debt, not design:
+// nothing may be added to it, and the assertions below fail if anything is.
+const KNOWN_SHARED_ANCHORS = Object.freeze({
+  prop_scanner_bench: Object.freeze(['tool-scanner', 'agent-lab', 'experiment-bench'])
+});
+
+test('every canonical machine anchors on a real whitebox prop', () => {
+  const propKeys = new Set(COMMAND_CENTER_PROPS.map((prop) => prop.key));
+
+  COMMAND_CENTER_MACHINES.forEach((machine) => {
+    assert.equal(machine.propKeys.length >= 1, true, `${machine.name} declares no prop`);
+    machine.propKeys.forEach((key) => {
+      assert.equal(propKeys.has(key), true, `${machine.name} names unknown prop ${key}`);
+    });
+    // The registry anchors art on covers[0]; machineConfig's propKeys[0] is the
+    // same idea from the semantic side, so it has to resolve to a real box.
+    const anchor = COMMAND_CENTER_PROPS.find((prop) => prop.key === machine.propKeys[0]);
+    assert.notEqual(anchor, undefined, `${machine.name} primary anchor missing`);
+  });
+});
+
+test('distinct workflow machines do not share a primary anchor', () => {
+  const byAnchor = new Map();
+  COMMAND_CENTER_MACHINES.forEach((machine) => {
+    const anchor = machine.propKeys[0];
+    if (!byAnchor.has(anchor)) byAnchor.set(anchor, []);
+    byAnchor.get(anchor).push(machine.id);
+  });
+
+  const shared = [...byAnchor.entries()].filter(([, ids]) => ids.length > 1);
+  shared.forEach(([anchor, ids]) => {
+    assert.notEqual(
+      KNOWN_SHARED_ANCHORS[anchor], undefined,
+      `${anchor} is claimed by ${ids.join(', ')} — give each machine its own anchor`
+    );
+    assert.deepEqual([...ids].sort(), [...KNOWN_SHARED_ANCHORS[anchor]].sort(), `${anchor} sharers`);
+  });
+
+  // The exception list is exactly the debt we accepted, and no more: a new
+  // collision cannot be waved through by appearing here.
+  assert.deepEqual(shared.map(([anchor]) => anchor).sort(), Object.keys(KNOWN_SHARED_ANCHORS).sort());
+
+  // Secondary boxes belong to the one machine that folded them in, so no prop is
+  // claimed by two different machines at any position.
+  const owner = new Map();
+  COMMAND_CENTER_MACHINES.forEach((machine) => {
+    machine.propKeys.forEach((key) => {
+      if (KNOWN_SHARED_ANCHORS[key]) return;
+      assert.equal(owner.has(key), false, `${key} is claimed by ${owner.get(key)} and ${machine.id}`);
+      owner.set(key, machine.id);
+    });
+  });
+});
+
+test('News Array keeps a wall-mounted anchor, and the consoles that left it stand on the floor', () => {
+  const boxFor = (key) => COMMAND_CENTER_PROPS.find((prop) => prop.key === key);
+
+  // News Array's art will be a shallow horizontal wall display, so its box stays
+  // entirely inside the wall band.
+  const news = boxFor(machineById('news-array').propKeys[0]);
+  assert.equal(news.key, 'prop_wall_feed_shells');
+  assert.equal(
+    news.y + news.h <= COMMAND_CENTER_CANVAS.floorTop, true,
+    'News Array anchor must stay wall-mounted'
+  );
+
+  // Creator Console and Profit Analyzer are floor-standing consoles now, each on
+  // its own box, and neither is the wall strip any more. The Creator Console has
+  // since taken delivery of its sheet; the Profit Analyzer is still whitebox.
+  [
+    ['creator-console', 'prop_creator_console', { x: 264, y: 204, w: 120, h: 72 }, PROP_ANIMATED, 22],
+    ['profit-analyzer', 'prop_profit_analyzer', { x: 636, y: 240, w: 108, h: 72 }, PROP_STATIC, 0]
+  ].forEach(([machineId, propKey, expected, type, offsetY]) => {
+    const machine = machineById(machineId);
+    assert.deepEqual([...machine.propKeys], [propKey], `${machineId} anchor`);
+    assert.notEqual(machine.propKeys[0], 'prop_wall_feed_shells');
+
+    const box = boxFor(propKey);
+    assert.deepEqual({ x: box.x, y: box.y, w: box.w, h: box.h }, expected, `${propKey} footprint`);
+    assert.equal(
+      box.y + box.h > COMMAND_CENTER_CANVAS.floorTop, true,
+      `${propKey} must contact the floor, not the wall`
+    );
+
+    // Exactly one registry entry owns the box, and the geometry the art lands on
+    // is still derived from sceneConfig plus a measured vertical nudge — the
+    // registry carries no coordinates either way.
+    const entry = PROP_SHEETS.find((sheet) => sheet.covers.includes(propKey));
+    assert.notEqual(entry, undefined, `${propKey} has no registry entry`);
+    assert.equal(entry.type, type, `${propKey} art type`);
+    assert.deepEqual(propAnchorFor(entry, box), {
+      x: box.x + box.w / 2, y: box.y + box.h + offsetY, originX: 0.5, originY: 1, scale: 1
+    }, `${propKey} anchors bottom-centre`);
+  });
+
+  // Nothing else moved onto the wall strip: it is News Array's alone now.
+  const onShells = COMMAND_CENTER_MACHINES.filter((m) => m.propKeys.includes('prop_wall_feed_shells'));
+  assert.deepEqual(onShells.map((m) => m.id), ['news-array']);
+});
+
+test('the two new stations are reachable, axis-aligned, and south-anchored', () => {
+  [
+    ['creator-console', { x: 324, y: 288 }, '10'],
+    ['profit-analyzer', { x: 690, y: 324 }, '11']
+  ].forEach(([areaId, destination, zoneNumber]) => {
+    const zone = COMMAND_CENTER_AREAS.find((area) => area.id === areaId);
+    assert.notEqual(zone, undefined, `${areaId} has no zone`);
+    assert.equal(zone.zoneNumber, zoneNumber);
+    assert.deepEqual({ x: zone.destination.x, y: zone.destination.y }, destination);
+
+    // Same invariant every other zone holds: he stands south of the machine, so
+    // one operate_back animation serves it.
+    const body = zone.hitRects[0];
+    assert.equal(zone.destination.y >= body.y + body.height, true, `${areaId} anchor is not south of its body`);
+
+    // And he can actually get there from home without a diagonal leg.
+    const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, zone.destination);
+    for (let i = 1; i < path.length; i += 1) {
+      const diagonal = path[i].x !== path[i - 1].x && path[i].y !== path[i - 1].y;
+      assert.equal(diagonal, false, `route to ${areaId} turned diagonally`);
+    }
+    assert.deepEqual(path[path.length - 1], destination, `route to ${areaId} does not end on its anchor`);
+  });
+
+  // The two new spurs are horizontal and land on an existing vertical lane, which
+  // is what lets buildWalkGraph derive their crossing nodes with no other change.
+  const spurs = COMMAND_CENTER_WALK_GRAPH.segments.filter((s) => s.id === 'creator-spur' || s.id === 'profit-spur');
+  assert.equal(spurs.length, 2, 'both station spurs must exist');
+  spurs.forEach((spur) => assert.equal(spur.from.y, spur.to.y, `${spur.id} must be horizontal`));
+  assert.equal(spurs.find((s) => s.id === 'creator-spur').from.x, 240, 'creator-spur must meet west-lane');
+  assert.equal(spurs.find((s) => s.id === 'profit-spur').from.x, 622, 'profit-spur must meet centre-spur');
+});
+
+test('the geometry pass changed no workflow, Hermes or telemetry semantics', () => {
+  // Workflow keys and their machines are untouched: only which zone a machine
+  // physically occupies moved.
+  assert.deepEqual(
+    COMMAND_CENTER_MACHINES.flatMap((m) => m.workflows).sort(),
+    ['agents', 'ai-news', 'creator-content', 'models-infra', 'monetization',
+      'new-tools', 'newsletter', 'playbooks', 'github', 'social-x', 'terminal-publisher'].sort()
+  );
+
+  // Every Hermes job still resolves to the machine it always did.
+  const expectedJobs = {
+    'ai-news': 'news-array',
+    github: 'repo-forge',
+    'new-tools': 'tool-scanner',
+    agents: 'agent-lab',
+    'models-infra': 'model-furnace',
+    'creator-content': 'creator-console',
+    monetization: 'profit-analyzer',
+    playbooks: 'experiment-bench',
+    newsletter: 'newsletter-still',
+    finisher: 'newsletter-still',
+    'x-draft': 'x-uplink',
+    'x-publish': 'x-uplink',
+    'x-amplify': 'x-uplink',
+    'beehiiv-draft': 'publish-transmitter',
+    '254525fa846f': 'opportunity-radar'
+  };
+  Object.entries(expectedJobs).forEach(([jobId, machineId]) => {
+    assert.equal(machineForHermesJobId(jobId)?.id, machineId, `${jobId} Hermes mapping`);
+  });
+
+  // Zone 02 still exists and still owns News Array and the radar.
+  assert.equal(canonicalAreaId('research'), 'intelligence-research');
+  assert.equal(canonicalAreaId('ai-news'), 'intelligence-research');
+  assert.equal(machineById('opportunity-radar').areaId, 'intelligence-research');
+
+  // The seven finished machines did not move.
+  assert.deepEqual(
+    ['radar_drum', 'scanner_bench', 'still_column', 'x_console',
+      'creator_console', 'code_bench', 'furnace_chamber'].map((id) => propSheetFor(id).covers[0]),
+    ['prop_radar_drum', 'prop_scanner_bench', 'prop_still_column', 'prop_x_console',
+      'prop_creator_console', 'prop_code_bench', 'prop_furnace_chamber']
+  );
 });
