@@ -19,6 +19,17 @@ import {
   camperStaticFrameFor,
   createCamperVisuals
 } from './camperSheets.mjs';
+import {
+  PROP_SHEETS,
+  ensurePropAnimation,
+  isAnimatedProp,
+  propAnchorFor,
+  propPlaybackFor,
+  propsToPreload,
+  queuePropArt,
+  replacedComponentKeys,
+  replacedWhiteboxKeys
+} from './propSheets.mjs';
 import { COMMAND_CENTER_TIMINGS, visualForState } from './visualMappings.mjs';
 import { routeThroughWalkGraph } from './walkGraph.mjs';
 
@@ -57,6 +68,8 @@ export class CommandCenterScene extends Phaser.Scene {
     this.reducedMotion = Boolean(options.reducedMotion);
     this.artManifest = new Set(options.artManifest || []);
     this.zoneObjects = new Map();
+    this.propObjects = new Map();
+    this.replacedComponents = new Set();
     this.componentObjects = new Map();
     this.conduitObjects = new Map();
     this.packetPool = [];
@@ -79,9 +92,15 @@ export class CommandCenterScene extends Phaser.Scene {
       if (!entry.art || !this.hasArt(entry.art)) return;
       this.load.image(entry.key, entry.art);
     };
-    COMMAND_CENTER_PROPS.forEach(queue);
-    COMMAND_CENTER_COMPONENTS.forEach(queue);
+    // L1 first: the shell is one full-canvas image, not a per-entry registry.
+    queue(COMMAND_CENTER_ENVIRONMENT);
+    // L6 occluders are plain images and stay on their own seam — they are not
+    // machine art and never became part of the prop registry.
     COMMAND_CENTER_FOREGROUND.forEach(queue);
+    // L2/L3 machine art. Exactly two shapes exist: a static prop is one image,
+    // a full animated object is one spritesheet. There is no third "overlay"
+    // asset, and nothing is loaded twice when two instances share a file.
+    propsToPreload(this.artManifest).forEach((entry) => queuePropArt(entry, this.load));
     // L4 character sheets ride the same seam. Each entry carries the frame size
     // its file was actually exported at — nothing is forced onto a shared grid.
     CAMPER_SHEETS.forEach((sheet) => {
@@ -196,37 +215,56 @@ export class CommandCenterScene extends Phaser.Scene {
   buildEnvironment() {
     const env = COMMAND_CENTER_ENVIRONMENT;
     const { width, height, wallBandHeight, tileSize } = COMMAND_CENTER_CANVAS;
-    const g = this.add.graphics().setDepth(DEPTH.env);
 
-    // Floor: 24px tile grid with a 1px seam, exactly as the design draws it.
-    g.fillStyle(env.floorFill, 1);
-    g.fillRect(0, wallBandHeight, width, height - wallBandHeight);
-    g.fillStyle(env.floorTileFill, 1);
-    for (let x = tileSize - 1; x < width; x += tileSize) g.fillRect(x, wallBandHeight, 1, height - wallBandHeight);
-    for (let y = wallBandHeight + tileSize - 1; y < height; y += tileSize) g.fillRect(0, y, width, 1);
+    // Section 08 swap seam for L1. env_floor_wall.png is the permanent
+    // architectural shell: one opaque 960x528 image covering the whole canvas.
+    // The whitebox below is the fallback and is never removed — an absent or
+    // unlisted file still draws the scale-true floor and walls.
+    this.envArtLoaded = this.textures.exists(env.key);
 
-    // Wall band with its vertical gradient and pipe run.
-    for (let y = 0; y < wallBandHeight; y += 1) {
-      g.fillStyle(this.mixColor(env.wallTop, env.wallBottom, y / wallBandHeight), 1);
-      g.fillRect(0, y, width, 1);
+    if (this.envArtLoaded) {
+      const texture = this.textures.get(env.key);
+      const nearest = Phaser.Textures?.FilterMode?.NEAREST;
+      if (texture && typeof texture.setFilter === 'function' && nearest !== undefined) {
+        texture.setFilter(nearest);
+      }
+      // Native size at scene origin: no resize, no display size, no fractional scale.
+      this.add.image(0, 0, env.key).setOrigin(0, 0).setDepth(DEPTH.env);
+    } else {
+      const g = this.add.graphics().setDepth(DEPTH.env);
+
+      // Floor: 24px tile grid with a 1px seam, exactly as the design draws it.
+      g.fillStyle(env.floorFill, 1);
+      g.fillRect(0, wallBandHeight, width, height - wallBandHeight);
+      g.fillStyle(env.floorTileFill, 1);
+      for (let x = tileSize - 1; x < width; x += tileSize) g.fillRect(x, wallBandHeight, 1, height - wallBandHeight);
+      for (let y = wallBandHeight + tileSize - 1; y < height; y += tileSize) g.fillRect(0, y, width, 1);
+
+      // Wall band with its vertical gradient and pipe run.
+      for (let y = 0; y < wallBandHeight; y += 1) {
+        g.fillStyle(this.mixColor(env.wallTop, env.wallBottom, y / wallBandHeight), 1);
+        g.fillRect(0, y, width, 1);
+      }
+      g.fillStyle(env.pipeFill, 1);
+      g.fillRect(0, 6, width, 10);
+      g.fillStyle(env.wallTrim, 1);
+      g.fillRect(0, wallBandHeight - 3, width, 3);
+
+      // Shadow the wall casts onto the floor.
+      for (let y = 0; y < 14; y += 1) {
+        g.fillStyle(P.void, 0.55 * (1 - y / 14));
+        g.fillRect(0, wallBandHeight + y, width, 1);
+      }
+
+      env.floorMarkings.forEach((mark) => {
+        g.fillStyle(mark.color, mark.alpha);
+        g.fillRect(mark.x, mark.y, mark.w, mark.h);
+      });
     }
-    g.fillStyle(env.pipeFill, 1);
-    g.fillRect(0, 6, width, 10);
-    g.fillStyle(env.wallTrim, 1);
-    g.fillRect(0, wallBandHeight - 3, width, 3);
 
-    // Shadow the wall casts onto the floor.
-    for (let y = 0; y < 14; y += 1) {
-      g.fillStyle(P.void, 0.55 * (1 - y / 14));
-      g.fillRect(0, wallBandHeight + y, width, 1);
-    }
-
-    env.floorMarkings.forEach((mark) => {
-      g.fillStyle(mark.color, mark.alpha);
-      g.fillRect(mark.x, mark.y, mark.w, mark.h);
-    });
-
-    // Recessed conduit channels (dark inlays, no glow — the glow is L5).
+    // Recessed conduit channels (dark inlays, no glow — the glow is L5). These map
+    // to env_conduit_channels.png, a separate later pass, so they stay whitebox
+    // either way: the floor art paints no conduits for them to duplicate.
     const channels = this.add.graphics().setDepth(DEPTH.env + 1);
     COMMAND_CENTER_CONDUITS.forEach((conduit) => {
       if (conduit.beam) return;
@@ -238,11 +276,15 @@ export class CommandCenterScene extends Phaser.Scene {
       else channels.fillRect(rect.x, rect.y, 1, rect.h);
     });
 
-    env.stencils.forEach((stencil) => {
-      this.add.text(stencil.x, stencil.y, stencil.text, {
-        fontFamily: MONO, fontSize: '8px', color: hexColor(P.warn)
-      }).setAlpha(0.4).setDepth(DEPTH.env + 2);
-    });
+    // Stencils are painted onto the wall band, so they belong to the shell the
+    // art replaces. Edge labels are scene-edge signage and always stay.
+    if (!this.envArtLoaded) {
+      env.stencils.forEach((stencil) => {
+        this.add.text(stencil.x, stencil.y, stencil.text, {
+          fontFamily: MONO, fontSize: '8px', color: hexColor(P.warn)
+        }).setAlpha(0.4).setDepth(DEPTH.env + 2);
+      });
+    }
 
     env.edgeLabels.forEach((label) => {
       this.add.text(label.x, label.y, label.text, {
@@ -303,14 +345,65 @@ export class CommandCenterScene extends Phaser.Scene {
   // L2 · static prop bodies
   // -------------------------------------------------------------------------
 
+  /**
+   * Registers one looping animation per loaded full-object sheet, and pins every
+   * loaded prop texture to NEAREST. Runs once, from buildProps.
+   */
+  ensurePropAnimations() {
+    PROP_SHEETS.forEach((entry) => {
+      if (!this.textures.exists(entry.textureKey)) return;
+
+      const texture = this.textures.get(entry.textureKey);
+      const nearest = Phaser.Textures?.FilterMode?.NEAREST;
+      if (texture && typeof texture.setFilter === 'function' && nearest !== undefined) {
+        texture.setFilter(nearest);
+      }
+
+      // No-op for static props, and guarded against re-creation for animated
+      // ones: the loop is registered once and never restarted afterwards.
+      ensurePropAnimation(entry, this.anims);
+    });
+  }
+
+  /**
+   * Paints one registered asset. A static PNG and a full animated sheet take the
+   * same code path at the same depth — animating is not a reason to invent a
+   * layer. The anchor is derived from the machine's whitebox box in
+   * sceneConfig.mjs, so art larger than the whitebox grows upward and outward
+   * from the same floor contact point instead of sliding off its station.
+   */
+  addPropArt(entry) {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
+    const at = propAnchorFor(entry, box);
+    if (!at) return;
+
+    const object = isAnimatedProp(entry)
+      ? this.add.sprite(at.x, at.y, entry.textureKey)
+      : this.add.image(at.x, at.y, entry.textureKey);
+    object.setOrigin(at.originX, at.originY).setScale(at.scale).setDepth(DEPTH.props);
+
+    // Ambient machine animation is simply on. Reduced motion holds a frame out
+    // of the same sheet rather than needing a second, static PNG.
+    const playback = propPlaybackFor(entry, { reducedMotion: this.reducedMotion });
+    if (playback?.kind === 'frame') object.setFrame(playback.frame);
+    else if (playback?.kind === 'play' && this.anims.exists(playback.key)) object.play(playback.key, true);
+
+    this.propObjects.set(entry.id, object);
+  }
+
   buildProps() {
     const g = this.add.graphics().setDepth(DEPTH.props);
+    this.ensurePropAnimations();
+
+    // A real asset is the complete machine, so it owns both its whitebox body
+    // and every whitebox component that machine used to need. Anything without
+    // art keeps its whitebox: that is the whole development fallback.
+    const live = PROP_SHEETS.filter((entry) => this.textures.exists(entry.textureKey));
+    const replacedProps = replacedWhiteboxKeys(live);
+    this.replacedComponents = replacedComponentKeys(live);
 
     COMMAND_CENTER_PROPS.forEach((prop) => {
-      if (this.textures.exists(prop.key)) {
-        this.add.image(prop.x, prop.y, prop.key).setOrigin(0, 0).setDepth(DEPTH.props);
-        return;
-      }
+      if (replacedProps.has(prop.key)) return;
       prop.parts.forEach((part) => this.drawWhiteboxPart(g, prop, part));
       const glyphPart = prop.parts.find((part) => part.glyph);
       if (glyphPart) {
@@ -319,6 +412,8 @@ export class CommandCenterScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(DEPTH.props + 1);
       }
     });
+
+    live.forEach((entry) => this.addPropArt(entry));
 
     // Zone number stencils, as in the design's whitebox.
     COMMAND_CENTER_AREAS.forEach((area) => {
@@ -388,11 +483,14 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   // -------------------------------------------------------------------------
-  // L3 · animated components
+  // L3 · whitebox machine components (development fallback)
   // -------------------------------------------------------------------------
 
   buildComponents() {
     COMMAND_CENTER_COMPONENTS.forEach((spec) => {
+      // Subsumed by a real machine asset (buildProps runs first). No whitebox
+      // screen, LED, sweep or coil is ever drawn over finished art.
+      if (this.replacedComponents.has(spec.key)) return;
       const container = this.add.container(spec.x, spec.y).setDepth(DEPTH.anim);
       const object = {
         spec,
@@ -439,13 +537,9 @@ export class CommandCenterScene extends Phaser.Scene {
   buildComponentParts(object) {
     const { spec } = object;
 
-    if (this.textures.exists(spec.key)) {
-      const sprite = this.add.image(0, 0, spec.key).setOrigin(0, 0);
-      object.container.add(sprite);
-      object.parts.sprite = sprite;
-      return;
-    }
-
+    // Whitebox only. The superseded path here rendered a per-component `anim_*`
+    // overlay PNG, which left `parts` half-populated and crashed the operational
+    // tweens; real art now arrives as one complete machine via propSheets.mjs.
     switch (spec.kind) {
       case 'ops-crt': {
         this.screenBase(object);

@@ -26,6 +26,8 @@ let COMMAND_CENTER_AREAS;
 let COMMAND_CENTER_CANVAS;
 let COMMAND_CENTER_COMPONENTS;
 let COMMAND_CENTER_CONDUITS;
+let COMMAND_CENTER_ENVIRONMENT;
+let COMMAND_CENTER_FOREGROUND;
 let COMMAND_CENTER_PROPS;
 let COMMAND_CENTER_WALK_GRAPH;
 let routeThroughWalkGraph;
@@ -39,6 +41,21 @@ let camperStationaryVisualFor;
 let camperWalkVisualFor;
 let createCamperVisuals;
 let CAMPER_VISUAL_FOR_MODE;
+let PROP_SHEETS;
+let PROP_STATIC;
+let PROP_ANIMATED;
+let propSheetFor;
+let propAnchorFor;
+let isAnimatedProp;
+let propAnimationKeyFor;
+let propFrameOrderFor;
+let propStaticFrameFor;
+let propsToPreload;
+let queuePropArt;
+let ensurePropAnimation;
+let propPlaybackFor;
+let replacedWhiteboxKeys;
+let replacedComponentKeys;
 
 test.before(async () => {
   ({
@@ -52,6 +69,8 @@ test.before(async () => {
     COMMAND_CENTER_CANVAS,
     COMMAND_CENTER_COMPONENTS,
     COMMAND_CENTER_CONDUITS,
+    COMMAND_CENTER_ENVIRONMENT,
+    COMMAND_CENTER_FOREGROUND,
     COMMAND_CENTER_PROPS,
     COMMAND_CENTER_WALK_GRAPH,
     COMMAND_CENTER_WORKFLOW_AREAS
@@ -73,6 +92,23 @@ test.before(async () => {
     createCamperVisuals,
     CAMPER_VISUAL_FOR_MODE
   } = await import('../src/command-center/camperSheets.mjs'));
+  ({
+    PROP_SHEETS,
+    PROP_STATIC,
+    PROP_ANIMATED,
+    propSheetFor,
+    propAnchorFor,
+    isAnimatedProp,
+    propAnimationKeyFor,
+    propFrameOrderFor,
+    propStaticFrameFor,
+    propsToPreload,
+    queuePropArt,
+    ensurePropAnimation,
+    propPlaybackFor,
+    replacedWhiteboxKeys,
+    replacedComponentKeys
+  } = await import('../src/command-center/propSheets.mjs'));
 });
 
 test.afterEach(() => {
@@ -719,16 +755,19 @@ test('command center scene geometry matches the locked design grid', () => {
 
   COMMAND_CENTER_PROPS.forEach((prop) => {
     assert.equal(inside(prop.x, prop.y, prop.w, prop.h), true, `${prop.key} is outside the room`);
-    // Section 08 swap seam: every prop names the pixel art that will replace it and
-    // carries a whitebox to draw until that file exists.
-    assert.match(prop.art, /^\/assets\/command-center\/[a-z0-9_]+\.png$/, `${prop.key} art path`);
+    // sceneConfig is the authoritative geometry and the whitebox fallback. Real
+    // art paths live in propSheets.mjs, never here — one declaration, one place.
+    assert.equal(prop.art, undefined, `${prop.key} must not declare art in sceneConfig`);
     assert.equal(prop.parts.length > 0, true, `${prop.key} whitebox fallback`);
   });
 
   COMMAND_CENTER_COMPONENTS.forEach((component) => {
     assert.equal(inside(component.x, component.y, component.w, component.h), true, `${component.key} is outside the room`);
-    assert.match(component.art, /^\/assets\/command-center\/[a-z0-9_]+\.png$/, `${component.key} art path`);
-    assert.equal(component.frames >= 1, true, `${component.key} frame count`);
+    // The superseded contract gave every component its own overlay PNG plus a
+    // frame count. Components are now purely the procedural whitebox fallback.
+    assert.equal(component.art, undefined, `${component.key} must not declare an overlay PNG`);
+    assert.equal(component.frames, undefined, `${component.key} must not declare sheet frames`);
+    assert.equal(typeof component.kind, 'string', `${component.key} whitebox renderer`);
     // Rule 2: anything that changes with telemetry lives in L3, never baked into L1/L2.
     assert.equal(COMMAND_CENTER_PROPS.some((prop) => prop.key === component.key), false);
   });
@@ -829,12 +868,41 @@ test('command center page is wired as a public read-only route', () => {
   assert.match(vercelConfig, /"source": "\/command-center"/);
 });
 
+test('command center fullscreen toggle is wired to the native Fullscreen API', () => {
+  const html = fs.readFileSync(`${__dirname}/../command-center.html`, 'utf8');
+  const script = fs.readFileSync(`${__dirname}/../command-center.js`, 'utf8');
+  const styles = fs.readFileSync(`${__dirname}/../command-center.css`, 'utf8');
+
+  // The console box is the fullscreen target, so the toggle and the inspection
+  // panel stay on screen; the button rides in the world bar with the other chrome.
+  assert.match(html, /id="cc-world"/);
+  assert.match(html, /<button type="button" class="cc-fullscreen mono" id="cc-fullscreen" hidden>Fullscreen<\/button>/);
+
+  // Native API, feature-detected, with the rejection path handled.
+  assert.match(script, /requestFullscreen/);
+  assert.match(script, /document\.exitFullscreen/);
+  assert.match(script, /document\.fullscreenEnabled/);
+  assert.match(script, /Promise\.resolve\(result\)\.catch\(syncFullscreen\)/);
+
+  // The browser is the source of truth: state is re-derived from
+  // document.fullscreenElement on every change, never cached in a variable.
+  assert.match(script, /addEventListener\('fullscreenchange', syncFullscreen\)/);
+  assert.match(script, /document\.fullscreenElement/);
+  assert.doesNotMatch(script, /(let|var)\s+(is)?[Ff]ullscreen\s*=/);
+
+  // Fullscreen sizing is scoped to the attribute the handler writes, and the
+  // single pixelated rule stays single — a second one would fight the first.
+  assert.match(styles, /#cc-world\[data-fullscreen='true'\]/);
+  assert.equal(styles.match(/image-rendering:\s*pixelated/g).length, 1);
+});
+
 test('command center shipped frontend contains no Star Office mutation endpoints or art references', () => {
   const frontendFiles = [
     'command-center.html',
     'command-center.js',
     'command-center.css',
     'src/command-center/CommandCenterScene.mjs',
+    'src/command-center/propSheets.mjs',
     'src/command-center/sceneConfig.mjs',
     'src/command-center/stateModel.mjs',
     'src/command-center/telemetryClient.mjs',
@@ -858,6 +926,103 @@ function readPngSize(file) {
   assert.equal(buffer.slice(12, 16).toString('ascii'), 'IHDR', `${file} has no leading IHDR`);
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
+
+// IHDR byte 24 is the bit depth, byte 25 the colour type. Types 0 and 2 carry no
+// alpha channel at all, so the file cannot hold transparency.
+function readPngColorType(file) {
+  return fs.readFileSync(file)[25];
+}
+
+test('env_floor_wall.png is the real 960x528 opaque L1 shell the scene expects', () => {
+  const file = `${__dirname}/../public${COMMAND_CENTER_ENVIRONMENT.art}`;
+
+  assert.equal(fs.existsSync(file), true, 'env_floor_wall.png is missing from public/');
+
+  // Native full-canvas size: the art and the world share one coordinate system,
+  // so the scene never has to scale, crop or reframe to fit it.
+  assert.deepEqual(readPngSize(file), {
+    width: COMMAND_CENTER_CANVAS.width,
+    height: COMMAND_CENTER_CANVAS.height
+  });
+
+  // Section 08: this is the one file that is opaque rather than a transparent PNG.
+  assert.equal(readPngColorType(file), 2, 'env_floor_wall.png must be truecolour RGB, not RGBA');
+  assert.equal(
+    fs.readFileSync(file).includes(Buffer.from('tRNS', 'ascii')),
+    false,
+    'env_floor_wall.png carries a tRNS chunk, so it is not fully opaque'
+  );
+
+  // Same naming contract the props and components are held to: one .png, no caps.
+  assert.match(COMMAND_CENTER_ENVIRONMENT.art, /^\/assets\/command-center\/[a-z0-9_]+\.png$/);
+  assert.equal(COMMAND_CENTER_ENVIRONMENT.key, 'env_floor_wall');
+});
+
+test('the L1 shell rides the manifest seam and renders at native scale on the env depth', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+  assert.equal(
+    manifest.files.includes(COMMAND_CENTER_ENVIRONMENT.art),
+    true,
+    'env_floor_wall.png is not listed, so preload would skip it'
+  );
+
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  // Loaded through the same manifest-gated queue() every other layer uses.
+  assert.match(source, /queue\(COMMAND_CENTER_ENVIRONMENT\)/);
+
+  // addGlow legitimately calls setDisplaySize, so scope the scaling check to the
+  // environment builder rather than the whole scene.
+  const envBlock = source.slice(
+    source.indexOf('buildEnvironment() {'),
+    source.indexOf('ensureGlowTexture() {')
+  );
+  assert.equal(envBlock.length > 0, true, 'could not isolate buildEnvironment()');
+
+  // Scene origin, top-left origin, native size, existing env depth constant.
+  assert.match(envBlock, /this\.add\.image\(0, 0, env\.key\)\.setOrigin\(0, 0\)\.setDepth\(DEPTH\.env\)/);
+  assert.doesNotMatch(envBlock, /setDisplaySize|setScale/);
+
+  // The whitebox floor/wall shell is suppressed, never deleted.
+  assert.match(envBlock, /this\.envArtLoaded = this\.textures\.exists\(env\.key\)/);
+  assert.match(envBlock, /g\.fillStyle\(this\.mixColor\(env\.wallTop, env\.wallBottom/);
+  assert.match(envBlock, /env\.floorMarkings\.forEach/);
+  assert.match(envBlock, /env\.stencils\.forEach/);
+
+  // Conduit channels are a separate asset pass: they stay whitebox unconditionally
+  // and no conduit texture is loaded or listed yet.
+  assert.match(envBlock, /const channels = this\.add\.graphics\(\)\.setDepth\(DEPTH\.env \+ 1\)/);
+  assert.doesNotMatch(source, /env\.conduitArt|conduitKey/);
+  assert.equal(manifest.files.some((file) => file.includes('env_conduit')), false);
+  assert.equal(
+    fs.existsSync(`${__dirname}/../public/assets/command-center/env_conduit_channels.png`),
+    false,
+    'conduit art was fabricated; that is a separate pass'
+  );
+});
+
+test('the env art swap leaves station whiteboxes and the camper rig alone', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  // L2 stations keep their per-file seam: art when present, whitebox otherwise.
+  assert.match(source, /prop\.parts\.forEach\(\(part\) => this\.drawWhiteboxPart\(g, prop, part\)\)/);
+  assert.equal(COMMAND_CENTER_PROPS.length > 0, true);
+  assert.equal(
+    COMMAND_CENTER_PROPS.every((prop) => Array.isArray(prop.parts) && prop.parts.length > 0),
+    true,
+    'a station prop lost its whitebox parts'
+  );
+
+  // L6 foreground occluders are untouched by this pass.
+  assert.match(source, /piece\.kind === 'pilaster-left' \|\| piece\.kind === 'pilaster-right'/);
+
+  // L4 is not implicated at all: no env texture leaks into the character registry.
+  const camperSource = fs.readFileSync(`${__dirname}/../src/command-center/camperSheets.mjs`, 'utf8');
+  assert.doesNotMatch(camperSource, /env_floor_wall|env_conduit/);
+  assert.match(source, /this\.load\.spritesheet\(sheet\.key, sheet\.art/);
+});
 
 test('every SpawnCamper sheet entry matches the real dimensions of its PNG', () => {
   const manifest = JSON.parse(
@@ -1167,9 +1332,347 @@ test('the terminal page is untouched by the command center character work', () =
 
   const commandCenter = [
     'src/command-center/CommandCenterScene.mjs',
-    'src/command-center/camperSheets.mjs'
+    'src/command-center/camperSheets.mjs',
+    'src/command-center/propSheets.mjs'
   ]
     .map((file) => fs.readFileSync(`${__dirname}/../${file}`, 'utf8'))
     .join('\n');
   assert.doesNotMatch(commandCenter, /src\/terminal|\/terminal/);
+});
+
+// ---------------------------------------------------------------------------
+// Prop art registry: static prop PNG OR full animated sprite sheet, nothing else.
+// ---------------------------------------------------------------------------
+
+// A Sprite Fusion export that has not been drawn yet. Used to exercise the
+// animated path end to end without fabricating a PNG on disk.
+function animatedFixture(overrides = {}) {
+  return {
+    id: 'radar_drum',
+    type: 'animated',
+    art: '/assets/command-center/anim_radar_drum_sheet.png',
+    textureKey: 'anim_radar_drum',
+    sheetWidth: 768,
+    sheetHeight: 72,
+    frameWidth: 96,
+    frameHeight: 72,
+    frames: 8,
+    fps: 12,
+    repeat: -1,
+    covers: ['prop_radar_drum'],
+    coversComponents: ['anim_radar_sweep'],
+    ...overrides
+  };
+}
+
+function fakeLoader() {
+  const calls = [];
+  return {
+    calls,
+    image(key, art) { calls.push({ method: 'image', key, art }); },
+    spritesheet(key, art, config) { calls.push({ method: 'spritesheet', key, art, config }); }
+  };
+}
+
+function fakeAnims() {
+  const created = [];
+  return {
+    created,
+    exists(key) { return created.some((entry) => entry.key === key); },
+    generateFrameNumbers(textureKey, config) { return { textureKey, ...config }; },
+    create(config) { created.push(config); return config; }
+  };
+}
+
+test('a static registry entry loads as a plain image, an animated one as a spritesheet', () => {
+  const staticEntry = propSheetFor('ops_console');
+  assert.equal(staticEntry.type, PROP_STATIC);
+
+  const staticLoader = fakeLoader();
+  queuePropArt(staticEntry, staticLoader);
+  assert.deepEqual(staticLoader.calls, [{
+    method: 'image',
+    key: 'prop_ops_console',
+    art: '/assets/command-center/prop_ops_console.png'
+  }]);
+
+  const animated = animatedFixture();
+  const animLoader = fakeLoader();
+  queuePropArt(animated, animLoader);
+  // One call, one file. A full animated object never needs a static base loaded
+  // alongside it and never needs a component overlay.
+  assert.equal(animLoader.calls.length, 1);
+  assert.equal(animLoader.calls[0].method, 'spritesheet');
+  assert.equal(animLoader.calls[0].key, 'anim_radar_drum');
+  assert.deepEqual(animLoader.calls[0].config, { frameWidth: 96, frameHeight: 72 });
+});
+
+test('an animated entry creates one valid Phaser animation and never recreates it', () => {
+  const entry = animatedFixture();
+  const anims = fakeAnims();
+
+  const key = ensurePropAnimation(entry, anims);
+  assert.equal(key, 'prop_radar_drum');
+  assert.equal(anims.created.length, 1);
+  assert.deepEqual(anims.created[0], {
+    key: 'prop_radar_drum',
+    frames: { textureKey: 'anim_radar_drum', frames: [0, 1, 2, 3, 4, 5, 6, 7] },
+    frameRate: 12,
+    repeat: -1
+  });
+
+  // The loop is registered once. Calling again — a rebuild, a second scene —
+  // must not restart or duplicate it.
+  ensurePropAnimation(entry, anims);
+  ensurePropAnimation(entry, anims);
+  assert.equal(anims.created.length, 1);
+
+  // Static entries have no animation at all: there is no overlay layer to feed.
+  assert.equal(ensurePropAnimation(propSheetFor('ops_console'), anims), '');
+  assert.equal(anims.created.length, 1);
+
+  // An export with an unusual playback order stays registry data, as with the
+  // mirrored character sheet — the PNG is never edited or flipped at runtime.
+  const reversed = animatedFixture({ id: 'reel', frameOrder: [3, 2, 1, 0], frames: 4 });
+  assert.deepEqual(propFrameOrderFor(reversed), [3, 2, 1, 0]);
+});
+
+test('an animated machine is the whole machine: no static base, no component overlay', () => {
+  const entry = animatedFixture();
+
+  // The sheet replaces the machine's static representation outright.
+  assert.equal(replacedWhiteboxKeys([entry]).has('prop_radar_drum'), true);
+  // …and the whitebox sub-animation it now contains is not built either.
+  assert.equal(replacedComponentKeys([entry]).has('anim_radar_sweep'), true);
+
+  // No machine is described twice, and no entry ships a static and an animated
+  // file for the same object.
+  const ids = PROP_SHEETS.map((sheet) => sheet.id);
+  assert.deepEqual([...new Set(ids)].length, ids.length, 'duplicate registry id');
+  const covered = [];
+  PROP_SHEETS.forEach((sheet) => covered.push(...sheet.covers));
+  assert.deepEqual([...new Set(covered)].length, covered.length, 'two entries claim one machine');
+
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal([PROP_STATIC, PROP_ANIMATED].includes(sheet.type), true, `${sheet.id} type`);
+    if (isAnimatedProp(sheet)) {
+      assert.match(sheet.art, /^\/assets\/command-center\/anim_[a-z0-9_]+_sheet\.png$/, `${sheet.id} art path`);
+      assert.equal(Number.isInteger(sheet.frames) && sheet.frames >= 1, true, `${sheet.id} frame count`);
+      assert.equal(sheet.frameWidth * sheet.frames, sheet.sheetWidth, `${sheet.id} frames do not tile the sheet`);
+      assert.equal(sheet.frameHeight, sheet.sheetHeight, `${sheet.id} frame height is not the sheet height`);
+    } else {
+      assert.match(sheet.art, /^\/assets\/command-center\/prop_[a-z0-9_]+\.png$/, `${sheet.id} art path`);
+      // The superseded contract measured props in frames. A static PNG has none.
+      assert.equal(sheet.frames, undefined, `${sheet.id} is static and must not declare frames`);
+    }
+  });
+});
+
+test('a real machine asset retires its whitebox body and every whitebox component it contains', () => {
+  const propKeys = new Set(COMMAND_CENTER_PROPS.map((prop) => prop.key));
+  const componentKeys = new Set(COMMAND_CENTER_COMPONENTS.map((component) => component.key));
+
+  const claimedComponents = [];
+  PROP_SHEETS.forEach((sheet) => {
+    sheet.covers.forEach((key) => {
+      assert.equal(propKeys.has(key), true, `${sheet.id} covers unknown prop ${key}`);
+    });
+    sheet.coversComponents.forEach((key) => {
+      assert.equal(componentKeys.has(key), true, `${sheet.id} covers unknown component ${key}`);
+      claimedComponents.push(key);
+    });
+  });
+
+  // Static art is a complete production object too, so the whitebox screens,
+  // LEDs, sweeps and coils go with it. Every component must belong to exactly
+  // one machine, or a procedural overlay would survive on top of finished art.
+  assert.deepEqual([...new Set(claimedComponents)].length, claimedComponents.length, 'a component is claimed twice');
+  assert.deepEqual(
+    [...componentKeys].filter((key) => !claimedComponents.includes(key)),
+    [],
+    'a whitebox component belongs to no machine and would outlive its art'
+  );
+
+  // Every machine in the room is described, whether or not its file exists yet.
+  assert.deepEqual(
+    [...propKeys].filter((key) => !replacedWhiteboxKeys(PROP_SHEETS).has(key)),
+    []
+  );
+});
+
+test('reduced motion holds a frame from the same sheet instead of needing a second PNG', () => {
+  const entry = animatedFixture();
+
+  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: false }), {
+    kind: 'play',
+    key: 'prop_radar_drum'
+  });
+  // The still frame comes out of the animated sheet. No separate fallback file
+  // is registered, requested or required.
+  assert.deepEqual(propPlaybackFor(entry, { reducedMotion: true }), { kind: 'frame', frame: 0 });
+  assert.equal(propStaticFrameFor(entry), 0);
+  assert.equal(propStaticFrameFor(animatedFixture({ staticFrame: 5 })), 5);
+
+  // Static props have no playback either way.
+  assert.equal(propPlaybackFor(propSheetFor('ops_console'), { reducedMotion: false }), null);
+  assert.equal(propPlaybackFor(propSheetFor('ops_console'), { reducedMotion: true }), null);
+
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(source, /propPlaybackFor\(entry, \{ reducedMotion: this\.reducedMotion \}\)/);
+  assert.match(source, /playback\?\.kind === 'frame'\) object\.setFrame\(playback\.frame\)/);
+});
+
+test('the prop registry rides the manifest seam and unlisted art keeps its whitebox', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  );
+  const listed = new Set(manifest.files);
+
+  // Nothing is requested that the manifest does not list: an unshipped machine
+  // makes zero failed requests and keeps its procedural whitebox.
+  propsToPreload(listed).forEach((entry) => {
+    assert.equal(listed.has(entry.art), true, `${entry.id} preloaded without being listed`);
+  });
+  assert.deepEqual(propsToPreload(new Set()), []);
+
+  // One file shared by two instances is fetched once, but both instances render.
+  const both = new Set(['/assets/command-center/prop_rack.png']);
+  const queued = propsToPreload(both);
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].textureKey, 'prop_rack');
+  assert.equal(PROP_SHEETS.filter((sheet) => sheet.textureKey === 'prop_rack').length, 2);
+
+  // Every registry file the manifest does ship must exist on disk at the
+  // dimensions its entry claims — measure the PNG, do not guess.
+  PROP_SHEETS.forEach((sheet) => {
+    if (!listed.has(sheet.art)) return;
+    const file = `${__dirname}/../public${sheet.art}`;
+    assert.equal(fs.existsSync(file), true, `${sheet.art} listed but not on disk`);
+    if (!isAnimatedProp(sheet)) return;
+    const { width, height } = readPngSize(file);
+    assert.deepEqual({ width, height }, { width: sheet.sheetWidth, height: sheet.sheetHeight }, `${sheet.id} sheet size`);
+  });
+
+  // Whitebox survival is the fallback, and the scene still draws it.
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(source, /prop\.parts\.forEach\(\(part\) => this\.drawWhiteboxPart\(g, prop, part\)\)/);
+  assert.match(source, /propsToPreload\(this\.artManifest\)\.forEach\(\(entry\) => queuePropArt\(entry, this\.load\)\)/);
+});
+
+test('the retired component-overlay path is gone from the runtime', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const config = fs.readFileSync(`${__dirname}/../src/command-center/sceneConfig.mjs`, 'utf8');
+
+  // buildComponentParts used to early-return a flat per-component overlay image,
+  // leaving `parts` half-populated and crashing the operational tweens.
+  const componentBlock = source.slice(
+    source.indexOf('buildComponentParts(object) {'),
+    source.indexOf('startAmbient() {')
+  );
+  assert.equal(componentBlock.length > 0, true, 'could not isolate buildComponentParts()');
+  assert.doesNotMatch(componentBlock, /textures\.exists\(spec\.key\)/);
+  assert.doesNotMatch(componentBlock, /parts\.sprite/);
+
+  // Components are no longer queued as art at all.
+  assert.doesNotMatch(source, /COMMAND_CENTER_COMPONENTS\.forEach\(queue\)/);
+  assert.doesNotMatch(source, /COMMAND_CENTER_PROPS\.forEach\(queue\)/);
+  assert.doesNotMatch(config, /anim_[a-z_]+\.png/);
+});
+
+test('static and animated machine art render at the same prop depth, on one code path', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const artBlock = source.slice(source.indexOf('addPropArt(entry) {'), source.indexOf('buildProps() {'));
+  assert.equal(artBlock.length > 0, true, 'could not isolate addPropArt()');
+
+  // Animating is not a reason to invent a layer: both branches land on props.
+  assert.match(artBlock, /isAnimatedProp\(entry\)\s*\?\s*this\.add\.sprite\(at\.x, at\.y, entry\.textureKey\)\s*:\s*this\.add\.image\(at\.x, at\.y, entry\.textureKey\)/);
+  assert.equal(artBlock.match(/setDepth\(DEPTH\.props\)/g).length, 1);
+  assert.doesNotMatch(artBlock, /DEPTH\.anim|DEPTH\.fx|DEPTH\.fore/);
+
+  // The layer order itself is untouched — no new depth was introduced.
+  const depthBlock = source.slice(source.indexOf('const DEPTH = Object.freeze({'), source.indexOf("const MONO ="));
+  assert.deepEqual(
+    depthBlock.match(/^\s{2}([a-z]+):/gm).map((line) => line.trim().replace(':', '')),
+    ['env', 'props', 'anim', 'camper', 'fx', 'fore', 'hud']
+  );
+});
+
+test('a machine loop is started once at build time and never restarted on an update tick', () => {
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+
+  const updateBlock = source.slice(source.indexOf('  update() {'), source.indexOf('  buildEnvironment() {'));
+  assert.equal(updateBlock.length > 0, true, 'could not isolate update()');
+  assert.doesNotMatch(updateBlock, /propObjects|addPropArt|ensurePropAnimations|\.play\(/);
+
+  // Built once, from buildProps, and guarded by anims.exists inside the registry.
+  assert.equal(source.match(/this\.ensurePropAnimations\(\)/g).length, 1);
+  assert.equal(source.match(/live\.forEach\(\(entry\) => this\.addPropArt\(entry\)\)/g).length, 1);
+});
+
+test('the prop registry holds no coordinates: sceneConfig geometry stays authoritative', () => {
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.x, undefined, `${sheet.id} must not duplicate machine x`);
+    assert.equal(sheet.y, undefined, `${sheet.id} must not duplicate machine y`);
+  });
+
+  // The anchor is derived from the whitebox box: bottom-centre, like the camper,
+  // so an export larger than the whitebox keeps the same floor contact point.
+  const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_radar_drum');
+  assert.deepEqual(propAnchorFor(animatedFixture(), box), {
+    x: box.x + box.w / 2,
+    y: box.y + box.h,
+    originX: 0.5,
+    originY: 1,
+    scale: 1
+  });
+
+  // Overrides exist for an awkward Sprite Fusion export, and only for that.
+  assert.deepEqual(propAnchorFor(animatedFixture({ offsetX: -4, offsetY: 6, scale: 2 }), box), {
+    x: box.x + box.w / 2 - 4,
+    y: box.y + box.h + 6,
+    originX: 0.5,
+    originY: 1,
+    scale: 2
+  });
+
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(source, /COMMAND_CENTER_PROPS\.find\(\(prop\) => prop\.key === entry\.covers\[0\]\)/);
+});
+
+test('foreground occlusion stays independent of the prop art registry', () => {
+  // L6 is depth, not animation: its own art paths, its own loader seam, its own
+  // layer above the character. It was never part of the retired overlay system.
+  assert.equal(COMMAND_CENTER_FOREGROUND.length > 0, true);
+  COMMAND_CENTER_FOREGROUND.forEach((piece) => {
+    assert.match(piece.art, /^\/assets\/command-center\/fore_[a-z0-9_]+\.png$/, `${piece.key} art path`);
+  });
+
+  const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
+  PROP_SHEETS.forEach((sheet) => {
+    sheet.covers.concat(sheet.coversComponents).forEach((key) => {
+      assert.equal(foreKeys.has(key), false, `${sheet.id} must not swallow occluder ${key}`);
+    });
+    assert.doesNotMatch(sheet.art, /fore_/, `${sheet.id} art path`);
+  });
+
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(source, /COMMAND_CENTER_FOREGROUND\.forEach\(queue\)/);
+  assert.match(source, /this\.add\.image\(piece\.x, piece\.y, piece\.key\)\.setOrigin\(0, 0\)\.setDepth\(DEPTH\.fore\)/);
+});
+
+test('the prop art registry leaves the SpawnCamper systems alone', () => {
+  const propSource = fs.readFileSync(`${__dirname}/../src/command-center/propSheets.mjs`, 'utf8');
+  assert.doesNotMatch(propSource, /spawncamper|camper|walk_front|operate_back/i);
+
+  // The character keeps its own registry, its own keys and its own animations.
+  const camperKeys = new Set(CAMPER_SHEETS.map((sheet) => sheet.key));
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(camperKeys.has(sheet.textureKey), false, `${sheet.id} collides with a character sheet`);
+    assert.notEqual(propAnimationKeyFor(sheet), camperAnimationKeyFor('idle'));
+  });
+
+  const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(source, /this\.load\.spritesheet\(sheet\.key, sheet\.art/);
+  assert.match(source, /ensureCamperAnimations\(\)/);
+  assert.match(source, /setOrigin\(sheet\.originX, sheet\.originY\)/);
 });

@@ -344,3 +344,89 @@
 @media (prefers-reduced-motion: reduce) {
   .cc-strip__hairline i { transition: none; }
 }
+
+/* --- fullscreen (native Fullscreen API) ---------------------------------- */
+
+/* Bar chrome: the terminal page's bracket-button language, sized to the bar's
+   10px / 0.18em uppercase mono. */
+.cc-fullscreen {
+  appearance: none;
+  border: 1px dashed var(--cc-line-strong);
+  background: transparent;
+  color: var(--cc-ink-muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.cc-fullscreen::before { content: '[ '; }
+.cc-fullscreen::after { content: ' ]'; }
+
+.cc-fullscreen:hover {
+  color: var(--cc-cyan);
+  border-color: var(--cc-cyan);
+}
+
+.cc-fullscreen:focus-visible {
+  outline: 2px solid var(--cc-cyan);
+  outline-offset: 2px;
+}
+
+/* Keeps the caption hard left and groups the live dot with the toggle on the
+   right now that the bar carries three children. */
+.cc-world__bar .cc-world__live { margin-left: auto; }
+
+/* The attribute is written only from the fullscreenchange handler, which reads
+   document.fullscreenElement — the browser stays the source of truth. It is used
+   instead of :fullscreen because Safari below 16.4 only parses
+   :-webkit-full-screen, and one unparsable selector would drop the whole rule. */
+#cc-world[data-fullscreen='true'] {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  overflow: hidden;
+  background: var(--cc-void);
+}
+
+#cc-world[data-fullscreen='true']::backdrop { background: #0d0214; }
+
+#cc-world[data-fullscreen='true'] .cc-world__bar,
+#cc-world[data-fullscreen='true'] .cc-strip { flex: 0 0 auto; }
+
+#cc-world[data-fullscreen='true'] .cc-world__frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Beats the <=760px cap so a landscape phone still fills the screen. */
+  max-height: none;
+}
+
+#cc-world[data-fullscreen='true'] .cc-canvas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The element box has to equal the painted box — Phaser maps pointer input
+   through getBoundingClientRect(), so object-fit would break zone hit-testing.
+   height:100% scales the world up, max-width:100% letterboxes it back down at
+   ratios narrower than 960:528; the replaced-element sizing rules keep the
+   aspect ratio in both directions. Unused space falls back to the frame's
+   --cc-bg-1, which is also Phaser's clear colour. The base rule's crisp pixel
+   rendering is inherited here and deliberately not restated. */
+#cc-world[data-fullscreen='true'] .cc-canvas canvas {
+  width: auto !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  /* Phaser's CENTER_BOTH writes inline centring margins, which beat a plain
+     author rule; the flex container above already does the centring. */
+  margin: 0 !important;
+}

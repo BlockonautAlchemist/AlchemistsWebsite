@@ -367,6 +367,47 @@ async function initCommandCenter() {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // Fullscreen (native Fullscreen API). The console — bar, world frame and strip
+  // — goes fullscreen as one unit so the toggle and the inspection panel stay
+  // reachable. document.fullscreenElement is the only source of truth: the label
+  // and the layout attribute are re-derived from it on every fullscreenchange,
+  // so an Esc exit lands in exactly the same place a button exit does.
+  // -------------------------------------------------------------------------
+
+  const world = document.getElementById('cc-world');
+  const fullscreenButton = document.getElementById('cc-fullscreen');
+  const requestFullscreen = world && (world.requestFullscreen || world.webkitRequestFullscreen);
+  const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+
+  if (
+    world && fullscreenButton && requestFullscreen && exitFullscreen
+    && (document.fullscreenEnabled || document.webkitFullscreenEnabled)
+  ) {
+    const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+    const syncFullscreen = () => {
+      const active = fullscreenElement() === world;
+      world.dataset.fullscreen = active ? 'true' : 'false';
+      fullscreenButton.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+      // The canvas element box just changed size; refresh Phaser's cached bounds
+      // on the next frame so zone and camper hit-testing stays aligned.
+      window.requestAnimationFrame(() => game.scale.refresh());
+    };
+
+    fullscreenButton.addEventListener('click', () => {
+      const active = fullscreenElement() === world;
+      const result = active ? exitFullscreen.call(document) : requestFullscreen.call(world);
+      // Safari returns undefined; a denied request must never reject unhandled.
+      Promise.resolve(result).catch(syncFullscreen);
+    });
+
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    fullscreenButton.hidden = false;
+    syncFullscreen();
+  }
+
   window.addEventListener('pagehide', () => {
     client.stop();
     game.destroy(true);

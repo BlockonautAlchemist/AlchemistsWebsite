@@ -77,6 +77,7 @@ const ART_ROOT = '/assets/command-center';
 // ---------------------------------------------------------------------------
 
 export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
+  key: 'env_floor_wall',
   art: `${ART_ROOT}/env_floor_wall.png`,
   conduitArt: `${ART_ROOT}/env_conduit_channels.png`,
   floorFill: COMMAND_CENTER_PALETTE.bg1,
@@ -103,8 +104,14 @@ export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------
-// L2 · static prop bodies (section 08). `parts` are the design's whitebox rects,
-// relative to the prop box; `art` is the pixel-art file that replaces them.
+// L2 · machine geometry and whitebox bodies (section 08). This is the
+// authoritative geometry for every machine: `x, y, w, h` is the box, and `parts`
+// are the design's whitebox rects relative to it.
+//
+// Real art is NOT declared here. `src/command-center/propSheets.mjs` is the art
+// registry; each of its entries names the prop key it covers and the scene
+// anchors the file to this box (bottom-centre). Loading a machine's real asset
+// suppresses the whitebox body below and its components in the next section.
 // ---------------------------------------------------------------------------
 
 const SHELL = COMMAND_CENTER_PALETTE.bg3;
@@ -123,21 +130,18 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_wall_crt_bank',
     zone: 'central-operations',
-    art: `${ART_ROOT}/prop_wall_crt_bank.png`,
     x: 372, y: 24, w: 216, h: 84,
     parts: Object.freeze([{ x: 0, y: 0, w: 216, h: 84, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2, inset: 0.2 }])
   }),
   Object.freeze({
     key: 'prop_ops_console',
     zone: 'central-operations',
-    art: `${ART_ROOT}/prop_ops_console.png`,
     x: 384, y: 144, w: 192, h: 72,
     parts: Object.freeze(deskParts(192, 72, 20))
   }),
   Object.freeze({
     key: 'prop_wall_feed_shells',
     zone: 'intelligence-research',
-    art: `${ART_ROOT}/prop_wall_feed_shells.png`,
     x: 48, y: 40, w: 232, h: 38,
     parts: Object.freeze([0, 60, 120, 180].map((offset) => ({
       x: offset, y: 0, w: 52, h: 38, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2
@@ -146,7 +150,6 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_radar_drum',
     zone: 'intelligence-research',
-    art: `${ART_ROOT}/prop_radar_drum.png`,
     x: 72, y: 168, w: 96, h: 72,
     parts: Object.freeze([
       { x: 0, y: 22, w: 96, h: 50, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 },
@@ -156,28 +159,24 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_scanner_bench',
     zone: 'scanner-bench',
-    art: `${ART_ROOT}/prop_scanner_bench.png`,
     x: 48, y: 264, w: 168, h: 48,
     parts: Object.freeze(deskParts(168, 48, 16))
   }),
   Object.freeze({
     key: 'prop_code_bench',
     zone: 'github-code',
-    art: `${ART_ROOT}/prop_code_bench.png`,
     x: 48, y: 384, w: 168, h: 72,
     parts: Object.freeze(deskParts(168, 72, 22))
   }),
   Object.freeze({
     key: 'prop_disk_tower',
     zone: 'github-code',
-    art: `${ART_ROOT}/prop_disk_tower.png`,
     x: 228, y: 384, w: 36, h: 72,
     parts: Object.freeze([{ x: 0, y: 0, w: 36, h: 72, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_still_column',
     zone: 'newsletter',
-    art: `${ART_ROOT}/prop_still_column.png`,
     x: 264, y: 312, w: 72, h: 144,
     parts: Object.freeze([
       { x: 6, y: 0, w: 60, h: 144, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, radius: Object.freeze([30, 30, 4, 4]), shadow: 4 },
@@ -188,21 +187,18 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_still_tray',
     zone: 'newsletter',
-    art: `${ART_ROOT}/prop_still_tray.png`,
     x: 348, y: 408, w: 60, h: 48,
     parts: Object.freeze([{ x: 0, y: 0, w: 60, h: 48, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_x_console',
     zone: 'x-communications',
-    art: `${ART_ROOT}/prop_x_console.png`,
     x: 456, y: 384, w: 144, h: 72,
     parts: Object.freeze(deskParts(144, 72, 22))
   }),
   Object.freeze({
     key: 'prop_x_mast',
     zone: 'x-communications',
-    art: `${ART_ROOT}/prop_x_mast.png`,
     x: 576, y: 276, w: 48, h: 108,
     parts: Object.freeze([
       { x: 12, y: 12, w: 24, h: 96, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28 },
@@ -212,42 +208,36 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_tx_body',
     zone: 'terminal-transmitter',
-    art: `${ART_ROOT}/prop_tx_body.png`,
     x: 696, y: 360, w: 168, h: 96,
     parts: Object.freeze(deskParts(168, 96, 28))
   }),
   Object.freeze({
     key: 'prop_wall_receptacle',
     zone: 'terminal-transmitter',
-    art: `${ART_ROOT}/prop_wall_receptacle.png`,
     x: 912, y: 378, w: 24, h: 30,
     parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 30, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.28 }])
   }),
   Object.freeze({
     key: 'prop_rack_a',
     zone: 'model-infrastructure',
-    art: `${ART_ROOT}/prop_rack.png`,
     x: 744, y: 144, w: 72, h: 120,
     parts: Object.freeze([{ x: 0, y: 0, w: 72, h: 120, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_rack_b',
     zone: 'model-infrastructure',
-    art: `${ART_ROOT}/prop_rack.png`,
     x: 840, y: 144, w: 72, h: 120,
     parts: Object.freeze([{ x: 0, y: 0, w: 72, h: 120, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_furnace_chamber',
     zone: 'model-infrastructure',
-    art: `${ART_ROOT}/prop_furnace_chamber.png`,
     x: 768, y: 288, w: 120, h: 72,
     parts: Object.freeze(deskParts(120, 72, 22))
   }),
   Object.freeze({
     key: 'prop_core_well',
     zone: 'power-core',
-    art: `${ART_ROOT}/prop_core_well.png`,
     x: 408, y: 264, w: 144, h: 96,
     parts: Object.freeze([{ x: 0, y: 0, w: 144, h: 96, fill: COMMAND_CENTER_PALETTE.bg0, stroke: SHELL_TOP, strokeWidth: 2, recessed: true }])
   }),
@@ -255,35 +245,30 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_crate_small',
     zone: '',
-    art: `${ART_ROOT}/prop_crate_small.png`,
     x: 300, y: 180, w: 24, h: 24,
     parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
   }),
   Object.freeze({
     key: 'prop_crate_wide_a',
     zone: '',
-    art: `${ART_ROOT}/prop_crate_wide.png`,
     x: 648, y: 168, w: 48, h: 24,
     parts: Object.freeze([{ x: 0, y: 0, w: 48, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
   }),
   Object.freeze({
     key: 'prop_crate_wide_b',
     zone: '',
-    art: `${ART_ROOT}/prop_crate_wide.png`,
     x: 624, y: 432, w: 48, h: 24,
     parts: Object.freeze([{ x: 0, y: 0, w: 48, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
   }),
   Object.freeze({
     key: 'prop_wall_sigil',
     zone: '',
-    art: `${ART_ROOT}/prop_wall_sigil.png`,
     x: 612, y: 34, w: 52, h: 52,
     parts: Object.freeze([{ x: 0, y: 0, w: 52, h: 52, fill: 0x1c0627, stroke: COMMAND_CENTER_PALETTE.gold, strokeWidth: 2, strokeAlpha: 0.5, glyph: 'A' }])
   }),
   Object.freeze({
     key: 'prop_wall_vents',
     zone: '',
-    art: `${ART_ROOT}/prop_wall_vents.png`,
     x: 724, y: 20, w: 216, h: 70,
     parts: Object.freeze([0, 76, 152].map((offset) => ({
       x: offset, y: 0, w: 64, h: 70, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2, taper: 0.14
@@ -292,165 +277,149 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_ops_cable_stub',
     zone: 'central-operations',
-    art: `${ART_ROOT}/prop_ops_cable_stub.png`,
     x: 432, y: 132, w: 24, h: 8,
     parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 8, fill: SHELL_TOP }])
   })
 ]);
 
 // ---------------------------------------------------------------------------
-// L3 · animated components (section 08). `kind` selects the renderer/loop; `ambient`
-// runs always with a random phase offset, `operational` only on real telemetry.
+// L3 · whitebox machine components (section 08). `kind` selects the renderer/
+// loop; `ambient` runs always with a random phase offset, `operational` only on
+// real telemetry.
+//
+// These are the DEVELOPMENT FALLBACK, not an art contract. The superseded
+// design-bible workflow shipped each of these as its own small `anim_*.png`
+// overlay bolted onto a static prop; production art is now a single complete
+// object per machine (see propSheets.mjs), so a machine's real asset — static or
+// animated — retires every component listed in its `coversComponents`. Nothing
+// here is ever painted on top of finished art.
 // ---------------------------------------------------------------------------
 
 export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   Object.freeze({
     key: 'anim_ops_screens', zone: 'central-operations', kind: 'ops-crt',
-    art: `${ART_ROOT}/anim_ops_screens.png`, frames: 4, fps: 6,
     x: 380, y: 32, w: 200, h: 68,
     color: COMMAND_CENTER_PALETTE.phosphor, screen: 0x031a17, bezel: 0x0e4a41,
     ambient: 'flicker', operational: 'readout'
   }),
   Object.freeze({
     key: 'anim_ops_desk_screens', zone: 'central-operations', kind: 'crt-row',
-    art: `${ART_ROOT}/anim_ops_desk_screens.png`, frames: 4, fps: 6,
     x: 396, y: 150, w: 136, h: 26, cells: 3, cellWidth: 40, cellGap: 8,
     color: COMMAND_CENTER_PALETTE.phosphor, screen: 0x031a17, bezel: 0x0e4a41,
     ambient: 'flicker', operational: 'screens'
   }),
   Object.freeze({
     key: 'anim_keyboard_leds', zone: 'central-operations', kind: 'keyboard',
-    art: `${ART_ROOT}/anim_keyboard_leds.png`, frames: 4, fps: 8,
     x: 396, y: 190, w: 136, h: 10,
     color: COMMAND_CENTER_PALETTE.cyan, ambient: 'idle', operational: 'type'
   }),
   Object.freeze({
     key: 'anim_ops_caret', zone: 'central-operations', kind: 'caret',
-    art: `${ART_ROOT}/anim_ops_caret.png`, frames: 2, fps: 2,
     x: 540, y: 156, w: 28, h: 6,
     color: COMMAND_CENTER_PALETTE.cyan, ambient: 'blink'
   }),
   Object.freeze({
     key: 'anim_feed_cycle', zone: 'intelligence-research', kind: 'feed-bank',
-    art: `${ART_ROOT}/anim_feed_cycle.png`, frames: 6, fps: 4,
     x: 52, y: 44, w: 224, h: 30, cells: 4, cellWidth: 44, cellGap: 16,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     ambient: 'scanline', operational: 'cycle'
   }),
   Object.freeze({
     key: 'anim_radar_sweep', zone: 'intelligence-research', kind: 'radar',
-    art: `${ART_ROOT}/anim_radar_sweep.png`, frames: 8, fps: 12,
     x: 84, y: 176, w: 72, h: 72,
     color: COMMAND_CENTER_PALETTE.cyan, accent: COMMAND_CENTER_PALETTE.gold,
     ambient: 'blip', operational: 'sweep'
   }),
   Object.freeze({
     key: 'anim_scan_bar', zone: 'scanner-bench', kind: 'scan-bar',
-    art: `${ART_ROOT}/anim_scan_bar.png`, frames: 8, fps: 12,
     x: 60, y: 280, w: 144, h: 16,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     operational: 'sweep'
   }),
   Object.freeze({
     key: 'anim_scan_lamp', zone: 'scanner-bench', kind: 'lamp',
-    art: `${ART_ROOT}/anim_scan_lamp.png`, frames: 2, fps: 4,
     x: 60, y: 266, w: 6, h: 6,
     color: COMMAND_CENTER_PALETTE.phosphor, ambient: 'blink', operational: 'solid'
   }),
   Object.freeze({
     key: 'anim_code_scroll', zone: 'github-code', kind: 'code-crt',
-    art: `${ART_ROOT}/anim_code_scroll.png`, frames: 8, fps: 6,
     x: 60, y: 400, w: 120, h: 34,
     color: COMMAND_CENTER_PALETTE.phosphor, screen: 0x021a0f, bezel: 0x0e4a2a,
     ambient: 'idle-text', operational: 'scroll'
   }),
   Object.freeze({
     key: 'anim_code_leds', zone: 'github-code', kind: 'led-stack',
-    art: `${ART_ROOT}/anim_code_leds.png`, frames: 4, fps: 8,
     x: 190, y: 400, w: 18, h: 34, cells: 3,
     color: COMMAND_CENTER_PALETTE.phosphor, accent: COMMAND_CENTER_PALETTE.gold,
     ambient: 'blink'
   }),
   Object.freeze({
     key: 'anim_disk_reel', zone: 'github-code', kind: 'reel',
-    art: `${ART_ROOT}/anim_disk_reel.png`, frames: 4, fps: 8,
     x: 234, y: 392, w: 24, h: 24,
     color: COMMAND_CENTER_PALETTE.line, ambient: 'spin'
   }),
   Object.freeze({
     key: 'anim_still_chamber', zone: 'newsletter', kind: 'chamber',
-    art: `${ART_ROOT}/anim_still_chamber.png`, frames: 10, fps: 8,
     x: 276, y: 330, w: 48, h: 108,
     color: COMMAND_CENTER_PALETTE.brand, accent: COMMAND_CENTER_PALETTE.magenta,
     screen: 0x0d1b26, operational: 'fill'
   }),
   Object.freeze({
     key: 'anim_still_coil', zone: 'newsletter', kind: 'coil',
-    art: `${ART_ROOT}/anim_still_coil.png`, frames: 6, fps: 10,
     x: 288, y: 350, w: 24, h: 24,
     color: COMMAND_CENTER_PALETTE.gold, operational: 'spin'
   }),
   Object.freeze({
     key: 'anim_tray_print', zone: 'newsletter', kind: 'tray',
-    art: `${ART_ROOT}/anim_tray_print.png`, frames: 6, fps: 8,
     x: 354, y: 414, w: 48, h: 20,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     operational: 'print'
   }),
   Object.freeze({
     key: 'anim_x_crt', zone: 'x-communications', kind: 'x-crt',
-    art: `${ART_ROOT}/anim_x_crt.png`, frames: 6, fps: 6,
     x: 468, y: 392, w: 64, h: 38,
     color: COMMAND_CENTER_PALETTE.magenta, screen: 0x1b0a24, bezel: COMMAND_CENTER_PALETTE.magenta,
     ambient: 'standby', operational: 'formatting'
   }),
   Object.freeze({
     key: 'anim_x_lamps', zone: 'x-communications', kind: 'lamp-grid',
-    art: `${ART_ROOT}/anim_x_lamps.png`, frames: 4, fps: 6,
     x: 544, y: 392, w: 44, h: 38, cells: 4,
     color: COMMAND_CENTER_PALETTE.magenta, ambient: 'blink', operational: 'chase'
   }),
   Object.freeze({
     key: 'anim_x_dish', zone: 'x-communications', kind: 'dish',
-    art: `${ART_ROOT}/anim_x_dish.png`, frames: 6, fps: 10,
     x: 596, y: 270, w: 8, h: 8,
     color: COMMAND_CENTER_PALETTE.magenta, operational: 'charge'
   }),
   Object.freeze({
     key: 'anim_tx_crt', zone: 'terminal-transmitter', kind: 'tx-crt',
-    art: `${ART_ROOT}/anim_tx_crt.png`, frames: 6, fps: 6,
     x: 708, y: 372, w: 96, h: 60,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     ambient: 'standby', operational: 'link'
   }),
   Object.freeze({
     key: 'anim_tx_charge', zone: 'terminal-transmitter', kind: 'charge-orb',
-    art: `${ART_ROOT}/anim_tx_charge.png`, frames: 8, fps: 10,
     x: 816, y: 378, w: 36, h: 36,
     color: COMMAND_CENTER_PALETTE.gold, operational: 'charge'
   }),
   Object.freeze({
     key: 'anim_tx_pilot', zone: 'terminal-transmitter', kind: 'lamp',
-    art: `${ART_ROOT}/anim_tx_pilot.png`, frames: 2, fps: 4,
     x: 756, y: 336, w: 12, h: 12,
     color: COMMAND_CENTER_PALETTE.phosphor, ambient: 'blink'
   }),
   Object.freeze({
     key: 'anim_rack_leds', zone: 'model-infrastructure', kind: 'led-bank',
-    art: `${ART_ROOT}/anim_rack_leds.png`, frames: 6, fps: 8,
     x: 752, y: 152, w: 56, h: 104, cells: 4,
     color: COMMAND_CENTER_PALETTE.phosphor, accent: COMMAND_CENTER_PALETTE.cyan,
     ambient: 'blink', operational: 'chase'
   }),
   Object.freeze({
     key: 'anim_fan', zone: 'model-infrastructure', kind: 'fan-stack',
-    art: `${ART_ROOT}/anim_fan.png`, frames: 4, fps: 16,
     x: 848, y: 152, w: 56, h: 104, cells: 2,
     color: COMMAND_CENTER_PALETTE.line, ambient: 'spin', operational: 'spin-fast'
   }),
   Object.freeze({
     key: 'anim_furnace_heat', zone: 'model-infrastructure', kind: 'furnace',
-    art: `${ART_ROOT}/anim_furnace_heat.png`, frames: 6, fps: 6,
     x: 780, y: 296, w: 96, h: 38,
     color: COMMAND_CENTER_PALETTE.gold, accent: COMMAND_CENTER_PALETTE.magenta,
     screen: 0x1b0a10, bezel: COMMAND_CENTER_PALETTE.warm,
@@ -458,20 +427,17 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   }),
   Object.freeze({
     key: 'anim_core_pulse', zone: 'power-core', kind: 'core',
-    art: `${ART_ROOT}/anim_core_pulse.png`, frames: 8, fps: 6,
     x: 420, y: 276, w: 120, h: 72,
     color: COMMAND_CENTER_PALETTE.brand, accent: COMMAND_CENTER_PALETTE.cyan,
     ambient: 'pulse', operational: 'pulse-fast'
   }),
   Object.freeze({
     key: 'anim_core_sigil', zone: 'power-core', kind: 'sigil',
-    art: `${ART_ROOT}/anim_core_sigil.png`, frames: 16, fps: 4,
     x: 456, y: 294, w: 48, h: 36,
     color: COMMAND_CENTER_PALETTE.gold, ambient: 'slow-rotate'
   }),
   Object.freeze({
     key: 'anim_core_seed', zone: 'power-core', kind: 'core-seed',
-    art: `${ART_ROOT}/anim_core_seed.png`, frames: 1, fps: 1,
     x: 474, y: 306, w: 12, h: 12,
     color: COMMAND_CENTER_PALETTE.gold, ambient: 'glow'
   })
@@ -479,6 +445,10 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
 
 // ---------------------------------------------------------------------------
 // L6 · foreground / occlusion (section 08). Drawn above the character.
+//
+// Independent of the prop art registry and deliberately so: these exist purely
+// so SpawnCamper can walk behind a machine, they carry their own `art` path and
+// their own loader seam, and they are not the old component-overlay system.
 // ---------------------------------------------------------------------------
 
 export const COMMAND_CENTER_FOREGROUND = Object.freeze([
