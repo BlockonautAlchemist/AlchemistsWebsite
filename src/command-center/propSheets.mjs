@@ -39,11 +39,11 @@ export const PROP_STATIC = 'static';
 export const PROP_ANIMATED = 'animated';
 
 // Seeded from the paths sceneConfig already declared. The manifest is the gate:
-// eleven machines ship real animated sheets today (Opportunity Radar, Tool
+// twelve machines ship real animated sheets today (Opportunity Radar, Tool
 // Scanner, Newsletter Still, X Uplink, Creator Console, Repo Forge, Model
-// Furnace, Profit Analyzer, Publish Transmitter, News Array, Experiment Bench)
-// and render as finished art; every other entry names a file the manifest does
-// not list, makes zero requests, and keeps its whitebox.
+// Furnace, Profit Analyzer, Publish Transmitter, News Array, Experiment Bench,
+// Agent Lab) and render as finished art; every other entry names a file the
+// manifest does not list, makes zero requests, and keeps its whitebox.
 //
 // `id`         unique instance. Two instances may share one `textureKey`
 //              (both wide crates) — the file is fetched once.
@@ -95,7 +95,7 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_ops_console']),
     coversComponents: Object.freeze(['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'])
   }),
-  // News Array (zone 02). The one shipped sheet that hangs on the wall: shells,
+  // News Array (zone 02). The first shipped sheet that hangs on the wall: shells,
   // cycling CRT cells and the packet traffic that used to be `anim_feed_cycle`
   // are one object, so the whitebox strip and its component retire together. It
   // keeps `groundShadow: false` and declares no `shadowWidth` — the display
@@ -119,6 +119,31 @@ export const PROP_SHEETS = Object.freeze([
     groundShadow: false,
     covers: Object.freeze(['prop_wall_feed_shells']),
     coversComponents: Object.freeze(['anim_feed_cycle'])
+  }),
+  // Agent Lab (zone 12). The room's second wall-hung sheet, and the machine that
+  // finally stopped sharing Tool Scanner's bench. The whole cabinet — shell,
+  // readouts, plumbing and the lit central chamber that is the only thing that
+  // moves — is one object, so it declares no components to retire and there is
+  // nothing procedural left to draw on top of it. `groundShadow: false` and no
+  // `shadowWidth`: it hangs on the wall and stands on nothing. The 203x202 cell
+  // keeps 20 empty rows below the cabinet, so `offsetY` puts its bottom edge back
+  // on the box's bottom edge. 6fps is one 1.333s chamber cycle.
+  Object.freeze({
+    id: 'wall_agent_lab',
+    type: PROP_ANIMATED,
+    art: `${ART_ROOT}/anim_agent_lab_sheet.png`,
+    textureKey: 'anim_agent_lab',
+    sheetWidth: 1624,
+    sheetHeight: 202,
+    frameWidth: 203,
+    frameHeight: 202,
+    frames: 8,
+    fps: 6,
+    repeat: -1,
+    offsetY: 20,
+    groundShadow: false,
+    covers: Object.freeze(['prop_wall_agent_lab']),
+    coversComponents: Object.freeze([])
   }),
   // Opportunity Radar (zone 02). The sheet is the whole terminal — cabinet, bezel
   // and the sweep that used to be `anim_radar_sweep` — so no static body loads

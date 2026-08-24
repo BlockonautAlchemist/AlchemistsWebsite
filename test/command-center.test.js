@@ -36,6 +36,8 @@ let COMMAND_CENTER_FOREGROUND;
 let COMMAND_CENTER_PROPS;
 let COMMAND_CENTER_WALK_GRAPH;
 let routeThroughWalkGraph;
+let pointOnSegment;
+let walkNodes;
 let COMMAND_CENTER_WORKFLOW_AREAS;
 let COMMAND_CENTER_MACHINES;
 let CAMPER_SHEETS;
@@ -94,7 +96,7 @@ test.before(async () => {
     CAMPER_ANIMATIONS,
     visualForState
   } = await import('../src/command-center/visualMappings.mjs'));
-  ({ routeThroughWalkGraph } = await import('../src/command-center/walkGraph.mjs'));
+  ({ routeThroughWalkGraph, pointOnSegment, walkNodes } = await import('../src/command-center/walkGraph.mjs'));
   ({
     CAMPER_SHEETS,
     camperSheetFor,
@@ -489,7 +491,7 @@ test('maps workflows and context aliases to command center room areas', () => {
   const workflowCases = [
     ['ai-news', 'intelligence-research'],
     ['new-tools', 'scanner-bench'],
-    ['agents', 'scanner-bench'],
+    ['agents', 'agent-lab'],
     ['creator-content', 'creator-console'],
     ['monetization', 'profit-analyzer'],
     ['playbooks', 'experiment-bench'],
@@ -1855,7 +1857,7 @@ test('every animated machine resolves to a real zone SpawnCamper can walk to', (
   // zone. A machine whose anchor lost its zone would silently never wake.
   const areaIds = new Set(COMMAND_CENTER_AREAS.map((area) => area.id));
   const animated = PROP_SHEETS.filter(isAnimatedProp);
-  assert.equal(animated.length, 11, 'the shipped animated machine count changed');
+  assert.equal(animated.length, 12, 'the shipped animated machine count changed');
 
   animated.forEach((entry) => {
     const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
@@ -2062,12 +2064,26 @@ test('the prop registry holds no coordinates: sceneConfig geometry stays authori
 test('foreground occlusion stays independent of the prop art registry', () => {
   // L6 is depth, not animation: its own art paths, its own loader seam, its own
   // layer above the character. It was never part of the retired overlay system.
-  assert.equal(COMMAND_CENTER_FOREGROUND.length > 0, true);
+  const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
+  assert.deepEqual([...foreKeys].sort(), [
+    'fore_ops_console_front',
+    'fore_pilaster_l',
+    'fore_pilaster_r',
+    'fore_wall_port'
+  ]);
+  [
+    'fore_code_bench_front',
+    'fore_furnace_lip',
+    'fore_still_base',
+    'fore_tx_front',
+    'fore_x_console_front'
+  ].forEach((key) => {
+    assert.equal(foreKeys.has(key), false, `${key} should no longer render as foreground`);
+  });
   COMMAND_CENTER_FOREGROUND.forEach((piece) => {
     assert.match(piece.art, /^\/assets\/command-center\/fore_[a-z0-9_]+\.png$/, `${piece.key} art path`);
   });
 
-  const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
   PROP_SHEETS.forEach((sheet) => {
     sheet.covers.concat(sheet.coversComponents).forEach((key) => {
       assert.equal(foreKeys.has(key), false, `${sheet.id} must not swallow occluder ${key}`);
@@ -2099,24 +2115,25 @@ test('the prop art registry leaves the SpawnCamper systems alone', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The eleven machine sheets that actually ship today (section 08 art passes 1-4).
+// The twelve machine sheets that actually ship today (section 08 art passes 1-5).
 // ---------------------------------------------------------------------------
 
 // Measured off the real PNGs, not copied from a design contract: each file was
-// decoded and its alpha walked per frame. All eleven are one horizontal strip of
+// decoded and its alpha walked per frame. All twelve are one horizontal strip of
 // cells, zero margin, zero spacing, binary alpha. The invariant that holds is
 // `frameHeight == sheetHeight`, not squareness: the Repo Forge cell is 203x202,
 // the Model Furnace cell 202x203 and the Publish Transmitter cell 149x144.
 //
-// `offsetY` is the only *positional* override any of them carries, and eight do:
+// `offsetY` is the only *positional* override any of them carries, and nine do:
 // each of those cells leaves empty rows under the machine's contact edge, so
 // without the nudge it hangs that far off its box. Alongside it sit two more
 // measured facts — `shadowWidth`, how wide the art really is, which sizes the
 // generated contact shadow, and `flipX` on the two machines that were exported
 // facing the wrong way. Everything else stays derived from sceneConfig.
 //
-// News Array is the one wall-mounted sheet, so it carries `groundShadow: false`
-// and no `shadowWidth` at all: it stands on nothing and casts no floor pool.
+// News Array and Agent Lab are the wall-mounted sheets, so they carry
+// `groundShadow: false` and no `shadowWidth` at all: they stand on nothing and
+// cast no floor pool.
 const SHIPPED_MACHINE_SHEETS = [
   {
     id: 'radar_drum',
@@ -2235,12 +2252,28 @@ const SHIPPED_MACHINE_SHEETS = [
     // contact edge here is the wall strip's bottom edge, not a floor line.
     offsetY: 70,
     // Wall-mounted: stands on nothing, so it records no art width and casts no
-    // floor pool. Every other shipped sheet does both.
+    // floor pool. Every floor-standing shipped sheet does both.
+    groundShadow: false
+  },
+  {
+    id: 'wall_agent_lab',
+    machine: 'Agent Lab',
+    art: '/assets/command-center/anim_agent_lab_sheet.png',
+    textureKey: 'anim_agent_lab',
+    sheetWidth: 1624, sheetHeight: 202, frameWidth: 203, frameHeight: 202, frames: 8, fps: 6,
+    anchorProp: 'prop_wall_agent_lab',
+    // Measured bottom slack: the cabinet ends at frame y=181 of a 202px cell.
+    // The contact edge is the box's bottom edge on the wall, not a floor line.
+    offsetY: 20,
+    // The room's second wall-mounted sheet, and the second entry to opt out of a
+    // floor pool. Like News Array it records no art width, because nothing sizes
+    // a shadow it never draws.
     groundShadow: false
   }
 ];
 
-test('the eleven shipped machine sheets resolve as animated art in the registry', () => {
+
+test('the twelve shipped machine sheets resolve as animated art in the registry', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     assert.notEqual(entry, null, `${expected.machine} is not in the prop registry`);
@@ -2379,7 +2412,7 @@ test('machine art casts a generated contact shadow on the floor line it stands o
   assert.match(scene, /this\.addGlow\(at\.x, at\.y, at\.width, at\.height, P\.void, at\.alpha, false\)\s*\.setDepth\(DEPTH\.props - 1\)/);
 });
 
-test('the eleven shipped sheets tile exactly at the dimensions their PNGs really are', () => {
+test('the twelve shipped sheets tile exactly at the dimensions their PNGs really are', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     const file = `${__dirname}/../public${entry.art}`;
@@ -2417,7 +2450,7 @@ test('the eleven shipped sheets tile exactly at the dimensions their PNGs really
   });
 });
 
-test('the manifest ships the eleven machine sheets so they actually preload', () => {
+test('the manifest ships the twelve machine sheets so they actually preload', () => {
   const manifest = JSON.parse(
     fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
   );
@@ -2446,7 +2479,7 @@ test('the manifest ships the eleven machine sheets so they actually preload', ()
   });
 });
 
-test('the eleven shipped machines anchor bottom-centre on their whitebox box', () => {
+test('the twelve shipped machines anchor bottom-centre on their whitebox box', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === expected.anchorProp);
@@ -2479,7 +2512,7 @@ test('the eleven shipped machines anchor bottom-centre on their whitebox box', (
   });
 });
 
-test('the eleven shipped machines loop when worked at, and hold their first frame otherwise', () => {
+test('the twelve shipped machines loop when worked at, and hold their first frame otherwise', () => {
   const anims = fakeAnims();
 
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
@@ -2504,7 +2537,7 @@ test('the eleven shipped machines loop when worked at, and hold their first fram
   });
 
   assert.equal(anims.created.length, SHIPPED_MACHINE_SHEETS.length, 'a machine loop was created twice');
-  assert.deepEqual(anims.created.map((entry) => entry.frameRate), [8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
+  assert.deepEqual(anims.created.map((entry) => entry.frameRate), [8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
   anims.created.forEach((created) => {
     assert.equal(created.repeat, -1, `${created.key} does not loop`);
     assert.deepEqual(created.frames.frames, [0, 1, 2, 3, 4, 5, 6, 7], `${created.key} frames`);
@@ -2548,16 +2581,10 @@ test('the Newsletter Still sheet is the whole machine, column and tray both', ()
     assert.equal(replacedComponents.has(key), true, `${key} still renders over the art`);
   });
 
-  // Nothing else in zone 05 is swept up: the foreground occluder is not machine
-  // art, it is on its own seam with its own file, and no registry entry may
-  // claim it. Removing it would let SpawnCamper walk through the still's base.
-  const base = COMMAND_CENTER_FOREGROUND.find((piece) => piece.key === 'fore_still_base');
-  assert.notEqual(base, undefined, 'fore_still_base was removed with the whitebox');
-  assert.deepEqual(
-    { x: base.x, y: base.y, w: base.w, h: base.h },
-    { x: 264, y: 444, w: 72, h: 14 }
-  );
-  assert.equal(base.art, '/assets/command-center/fore_still_base.png');
+  // Nothing else in zone 05 is swept up: the retired foreground strip is not
+  // machine art, and no registry entry may claim it.
+  const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
+  assert.equal(foreKeys.has('fore_still_base'), false, 'fore_still_base should stay retired');
   PROP_SHEETS.forEach((sheet) => {
     assert.equal(sheet.covers.includes('fore_still_base'), false, `${sheet.id} claims an occluder`);
     assert.equal(
@@ -2616,7 +2643,8 @@ test('the X Uplink sheet owns the mast, and the rest of the room stays whitebox'
     'prop_experiment_bench', 'prop_furnace_chamber', 'prop_profit_analyzer',
     'prop_rack_a', 'prop_rack_b', 'prop_radar_drum', 'prop_scanner_bench',
     'prop_still_column', 'prop_still_tray',
-    'prop_tx_body', 'prop_wall_feed_shells', 'prop_x_console', 'prop_x_mast'
+    'prop_tx_body', 'prop_wall_agent_lab', 'prop_wall_feed_shells',
+    'prop_x_console', 'prop_x_mast'
   ]);
   assert.deepEqual([...replacedComponentKeys(live)].sort(), [
     'anim_code_leds', 'anim_code_scroll', 'anim_creator_screens', 'anim_disk_reel',
@@ -2709,13 +2737,23 @@ test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox'
   assert.deepEqual([...machineById('news-array').propKeys], ['prop_wall_feed_shells']);
   assert.equal(replacedWhiteboxKeys([news]).has('prop_wall_feed_shells'), true);
 
-  // The scanner triple is a pair now: Tool Scanner keeps the sheet and the bench it
-  // already had, Agent Lab stays deferred behind it, and Experiment Bench left for
-  // the centre pocket the Power Core used to hold — see art pass 4 below.
+  // The scanner triple is one machine now: Tool Scanner keeps the sheet and the
+  // bench it already had, Experiment Bench left for the centre pocket the Power
+  // Core used to hold (art pass 4), and Agent Lab left for the upper-right wall
+  // (art pass 5). Nothing else may claim the bench.
   assert.equal(propSheetFor('scanner_bench').art, '/assets/command-center/anim_tool_scanner_sheet.png');
-  ['tool-scanner', 'agent-lab'].forEach((id) => {
-    assert.deepEqual([...machineById(id).propKeys], ['prop_scanner_bench'], `${id} anchor moved`);
-  });
+  assert.deepEqual([...machineById('tool-scanner').propKeys], ['prop_scanner_bench'], 'tool-scanner anchor moved');
+  assert.deepEqual([...machineById('agent-lab').propKeys], ['prop_wall_agent_lab'], 'agent-lab still on the bench');
+  assert.deepEqual(
+    COMMAND_CENTER_MACHINES.filter((m) => m.propKeys.includes('prop_scanner_bench')).map((m) => m.id),
+    ['tool-scanner'],
+    'the scanner bench has more than one owner'
+  );
+  assert.deepEqual(
+    PROP_SHEETS.filter((sheet) => sheet.covers.includes('prop_scanner_bench')).map((sheet) => sheet.id),
+    ['scanner_bench'],
+    'the scanner bench is covered by more than one sheet'
+  );
   assert.deepEqual([...machineById('experiment-bench').propKeys], ['prop_experiment_bench']);
 
   // The decorative crate at 300,180 sat inside the Creator Console's floor
@@ -2739,14 +2777,12 @@ test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox'
 // the X Uplink a console plus its mast — but unrelated machines must not share a
 // primary prop just because the original whitebox did.
 //
-// TODO: `prop_scanner_bench` is still shared by tool-scanner and agent-lab. It was
-// a three-way share until art pass 4 retired the Power Core and moved
-// experiment-bench onto the centre pocket it had been holding; Agent Lab is now the
-// only workflow machine left without a box of its own. This list is debt, not
-// design: nothing may be added to it, and the assertions below fail if anything is.
-const KNOWN_SHARED_ANCHORS = Object.freeze({
-  prop_scanner_bench: Object.freeze(['tool-scanner', 'agent-lab'])
-});
+// `prop_scanner_bench` was a three-way share, then a two-way one, and is now Tool
+// Scanner's alone: art pass 4 moved experiment-bench onto the retired Power
+// Core's centre pocket, and art pass 5 gave Agent Lab its own wall anchor. The
+// list is empty and stays empty — it is debt, not design, so nothing may be
+// added to it, and the assertions below fail if anything is.
+const KNOWN_SHARED_ANCHORS = Object.freeze({});
 
 test('every canonical machine anchors on a real whitebox prop', () => {
   const propKeys = new Set(COMMAND_CENTER_PROPS.map((prop) => prop.key));
@@ -2926,17 +2962,100 @@ test('the geometry pass changed no workflow, Hermes or telemetry semantics', () 
   assert.equal(canonicalAreaId('ai-news'), 'intelligence-research');
   assert.equal(machineById('opportunity-radar').areaId, 'intelligence-research');
 
-  // The eleven finished machines each anchor where they are supposed to.
+  // The twelve finished machines each anchor where they are supposed to.
   assert.deepEqual(
     ['radar_drum', 'scanner_bench', 'still_column', 'x_console',
       'creator_console', 'code_bench', 'furnace_chamber',
-      'profit_analyzer', 'tx_body', 'wall_feed_shells', 'experiment_bench']
+      'profit_analyzer', 'tx_body', 'wall_feed_shells', 'experiment_bench',
+      'wall_agent_lab']
       .map((id) => propSheetFor(id).covers[0]),
     ['prop_radar_drum', 'prop_scanner_bench', 'prop_still_column', 'prop_x_console',
       'prop_creator_console', 'prop_code_bench', 'prop_furnace_chamber',
       'prop_profit_analyzer', 'prop_tx_body', 'prop_wall_feed_shells',
-      'prop_experiment_bench']
+      'prop_experiment_bench', 'prop_wall_agent_lab']
   );
+});
+
+// ---------------------------------------------------------------------------
+// Art pass 5: Agent Lab takes the upper-right wall and leaves the scanner bench.
+// ---------------------------------------------------------------------------
+
+test('the Agent Lab hangs on the right wall, alone, and casts no floor pool', () => {
+  const boxFor = (key) => COMMAND_CENTER_PROPS.find((prop) => prop.key === key);
+  const box = boxFor('prop_wall_agent_lab');
+  const entry = propSheetFor('wall_agent_lab');
+
+  // The box is the art's own footprint, not a floor plan: nothing stands on the
+  // floor here, so there is no floor plan to draw.
+  assert.deepEqual(
+    { x: box.x, y: box.y, w: box.w, h: box.h, zone: box.zone },
+    { x: 786, y: 20, w: 92, h: 160, zone: 'agent-lab' }
+  );
+  const measured = readPngOpaqueBounds(`${__dirname}/../public${entry.art}`, entry.frameWidth, entry.frameHeight);
+  assert.deepEqual({ width: measured.width, height: measured.height }, { width: 91, height: 161 });
+
+  // Wall-mounted: no pool on the floor below, and no art width to size one with.
+  assert.equal(entry.groundShadow, false, 'wall art must not pool a shadow on the floor');
+  assert.equal(entry.shadowWidth, undefined, 'wall art records no art width');
+  assert.equal(propShadowFor(entry, box), null);
+  // And the whitebox fallback under it stands on nothing either.
+  box.parts.forEach((part) => assert.equal(part.shadow, undefined, 'wall whitebox drops a floor shadow'));
+
+  // Bottom-centre + the measured 20 rows of slack put the cabinet at y 20-180,
+  // spanning x 786.5-877.5 — 30px clear of the Profit Analyzer art (which reaches
+  // x 756.5) and 57px clear of the Model Furnace art (which starts at y 237).
+  assert.deepEqual(propAnchorFor(entry, box), { x: 832, y: 200, originX: 0.5, originY: 1, scale: 1 });
+
+  // It is a full object, so it retires no procedural components: there is
+  // nothing left to paint on top of finished art.
+  assert.deepEqual([...entry.covers], ['prop_wall_agent_lab']);
+  assert.deepEqual([...entry.coversComponents], []);
+  assert.equal(COMMAND_CENTER_COMPONENTS.some((c) => c.zone === 'agent-lab'), false);
+
+  // The cosmetic louvre it replaced is gone, not hidden behind it: the vent bank
+  // keeps its box and its two flanking panels and nothing renders underneath.
+  const vents = boxFor('prop_wall_vents');
+  assert.equal(vents.parts.length, 2, 'the retired middle louvre came back under the machine');
+  assert.deepEqual(vents.parts.map((part) => part.x), [0, 152]);
+  assert.equal(vents.zone, '', 'the vent bank is dressing and owns no zone');
+});
+
+test('zone 12 is reachable, axis-aligned, and south-anchored', () => {
+  const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'agent-lab');
+  assert.notEqual(zone, undefined, 'agent-lab has no zone');
+  assert.equal(zone.zoneNumber, '12');
+  assert.deepEqual({ x: zone.destination.x, y: zone.destination.y }, { x: 832, y: 192 });
+
+  // Wall-mounted or not, the invariant is the same: he stands south of the
+  // machine, so the one operate_back pose serves this station too.
+  const body = zone.hitRects[0];
+  assert.equal(zone.destination.y >= body.y + body.height, true, 'agent-lab anchor is not south of its body');
+  assert.equal(zone.destination.x, body.x + body.width / 2, 'he does not stand in front of it');
+
+  const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, zone.destination);
+  for (let i = 1; i < path.length; i += 1) {
+    const diagonal = path[i].x !== path[i - 1].x && path[i].y !== path[i - 1].y;
+    assert.equal(diagonal, false, 'route to agent-lab turned diagonally');
+  }
+  assert.deepEqual(path[path.length - 1], { x: 832, y: 192 }, 'route to agent-lab does not end on its anchor');
+
+  // Unlike the two floor stations, this spur is vertical: it drops from the wall
+  // onto the horizontal furnace-spur, and buildWalkGraph derives the crossing at
+  // (832, 372) itself — one new segment, no edits to any existing lane.
+  const spur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'agent-spur');
+  assert.notEqual(spur, undefined, 'agent-spur must exist');
+  assert.equal(spur.from.x, spur.to.x, 'agent-spur must be vertical');
+  const furnace = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'furnace-spur');
+  assert.equal(pointOnSegment({ x: spur.to.x, y: spur.to.y }, furnace), true, 'agent-spur must meet furnace-spur');
+  assert.notEqual(walkNodes().get('832,372'), undefined, 'the crossing node was not derived');
+
+  // Zone 03 stayed exactly where it was, and is Tool Scanner's alone.
+  const scanner = COMMAND_CENTER_AREAS.find((area) => area.id === 'scanner-bench');
+  assert.deepEqual({ x: scanner.destination.x, y: scanner.destination.y }, { x: 132, y: 324 });
+  assert.deepEqual(scanner.hitRects[0], { x: 48, y: 264, width: 168, height: 48 });
+  assert.equal(canonicalAreaId('new-tools'), 'scanner-bench');
+  assert.equal(canonicalAreaId('agents'), 'agent-lab');
+  assert.equal(machineById('agent-lab').areaId, 'agent-lab');
 });
 
 // ---------------------------------------------------------------------------

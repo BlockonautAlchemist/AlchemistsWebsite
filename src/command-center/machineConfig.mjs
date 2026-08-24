@@ -67,11 +67,11 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     name: 'Agent Lab',
     shortName: 'Agents',
     description: 'Evaluates agent workflows and automation patterns.',
-    visualDescription: 'Scanner bench shared with Tool Scanner, running compact lab sweeps and signal lamps.',
+    visualDescription: 'Wall-mounted lab cabinet with a lit central incubation chamber.',
     workflows: ['agents'],
     hermesJobs: [job('agents', 'Agents')],
-    areaId: 'scanner-bench',
-    propKeys: ['prop_scanner_bench']
+    areaId: 'agent-lab',
+    propKeys: ['prop_wall_agent_lab']
   }),
   machine({
     id: 'model-furnace',

@@ -13,7 +13,7 @@ and production art stays in `src/command-center/propSheets.mjs`.
 | News Array | AI News | `ai-news` | AI gaming news intelligence | Shallow horizontal wall display, cycling CRT cells, cyan packets |
 | Repo Forge | GitHub | `github` | Repository and code-signal watch | Green code bench, phosphor terminal, disk tower |
 | Tool Scanner | New Tools | `new-tools` | New AI/game-dev tool discovery | Long scanner bench, cyan scan bar, ready lamp |
-| Agent Lab | Agents | `agents` | Agent workflow and automation review | Scanner bench shared with Tool Scanner, compact lab sweeps |
+| Agent Lab | Agents | `agents` | Agent workflow and automation review | Wall-mounted lab cabinet, lit central incubation chamber |
 | Model Furnace | Models Infra | `models-infra` | Model routing and infrastructure evaluation | Twin racks feeding a heated processing chamber |
 | Creator Console | Creator Content | `creator-content` | Creator-facing intelligence angles | Floor console, three-cell editorial CRT row, signal traffic |
 | Profit Analyzer | Monetization | `monetization` | Monetization and partner opportunity review | Floor console, gold analysis CRT row, warmer pulses |
@@ -198,7 +198,7 @@ spacing, RGBA8, non-interlaced, binary alpha, so NEAREST never interpolates an e
 ### Shipped animated machines
 
 Measured off the PNGs themselves — each file was decoded and its alpha walked per frame.
-All eleven are one horizontal strip, binary alpha, zero margin, zero spacing, and every
+All twelve are one horizontal strip, binary alpha, zero margin, zero spacing, and every
 frame's content is horizontally centred in its cell to within 0.5px, so none needs an origin
 or scale override. That centring is also what makes `flipX` safe — a mirror about a centred
 origin leaves the machine on the same floor spot — and a test holds it there.
@@ -207,7 +207,7 @@ The invariant that actually holds is `frameHeight == sheetHeight`, **not** squar
 Repo Forge cell is 203x202, the Model Furnace cell 202x203 and the Publish Transmitter cell
 149x144. Do not assume square cells; measure.
 
-Eight carry a vertical offset, and it is always the same measurement — the empty rows the
+Nine carry a vertical offset, and it is always the same measurement — the empty rows the
 Sprite Fusion cell leaves **under the machine's contact edge**, identical in all 8 frames.
 `offsetY` equals that slack exactly, which puts the last opaque row back on the bottom edge
 of the whitebox box. Without it the machine floats that far above its station.
@@ -215,6 +215,7 @@ of the whitebox box. Without it the machine floats that far above its station.
 | entry | bottom slack | `offsetY` |
 | --- | --- | --- |
 | Profit Analyzer | 19 rows of a 197px cell | 19 |
+| Agent Lab | 20 rows of a 202px cell | 20 |
 | Newsletter Still | 21 rows of a 203px cell | 21 |
 | Creator Console | 22 rows of a 151px cell | 22 |
 | Repo Forge | 29 rows of a 202px cell | 29 |
@@ -223,11 +224,14 @@ of the whitebox box. Without it the machine floats that far above its station.
 | Experiment Bench | 57 rows of a 203px cell | 57 |
 | News Array | 70 rows of a 204px cell | 70 |
 
-News Array is the one wall-mounted sheet, so its contact edge is the bottom edge of the wall
-strip rather than a floor line. The nudge works identically: 70 rows down puts the display's
-last opaque row on `prop_wall_feed_shells`'s bottom edge at y=78, well inside the 120px wall
-band. It is also the only shipped sheet that carries `groundShadow: false` and records no
-`shadowWidth` — see *generated contact shadows* below.
+News Array and Agent Lab are the wall-mounted sheets, so their contact edge is the bottom
+edge of a wall box rather than a floor line. The nudge works identically: 70 rows down puts
+News Array's last opaque row on `prop_wall_feed_shells`'s bottom edge at y=78, well inside
+the 120px wall band, and 20 rows down puts the Agent Lab cabinet's last opaque row on
+`prop_wall_agent_lab`'s bottom edge at y=180. The cabinet is 161px tall against a 120px wall
+band, so it hangs past the wall/floor line by design — it casts no pool, and SpawnCamper
+stands 12px below its base. These two are the only shipped sheets carrying
+`groundShadow: false` and recording no `shadowWidth` — see *generated contact shadows* below.
 
 | file | machine | zone | sheet | frames | frame | fps | loop | anchors on |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -242,16 +246,18 @@ band. It is also the only shipped sheet that carries `groundShadow: false` and r
 | `anim_publish_transmitter_sheet.png` | Publish Transmitter | 07 | 1192x144 | 8 | 149x144 | 6 | 1.333s | `prop_tx_body` |
 | `anim_news_array_sheet.png` | News Array | 02 | 1608x204 | 8 | 201x204 | 6 | 1.333s | `prop_wall_feed_shells` (wall) |
 | `anim_experiment_bench_sheet.png` | Experiment Bench | 09 | 1624x203 | 8 | 203x203 | 6 | 1.333s | `prop_experiment_bench` |
+| `anim_agent_lab_sheet.png` | Agent Lab | 12 | 1624x202 | 8 | 203x202 | 6 | 1.333s | `prop_wall_agent_lab` (wall) |
 
 The `loop` column is the cycle length **while SpawnCamper is working at that machine**.
-None of the eleven overrides `staticFrame`, so all eleven rest on frame 0 of their own sheet
+None of the twelve overrides `staticFrame`, so all twelve rest on frame 0 of their own sheet
 whenever he is not — which is most of the time, and the reason frame 0 should read as a
 powered-but-idle pose rather than a mid-motion pose.
 
 Attendance is per **zone**, not per machine, and zone 02 is the first zone to own two
 finished machines: News Array on the wall and the Opportunity Radar on the floor below it.
 Standing at zone 02 runs both. That is the existing seam, not a new rule — it was simply
-invisible while no zone had two sheets.
+invisible while no zone had two sheets. Zone 12 is deliberately the opposite case: Agent Lab
+is alone in it, so attending it runs that cabinet's chamber and nothing else.
 
 ### Generated contact shadows
 
@@ -293,9 +299,10 @@ get a pool thin enough to read as a line.
 **Wall art casts none.** `groundShadow: false` opts an entry out entirely, because a display
 bolted to the wall stands on nothing and a pool on the floor beneath it would be a shadow
 with no caster. Those entries record no `shadowWidth` either — an unread number is a number
-that drifts. News Array is the only *animated* entry in that category; `prop_wall_crt_bank`,
+that drifts. News Array and Agent Lab are the *animated* entries in that category; `prop_wall_crt_bank`,
 `prop_wall_receptacle`, `prop_wall_sigil` and `prop_wall_vents` are the static ones. A test
-asserts every `groundShadow: false` entry is really wall art.
+asserts every `groundShadow: false` entry is really wall art — which is why those entry ids
+all begin `wall_`.
 
 Whitebox bodies are untouched by this: they keep their own `shadow: 4` offset-rectangle
 fill, which is the development fallback's look and not the shipped one.
@@ -435,12 +442,12 @@ and (690, 324), each one axis-aligned spur off an existing lane (`creator-spur` 
 `west-lane`, `profit-spur` off `centre-spur`). Workflow keys, Hermes job ids, telemetry
 state names and the API are unchanged — only which zone a machine physically occupies moved.
 
-The second three-way collision is now down to a pair:
+The second three-way collision is now resolved outright:
 
 | machine | was | now | zone |
 | --- | --- | --- | --- |
-| Tool Scanner | `prop_scanner_bench` | `prop_scanner_bench` — **art shipped** | 03, floor |
-| Agent Lab | `prop_scanner_bench` | `prop_scanner_bench` (still shared) — **deferred** | 03, floor |
+| Tool Scanner | `prop_scanner_bench` | `prop_scanner_bench` (sole owner) — **art shipped** | 03, floor |
+| Agent Lab | `prop_scanner_bench` | `prop_wall_agent_lab` 92x160 @ 786,20 — **art shipped** | **12**, wall |
 | Experiment Bench | `prop_scanner_bench` | `prop_experiment_bench` 144x96 @ 408,264 — **art shipped** | **09**, floor |
 
 Art pass 4 resolved Experiment Bench by **retiring the Power Core**. Zone 09 was a recessed
@@ -458,10 +465,51 @@ else. He routes (480,228) → (622,228) → (622,372) → (480,372), axis-aligne
 south of the bench's bottom edge. Workflow keys, Hermes job ids and telemetry state names are
 unchanged; only which zone the machine physically occupies moved.
 
-**Still outstanding:** `prop_scanner_bench` is shared by Tool Scanner and Agent Lab. Agent
-Lab is now the only workflow machine in the room without a box of its own.
-`KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` records it as debt; the test fails if
-any *new* collision appears, and the list may not be extended.
+Art pass 5 resolved Agent Lab the same way, against a cosmetic panel rather than a whole
+retired machine. Its art is a **tall wall cabinet**, not a bench, so it took the middle
+louvre of `prop_wall_vents` — three 64x70 tapered panels of unzoned dressing at 724,20, with
+no Hermes job and no zone behind them. That louvre is deleted from the prop's `parts`, so
+nothing renders underneath the machine; the bank keeps its box and its two flanking panels
+and the cabinet hangs between them.
+
+Why that slot and not another. The upper-right wall has only three candidate louvres, and
+the other two are ruled out by real art, not by the whitebox:
+
+- **left (724-788)** — the 91px cabinet would land x 710.5-801.5, into the Profit Analyzer's
+  art, which rises to y 151. Clearing it would push a 161px-tall sheet off the top of the
+  960x528 canvas.
+- **right (876-940)** — the cabinet would land x 862.5-953.5, through `fore_wall_port`
+  (912-936) and `fore_pilaster_r` (936-960).
+- **middle (800-864)** — the cabinet lands x 786.5-877.5, y 20-180: 30px clear of the Profit
+  Analyzer art's right edge at x 756.5, 57px clear of the Model Furnace art's top edge at
+  y 237, 34.5px clear of the wall port. The floor pocket beneath it is empty, because the
+  furnace's retired rack boxes left a bare band there.
+
+| machine | art occupies | against its boxes |
+| --- | --- | --- |
+| Agent Lab | x 786.5-877.5, y 20-180 | fills its own 92x160 box (786,20) to within 0.5px each side — the box **is** the art's footprint, because a wall-mounted machine has no floor plan to describe. No floor pool |
+
+The cabinet is 161px tall against a 120px wall band, so it deliberately hangs past the
+wall/floor line: it casts no shadow, which is what reads it as mounted rather than standing.
+
+Because a walk destination is per zone and not per machine, Agent Lab also needed its own
+zone — `agents` resolved to zone 03 and SpawnCamper walked to the scanner bench at (132, 324)
+for it, right across the room. Zone 12 carries destination (832, 192): the box's centre, 12px
+below its bottom edge, the same offset every floor console uses, so the one `operate_back`
+pose serves it. Reaching it cost exactly **one** new segment, `agent-spur`, vertical from
+(832, 192) to (832, 372). Unlike the zone 10 and 11 spurs it is vertical rather than
+horizontal, and it lands on the horizontal `furnace-spur`; `buildWalkGraph` derives the
+crossing node at (832, 372) itself, so no existing lane was touched. He routes
+(480,228) → (622,228) → (622,490) → (898,490) → (898,372) → (832,372) → (832,192),
+axis-aligned throughout. Workflow keys, Hermes job ids, telemetry state names and the API are
+unchanged — only which zone the machine physically occupies moved.
+
+Tool Scanner is untouched by all of this: same 168x48 bench at 48,264, same sheet, same
+components, same zone 03 destination at (132, 324). It is simply the only owner now.
+
+**Nothing outstanding.** Every workflow machine in the room owns a primary box of its own.
+`KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` is empty and stays empty — the test
+fails if any *new* collision appears, and the list may not be extended.
 
 ## L4 · character
 
@@ -560,17 +608,13 @@ origin 24,60, shadow baked in. The real Sprite Fusion exports do not use that gr
 
 ## L6 · foreground / occlusion
 
-`fore_ops_console_front.png` 192x14 · `fore_code_bench_front.png` 168x14 ·
-`fore_x_console_front.png` 144x14 · `fore_tx_front.png` 168x14 ·
-`fore_furnace_lip.png` 120x14 · `fore_still_base.png` 72x14 ·
+`fore_ops_console_front.png` 192x14 ·
 `fore_pilaster_l.png` / `fore_pilaster_r.png` 24x408 · `fore_wall_port.png` 24x180
 
-These are **not** the retired component overlays and are unaffected by that change. They
-exist purely so SpawnCamper can walk *behind* a machine — depth, not animation. They keep
-their own `art` paths in `COMMAND_CENTER_FOREGROUND` (`sceneConfig.mjs`), their own loader
-seam, and their own layer above the character. Keep producing them where a machine needs a
-front lip. A full animated machine sheet still gets a `fore_*` piece if the camper should
-pass in front of part of it.
+These are **not** the retired component overlays and stay independent of machine art. They
+keep their own `art` paths in `COMMAND_CENTER_FOREGROUND` (`sceneConfig.mjs`), their own
+loader seam, and their own layer above the character. Machine-specific lips were retired so
+SpawnCamper can render fully in front of those stations.
 
 Generation prompts, the palette block and the constraint block live in
 `docs/command-center.md`. The character reference render is in

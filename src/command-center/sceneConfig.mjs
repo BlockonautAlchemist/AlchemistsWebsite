@@ -269,6 +269,24 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     x: 636, y: 240, w: 108, h: 72,
     parts: Object.freeze(deskParts(108, 72, 22))
   }),
+  // Zone 12. Agent Lab shared `prop_scanner_bench` with Tool Scanner — two
+  // unrelated workflow machines on one 168x48 bench, the last shared anchor left
+  // in the room. Its production art is a tall wall cabinet, so it takes the
+  // middle louvre of the upper-right vent bank: cosmetic whitebox dressing with
+  // no Hermes job behind it, retired from `prop_wall_vents` below. The box is the
+  // art's own 92x160 footprint rather than a floor plan — nothing stands on the
+  // floor here, so there is no footprint to plan. It clears the Profit Analyzer
+  // art (which reaches x 756.5) by 30px and the Model Furnace art (which starts
+  // at y 237) by 57px, and the floor pocket beneath it is empty.
+  Object.freeze({
+    key: 'prop_wall_agent_lab',
+    zone: 'agent-lab',
+    x: 786, y: 20, w: 92, h: 160,
+    parts: Object.freeze([
+      { x: 0, y: 0, w: 92, h: 160, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2 },
+      { x: 22, y: 44, w: 48, h: 82, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28 }
+    ])
+  }),
   // Unzoned dressing: crates, wall sigil, cabling boxes. `prop_crate_small` used
   // to sit at 300,180 — inside the Creator Console's floor pocket, which was
   // harmless while that console was a 120x72 whitebox but is fully swallowed by
@@ -295,7 +313,10 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     key: 'prop_wall_vents',
     zone: '',
     x: 724, y: 20, w: 216, h: 70,
-    parts: Object.freeze([0, 76, 152].map((offset) => ({
+    // Two louvres, not three: the middle one (offset 76, x 800-864) is now the
+    // Agent Lab's wall slot. The bank keeps its box and its two flanking louvres,
+    // so the machine hangs between them instead of on top of a live whitebox.
+    parts: Object.freeze([0, 152].map((offset) => ({
       x: offset, y: 0, w: 64, h: 70, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2, taper: 0.14
     })))
   }),
@@ -470,18 +491,13 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
 // ---------------------------------------------------------------------------
 // L6 · foreground / occlusion (section 08). Drawn above the character.
 //
-// Independent of the prop art registry and deliberately so: these exist purely
-// so SpawnCamper can walk behind a machine, they carry their own `art` path and
-// their own loader seam, and they are not the old component-overlay system.
+// Independent of the prop art registry and deliberately so: retained structural
+// foreground pieces carry their own `art` path and their own loader seam, and
+// they are not the old component-overlay system.
 // ---------------------------------------------------------------------------
 
 export const COMMAND_CENTER_FOREGROUND = Object.freeze([
   Object.freeze({ key: 'fore_ops_console_front', art: `${ART_ROOT}/fore_ops_console_front.png`, x: 384, y: 204, w: 192, h: 14 }),
-  Object.freeze({ key: 'fore_code_bench_front', art: `${ART_ROOT}/fore_code_bench_front.png`, x: 48, y: 444, w: 168, h: 14 }),
-  Object.freeze({ key: 'fore_still_base', art: `${ART_ROOT}/fore_still_base.png`, x: 264, y: 444, w: 72, h: 14 }),
-  Object.freeze({ key: 'fore_x_console_front', art: `${ART_ROOT}/fore_x_console_front.png`, x: 456, y: 444, w: 144, h: 14 }),
-  Object.freeze({ key: 'fore_tx_front', art: `${ART_ROOT}/fore_tx_front.png`, x: 696, y: 444, w: 168, h: 14 }),
-  Object.freeze({ key: 'fore_furnace_lip', art: `${ART_ROOT}/fore_furnace_lip.png`, x: 768, y: 348, w: 120, h: 14 }),
   Object.freeze({ key: 'fore_pilaster_l', art: `${ART_ROOT}/fore_pilaster_l.png`, x: 0, y: 120, w: 24, h: 408, kind: 'pilaster-left' }),
   Object.freeze({ key: 'fore_pilaster_r', art: `${ART_ROOT}/fore_pilaster_r.png`, x: 936, y: 120, w: 24, h: 408, kind: 'pilaster-right' }),
   Object.freeze({ key: 'fore_wall_port', art: `${ART_ROOT}/fore_wall_port.png`, x: 912, y: 120, w: 24, h: 180, kind: 'wall-port' })
@@ -564,7 +580,11 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
     Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 780, y: 480 }), to: Object.freeze({ x: 780, y: 490 }) }),
     Object.freeze({ id: 'creator-spur', from: Object.freeze({ x: 240, y: 288 }), to: Object.freeze({ x: 324, y: 288 }) }),
-    Object.freeze({ id: 'profit-spur', from: Object.freeze({ x: 622, y: 324 }), to: Object.freeze({ x: 690, y: 324 }) })
+    Object.freeze({ id: 'profit-spur', from: Object.freeze({ x: 622, y: 324 }), to: Object.freeze({ x: 690, y: 324 }) }),
+    // Zone 12. Vertical, so it lands on the horizontal `furnace-spur` at
+    // (832, 372) — buildWalkGraph derives that crossing node itself, which is why
+    // reaching the upper-right wall costs exactly one new segment and no edits.
+    Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 832, y: 192 }), to: Object.freeze({ x: 832, y: 372 }) })
   ])
 });
 
@@ -609,7 +629,7 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   Object.freeze({
     id: 'scanner-bench', zoneNumber: '03',
     label: 'Scanner Bench', shortLabel: 'Scanner',
-    description: 'New Tools / Agents',
+    description: 'New Tools',
     x: 132, y: 288,
     destination: Object.freeze({ x: 132, y: 324 }),
     bounds: Object.freeze({ x: 48, y: 264, width: 168, height: 48 }),
@@ -743,6 +763,25 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     accent: COMMAND_CENTER_PALETTE.phosphor,
     conduits: Object.freeze([]),
     depth: 20
+  }),
+  // Zone 12. Agent Lab had no zone of its own: `agents` resolved to zone 03 and
+  // the camper walked to the scanner bench across the room for it. Workflow key,
+  // Hermes job and telemetry state names are untouched — only which zone the
+  // machine physically occupies moved. Wall-mounted, so the anchor is the art's
+  // footprint and the destination is the floor 12px below it, the same offset
+  // every floor console uses.
+  Object.freeze({
+    id: 'agent-lab', zoneNumber: '12',
+    label: 'Agent Lab', shortLabel: 'Agents',
+    description: 'Wall-mounted agent incubation chamber',
+    x: 832, y: 100,
+    destination: Object.freeze({ x: 832, y: 192 }),
+    bounds: Object.freeze({ x: 786, y: 20, width: 92, height: 160 }),
+    hitRects: Object.freeze([Object.freeze({ x: 786, y: 20, width: 92, height: 160 })]),
+    color: COMMAND_CENTER_PALETTE.cyan,
+    accent: COMMAND_CENTER_PALETTE.brand,
+    conduits: Object.freeze([]),
+    depth: 20
   })
 ]);
 
@@ -767,7 +806,9 @@ export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   playbooks: 'experiment-bench',
   experiment: 'experiment-bench',
   'new-tools': 'scanner-bench',
-  agents: 'scanner-bench',
+  agents: 'agent-lab',
+  'agent-lab': 'agent-lab',
+  lab: 'agent-lab',
   github: 'github-code',
   code: 'github-code',
   models: 'model-infrastructure',

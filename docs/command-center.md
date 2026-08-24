@@ -49,11 +49,11 @@ the pixel grid. Presentation scale is handled by CSS on the canvas element inste
 | L3 anim | 20 | screen content, LEDs, fans, radar, gauges, chamber fill, furnace heat | yes |
 | L4 camper | 25 | SpawnCamper9000 | yes |
 | L5 fx | 30 | packets, pulses, beam, spark, glitch, success flash, warning lamp | yes |
-| L6 fore | 40 | desk fronts, chamber lip, pilasters, wall port, vignette | no |
+| L6 fore | 40 | ops console front, pilasters, wall port, vignette | no |
 
 Three rules hold the system together:
 
-1. A machine is never one sprite. It is an L2 body plus L3 component(s) plus an optional L6 front.
+1. A machine is never one sprite. It is an L2 body plus L3 component(s); L6 is reserved for retained structural foreground.
 2. If a pixel changes with telemetry it lives in L3 or L5. Never in L1 or L2.
 3. Lighting that responds to state is an additive L5 overlay, not a repaint of L1.
 
@@ -183,23 +183,33 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | --- | --- | --- | --- | --- |
 | 01 | `central-operations` | ops console + wall CRT array | 3 screens, keyboard LEDs | 480,228 |
 | 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,324 |
-| 03 | `scanner-bench` | New Tools / Agents bench | full-object sheet | 132,324 (shared) |
+| 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 132,324 (shared with 02) |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
 | 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 300,480 |
 | 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,480 |
 | 07 | `terminal-transmitter` | large CRT + receptacle | charge orb, packet out | 780,480 |
 | 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,372 |
 | 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
+| 10 | `creator-console` | creator-facing console | full-object sheet | 324,288 |
+| 11 | `profit-analyzer` | monetization console | full-object sheet | 690,324 |
+| 12 | `agent-lab` | wall-mounted lab cabinet | full-object sheet | 832,192 |
 
 Every anchor sits **south** of its machine, so one `operate` animation serves every working
 station - there is no per-station interaction art. Zone 09 was the Power Core, an ambient-only
 recessed well; the Power Core was retired and the Experiment Bench took that pocket, so zone
-09 is a working station like the rest.
+09 is a working station like the rest. Zones 10, 11 and 12 exist for the same reason in
+reverse: a walk destination is per zone, so Creator Console, Profit Analyzer and Agent Lab
+each needed one when they stopped sharing another machine's box. Zone 12 is wall-mounted -
+the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic vent louvre
+used to be, and the anchor is the floor 12px below it.
 
 Workflow-to-zone mappings:
 
-- `ai-news`, `creator-content`, `monetization` -> `intelligence-research`
-- `new-tools`, `agents` -> `scanner-bench`
+- `ai-news` -> `intelligence-research`
+- `creator-content` -> `creator-console`
+- `monetization` -> `profit-analyzer`
+- `new-tools` -> `scanner-bench`
+- `agents` -> `agent-lab`
 - `playbooks` -> `experiment-bench`
 - `github` -> `github-code`
 - `models-infra` -> `model-infrastructure`
@@ -209,7 +219,7 @@ Workflow-to-zone mappings:
 
 Unknown workflow IDs fall back to `central-operations`. A valid `context.station` overrides
 the mapping through aliases such as `scanner`, `intel`, `creator`, `models`, `furnace`,
-`social-x`, `terminal-publisher`, and `experiment`.
+`social-x`, `terminal-publisher`, `experiment`, and `lab`.
 
 ## Conduit Map (section 05)
 
@@ -321,7 +331,7 @@ palette and the rivet language everything else copies.
 4. **Small animated components** - "Sprite sheet of tiny industrial animated parts on transparent background: 4-frame fan blade rotation, 6-frame LED bank blink, 8-frame radar sweep wedge, 10-frame liquid-light chamber fill purple to magenta, 6-frame rotating coil, 8-frame gold charge orb. Uniform 24px-scale chunk. [CONSTRAINT BLOCK]"
 5. **SpawnCamper9000** - "Pixel art robot mascot, 48x64 frames, 6-row sprite sheet: hovering gold ovoid torso with purple riveted collar, glass dome head containing a magenta brain, two dark segmented tentacle arms trailing, small hot orange chest core. Rows: idle 6f, hover travel front 8f, hover travel back 8f, operating console 6f, leaning to inspect 4f, glitch recoil 5f. Never walking, never legs. Baked soft ellipse shadow. [CONSTRAINT BLOCK]"
 6. **Effects** - "Transparent pixel FX sheet: 8x8 glowing data packet 4f, 32x32 soft pulse 6f, 64x16 scan sweep 8f, 8x64 vertical transmission beam 6f, 48x32 success flash 3f, 128x40 CRT static glitch band 4f, 16x16 spark 5f. Single hue each, white core, additive-friendly. [CONSTRAINT BLOCK]"
-7. **Foreground pieces** - "Front faces and lips of the same machines, 14px tall strips plus two 24x408 wall pilasters and a wall cable port. Slightly darker than the bodies, hard top edge highlight, transparent elsewhere. [CONSTRAINT BLOCK]"
+7. **Foreground pieces** - "Ops console front strip, two 24x408 wall pilasters and a wall cable port. Slightly darker than the bodies, hard top edge highlight where applicable, transparent elsewhere. [CONSTRAINT BLOCK]"
 
 ### Atlases and budget
 
