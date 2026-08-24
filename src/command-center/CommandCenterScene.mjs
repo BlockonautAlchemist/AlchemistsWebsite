@@ -1379,10 +1379,11 @@ export class CommandCenterScene extends Phaser.Scene {
         g.lineBetween(piece.x, piece.y, piece.x, piece.y + piece.h);
         return;
       }
-      g.fillStyle(0x20092c, 1);
-      g.fillRect(piece.x, piece.y, piece.w, piece.h);
-      g.lineStyle(1, P.line, 0.3);
-      g.lineBetween(piece.x, piece.y, piece.x + piece.w, piece.y);
+      // No generic flat-rect fallback any more. It only ever served the machine
+      // lips, and every one of those is retired — the last, the Ops Console
+      // front, went with that machine's art. A piece with neither its texture
+      // nor a `kind` renderer draws nothing, which is the right answer: an
+      // untextured occluder over finished art is a block, not an occluder.
     });
 
     // Floor vignette and scanline overlay are baked here, never as full-screen fx.

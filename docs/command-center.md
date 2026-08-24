@@ -49,11 +49,14 @@ the pixel grid. Presentation scale is handled by CSS on the canvas element inste
 | L3 anim | 20 | screen content, LEDs, fans, radar, gauges, chamber fill, furnace heat | yes |
 | L4 camper | 25 | SpawnCamper9000 | yes |
 | L5 fx | 30 | packets, pulses, beam, spark, glitch, success flash, warning lamp | yes |
-| L6 fore | 40 | ops console front, pilasters, wall port, vignette | no |
+| L6 fore | 40 | pilasters, wall port, vignette | no |
 
 Three rules hold the system together:
 
-1. A machine is never one sprite. It is an L2 body plus L3 component(s); L6 is reserved for retained structural foreground.
+1. A machine is never one sprite *while it is a whitebox*. It is an L2 body plus L3 component(s),
+   and shipped art collapses both into one L2 object. L6 is reserved for retained **structural**
+   foreground - pilasters and the wall port. Machine-specific lips are all retired: L6 outranks
+   L2 unconditionally, so a lip over a finished machine paints a block over real art.
 2. If a pixel changes with telemetry it lives in L3 or L5. Never in L1 or L2.
 3. Lighting that responds to state is an additive L5 overlay, not a repaint of L1.
 
@@ -181,7 +184,7 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 
 | # | zone id | machine | anim | anchor |
 | --- | --- | --- | --- | --- |
-| 01 | `central-operations` | ops console + wall CRT array | 3 screens, keyboard LEDs | 480,228 |
+| 01 | `central-operations` | ops console (static art) + wall CRT array | GA//OPS wall readout | 480,228 |
 | 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,324 |
 | 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 132,324 (shared with 02) |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |

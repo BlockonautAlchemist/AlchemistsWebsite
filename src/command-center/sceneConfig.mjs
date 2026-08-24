@@ -319,12 +319,6 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     parts: Object.freeze([0, 152].map((offset) => ({
       x: offset, y: 0, w: 64, h: 70, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2, taper: 0.14
     })))
-  }),
-  Object.freeze({
-    key: 'prop_ops_cable_stub',
-    zone: 'central-operations',
-    x: 432, y: 132, w: 24, h: 8,
-    parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 8, fill: SHELL_TOP }])
   })
 ]);
 
@@ -494,10 +488,17 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
 // Independent of the prop art registry and deliberately so: retained structural
 // foreground pieces carry their own `art` path and their own loader seam, and
 // they are not the old component-overlay system.
+//
+// Every piece left here is STRUCTURAL — the two pilasters and the wall port.
+// Machine-specific lips are all retired: a lip existed to hide the camper's legs
+// behind a whitebox desk, and a finished machine already draws its own front, so
+// keeping one only paints a flat block over real art. `fore_ops_console_front`
+// was the last of them, retired with the Ops Console art alongside
+// `fore_code_bench_front`, `fore_furnace_lip`, `fore_still_base`, `fore_tx_front`
+// and `fore_x_console_front`. Do not reinstate one for a machine that has art.
 // ---------------------------------------------------------------------------
 
 export const COMMAND_CENTER_FOREGROUND = Object.freeze([
-  Object.freeze({ key: 'fore_ops_console_front', art: `${ART_ROOT}/fore_ops_console_front.png`, x: 384, y: 204, w: 192, h: 14 }),
   Object.freeze({ key: 'fore_pilaster_l', art: `${ART_ROOT}/fore_pilaster_l.png`, x: 0, y: 120, w: 24, h: 408, kind: 'pilaster-left' }),
   Object.freeze({ key: 'fore_pilaster_r', art: `${ART_ROOT}/fore_pilaster_r.png`, x: 936, y: 120, w: 24, h: 408, kind: 'pilaster-right' }),
   Object.freeze({ key: 'fore_wall_port', art: `${ART_ROOT}/fore_wall_port.png`, x: 912, y: 120, w: 24, h: 180, kind: 'wall-port' })

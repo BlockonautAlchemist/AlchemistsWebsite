@@ -42,8 +42,14 @@ export const PROP_ANIMATED = 'animated';
 // twelve machines ship real animated sheets today (Opportunity Radar, Tool
 // Scanner, Newsletter Still, X Uplink, Creator Console, Repo Forge, Model
 // Furnace, Profit Analyzer, Publish Transmitter, News Array, Experiment Bench,
-// Agent Lab) and render as finished art; every other entry names a file the
-// manifest does not list, makes zero requests, and keeps its whitebox.
+// Agent Lab) and the Ops Console ships the room's first real STATIC prop; all
+// thirteen render as finished art. Every other entry names a file the manifest
+// does not list, makes zero requests, and keeps its whitebox.
+//
+// Static and animated are equal citizens on that seam: the Ops Console is a
+// complete machine that simply has nothing moving in it, so it retires its
+// whitebox body and its components exactly the way a sheet does, and carries the
+// same two measured numbers (`offsetY`, `shadowWidth`) off the same real PNG.
 //
 // `id`         unique instance. Two instances may share one `textureKey`
 //              (both wide crates) — the file is fetched once.
@@ -87,11 +93,21 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_wall_crt_bank']),
     coversComponents: Object.freeze(['anim_ops_screens'])
   }),
+  // Central Operations (zone 01). The room's first shipped STATIC prop, and the
+  // proof that a finished machine does not have to move: one transparent PNG is
+  // the whole console — both wing desks, the throne seat, the overhead arch and
+  // every lit readout on it — so the whitebox desk and all three of its
+  // procedural components retire together and nothing is painted on top. The
+  // 201x203 cell keeps 50 empty rows under the console feet, so `offsetY` puts
+  // its bottom edge back on the box's bottom edge rather than 50px high.
+  // `shadowWidth` is the art's real 168px width, not the 192px floor-plan box.
   Object.freeze({
     id: 'ops_console',
     type: PROP_STATIC,
     art: `${ART_ROOT}/prop_ops_console.png`,
     textureKey: 'prop_ops_console',
+    offsetY: 50,
+    shadowWidth: 168,
     covers: Object.freeze(['prop_ops_console']),
     coversComponents: Object.freeze(['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'])
   }),
@@ -425,14 +441,6 @@ export const PROP_SHEETS = Object.freeze([
     textureKey: 'prop_wall_vents',
     groundShadow: false,
     covers: Object.freeze(['prop_wall_vents']),
-    coversComponents: Object.freeze([])
-  }),
-  Object.freeze({
-    id: 'ops_cable_stub',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_ops_cable_stub.png`,
-    textureKey: 'prop_ops_cable_stub',
-    covers: Object.freeze(['prop_ops_cable_stub']),
     coversComponents: Object.freeze([])
   })
 ]);

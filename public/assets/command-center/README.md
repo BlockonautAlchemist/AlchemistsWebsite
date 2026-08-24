@@ -107,10 +107,37 @@ Object.freeze({
   type: PROP_STATIC,
   art: `${ART_ROOT}/prop_ops_console.png`,
   textureKey: 'prop_ops_console',
+  offsetY: 50,
+  shadowWidth: 168,
   covers: Object.freeze(['prop_ops_console']),
   coversComponents: Object.freeze(['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'])
 })
 ```
+
+A static prop is a **complete machine that has nothing moving in it**, not a lesser kind of
+asset. It rides the same manifest seam, retires its whitebox body and every component in
+`coversComponents` the same way, is anchored bottom-centre off the same `sceneConfig` box, is
+pinned to NEAREST by the same pass, casts the same generated contact shadow, and carries the same
+two measured numbers — `offsetY` and `shadowWidth` — off the same real pixels. The only
+differences are that it loads through `loader.image` rather than `loader.spritesheet` and that
+`propPlaybackFor` returns `null` for it, so attendance never starts anything.
+
+### Shipped static props
+
+| file | file size | drawn content | `offsetY` | `shadowWidth` | anchors on |
+| --- | --- | --- | --- | --- | --- |
+| `prop_ops_console.png` | 201x203 | 168x104 at x 16-183, y 49-152 | 50 | 168 | `prop_ops_console` |
+
+Art pass 6, and the first static prop to ship. The export is a **throne-style command console**:
+two wing desks, a central seat recess, an overhead arch and every lit readout on it, all in one
+transparent PNG. Nothing is composited on top of it, so the whitebox desk and all three of
+`anim_ops_desk_screens`, `anim_keyboard_leds` and `anim_ops_caret` retire with it.
+
+The cell is the same 201x203 Sprite Fusion shape the News Array uses, and it behaves the same
+way: 50 empty rows sit **under** the console feet, so `offsetY: 50` puts the last opaque row back
+on `prop_ops_console`'s bottom edge at y216 — the floor line the generated pool is drawn on and
+the point conduit `D3` starts from. Content is centred to within 0.5px of the cell centre, so no
+origin or `offsetX` override, and a static prop never flips.
 
 The sizes below are the **whitebox box** each machine occupies in `sceneConfig.mjs`, which
 is what the art is anchored to. They are a target, not a constraint: the real export
@@ -122,7 +149,6 @@ have no `prop_<name>.png` deliverable at all — an animated sheet replaces it o
 
 | file | size | zone |
 | --- | --- | --- |
-| `prop_ops_console.png` | 192x72 | 01 |
 | `prop_wall_crt_bank.png` | 216x84 | 01, wall-mounted |
 
 Art pass 2 removed five rows from this table. `prop_creator_console.png`, `prop_code_bench.png`,
@@ -138,8 +164,10 @@ Art pass 4 removed the last one. **`prop_core_well.png` is not a deliverable and
 be produced.** The Power Core was scenery — a recessed well in the middle of the room with no
 Hermes job behind it and no machine mapped to its zone — and it was **removed from the room
 entirely** in art pass 4, body, components and zone identity together. The Experiment Bench
-took its floor pocket. Only two static prop deliverables are left, and they are the two rows
-above.
+took its floor pocket.
+
+Art pass 6 shipped `prop_ops_console.png` — see *shipped static props* above — so **one** static
+prop deliverable is left, and it is the single row above.
 
 ## L3 · animated props (full-object sprite sheets)
 
@@ -295,12 +323,15 @@ get a pool thin enough to read as a line.
 | Model Furnace | 165 | 231 x 50.8 |
 | Publish Transmitter | 85 | 119 x 26.2 |
 | Profit Analyzer | 133 | 186.2 x 41 |
+| Ops Console | 168 | 235.2 x 51.7 |
 
 **Wall art casts none.** `groundShadow: false` opts an entry out entirely, because a display
 bolted to the wall stands on nothing and a pool on the floor beneath it would be a shadow
 with no caster. Those entries record no `shadowWidth` either — an unread number is a number
 that drifts. News Array and Agent Lab are the *animated* entries in that category; `prop_wall_crt_bank`,
-`prop_wall_receptacle`, `prop_wall_sigil` and `prop_wall_vents` are the static ones. A test
+`prop_wall_receptacle`, `prop_wall_sigil` and `prop_wall_vents` are the static ones. The Ops
+Console is the counter-example that proves the pool is not an animated-only feature: it is a
+static prop, it stands on the floor, and it pools exactly like a sheet does. A test
 asserts every `groundShadow: false` entry is really wall art — which is why those entry ids
 all begin `wall_`.
 
@@ -405,9 +436,31 @@ geometry and triggers and only changed which zone owns it.
 
 Two art-to-art seams are worth knowing about, both at the same `DEPTH.props` with no
 y-sorting, so registry order decides: the Creator Console's right edge lands at x 385.5
-against the Ops Console box's left edge at 384 (~1.5px, Creator draws later and wins), and
-the Repo Forge's top edge at y 310 against the Tool Scanner box's bottom at 312 (2px). Both
-were checked against the real art and read clean.
+against the Ops Console art's left edge at 395.5 (10px — art pass 6 opened this up from the
+~1.5px it was against the box), and the Repo Forge's top edge at y 310 against the Tool
+Scanner box's bottom at 312 (2px). Both were checked against the real art and read clean.
+
+Art pass 6 is the room's first **static** shipped prop, measured the same way:
+
+| machine | art occupies | against its boxes |
+| --- | --- | --- |
+| Ops Console | x 395.5-563.5, y 112-216 | sits **inside** the 192x72 box (384-576) horizontally, leaving ~12px each side, and rises 32px above its top. The console's bottom edge lands exactly on the box's bottom edge at y216, which is the floor line its pool is drawn on and the point conduit `D3` leaves from |
+
+Clearances were checked against the real art of every neighbour: the **GA//OPS wall display**
+(`prop_wall_crt_bank`, bottom edge y108) clears the console's top row at y112 by **4px** and is
+fully preserved — it is a different machine, still unshipped, and it carries the `anim_ops_screens`
+readout; the Creator Console's art ends at x385.5 (10px clear); the X Uplink mast box starts at
+x576 (12.5px clear); the Experiment Bench's art starts at y270, 54px below the console's bottom
+edge; and the zone 01 stencil at (390, 128) sits 5.5px left of the art. SpawnCamper's anchor
+(480, 228) and his routing are untouched — he stands 12px south of the console's bottom edge, in
+front of the throne opening, exactly where he stood in front of the whitebox desk.
+
+`prop_ops_cable_stub` (24x8 @ 432,132) was **deleted** in this pass. It was a harmless dressing
+bar while the Ops Console was a 72px whitebox desk it sat just above, but the real art rises to
+y112 and the stub now lands in a transparent pocket of the console, reading as a panel floating
+over the left wing desk. As with `prop_crate_small` in art pass 2 it was removed from
+`COMMAND_CENTER_PROPS` **and** from the registry (`ops_cable_stub`) together — never one without
+the other — and `prop_ops_cable_stub.png` is no longer a deliverable.
 
 **Missing art is not an error.** If a file is absent, unlisted in `manifest.json`, or fails
 to load, the machine keeps its procedural whitebox. The whitebox is the development
@@ -608,13 +661,31 @@ origin 24,60, shadow baked in. The real Sprite Fusion exports do not use that gr
 
 ## L6 · foreground / occlusion
 
-`fore_ops_console_front.png` 192x14 ·
 `fore_pilaster_l.png` / `fore_pilaster_r.png` 24x408 · `fore_wall_port.png` 24x180
 
 These are **not** the retired component overlays and stay independent of machine art. They
 keep their own `art` paths in `COMMAND_CENTER_FOREGROUND` (`sceneConfig.mjs`), their own
-loader seam, and their own layer above the character. Machine-specific lips were retired so
-SpawnCamper can render fully in front of those stations.
+loader seam, and their own layer above the character.
+
+**Every machine-specific lip is now retired.** A lip existed to hide the camper's legs behind a
+whitebox desk; a finished machine already draws its own front, and L6 outranks L2 unconditionally,
+so a surviving lip can only paint a flat block over real art. `fore_code_bench_front`,
+`fore_furnace_lip`, `fore_still_base`, `fore_tx_front` and `fore_x_console_front` went with their
+machines' art, and **`fore_ops_console_front` (192x14 @ 384,204) went with art pass 6** — it is
+not a deliverable and must never be produced.
+
+That one was checked both ways before it was dropped, because SpawnCamper stands directly in the
+Ops Console's throne opening and an occluder there is not obviously wrong:
+
+* **kept** — the piece has no PNG and never had one, so it can only render as its whitebox: a flat
+  `0x20092c` bar. It erased the console's own plinth, base panel and gold feet across y204-216 and
+  cut SpawnCamper's shins in half, leaving his feet reading as detached from his legs.
+* **removed** — the console art already provides the front face down to y216, he stands cleanly in
+  front of it framed by the arch, and head, torso, arms and legs all stay readable.
+
+The three pieces above are **structural**, not machine lips, and stay. Each carries a `kind` and
+its own procedural renderer; there is no generic flat-rect fallback left in `buildForeground`, so
+a foreground piece with neither its texture nor a `kind` now draws nothing at all.
 
 Generation prompts, the palette block and the constraint block live in
 `docs/command-center.md`. The character reference render is in

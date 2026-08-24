@@ -2066,19 +2066,34 @@ test('foreground occlusion stays independent of the prop art registry', () => {
   // layer above the character. It was never part of the retired overlay system.
   const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
   assert.deepEqual([...foreKeys].sort(), [
-    'fore_ops_console_front',
     'fore_pilaster_l',
     'fore_pilaster_r',
     'fore_wall_port'
   ]);
+
+  // Every machine-specific lip is retired. A lip existed to hide the camper's
+  // legs behind a whitebox desk; a finished machine draws its own front, so a
+  // surviving lip only paints a flat block over real art. `fore_ops_console_front`
+  // was the last one, retired with the Ops Console art — SpawnCamper stands in
+  // that console's throne opening and the 192x14 bar at (384,204) cut his shins
+  // in half while erasing the console's own plinth and feet.
   [
     'fore_code_bench_front',
     'fore_furnace_lip',
+    'fore_ops_console_front',
     'fore_still_base',
     'fore_tx_front',
     'fore_x_console_front'
   ].forEach((key) => {
     assert.equal(foreKeys.has(key), false, `${key} should no longer render as foreground`);
+  });
+
+  // What is left is structural, and each piece carries its own procedural
+  // renderer. There is no generic flat-rect fallback left in the scene: it only
+  // ever served the lips, and an untextured occluder over finished art is a
+  // block, not an occluder.
+  COMMAND_CENTER_FOREGROUND.forEach((piece) => {
+    assert.equal(typeof piece.kind, 'string', `${piece.key} has no foreground renderer`);
   });
   COMMAND_CENTER_FOREGROUND.forEach((piece) => {
     assert.match(piece.art, /^\/assets\/command-center\/fore_[a-z0-9_]+\.png$/, `${piece.key} art path`);
@@ -2094,6 +2109,15 @@ test('foreground occlusion stays independent of the prop art registry', () => {
   const source = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
   assert.match(source, /COMMAND_CENTER_FOREGROUND\.forEach\(queue\)/);
   assert.match(source, /this\.add\.image\(piece\.x, piece\.y, piece\.key\)\.setOrigin\(0, 0\)\.setDepth\(DEPTH\.fore\)/);
+
+  // The generic fallback really is gone from buildForeground, so nothing can
+  // flat-fill a rect above the character any more.
+  const foreBlock = source.slice(
+    source.indexOf('buildForeground() {'),
+    source.indexOf('// Floor vignette and scanline overlay')
+  );
+  assert.equal(foreBlock.length > 0, true, 'could not isolate buildForeground()');
+  assert.doesNotMatch(foreBlock, /0x20092c/);
 });
 
 test('the prop art registry leaves the SpawnCamper systems alone', () => {
@@ -2272,6 +2296,179 @@ const SHIPPED_MACHINE_SHEETS = [
   }
 ];
 
+
+// The one shipped STATIC prop, measured the same way and held to the same
+// contract. A finished machine does not have to move: the Ops Console PNG is the
+// entire console — both wing desks, the throne seat, the overhead arch and every
+// lit readout — so it retires its whitebox body and all three of its procedural
+// components exactly the way a sheet does, and carries the same two measured
+// numbers off the same real pixels.
+//
+// `readPngOpaqueBounds` is reused verbatim: passing the file's own dimensions as
+// the cell resolves to a single frame, and the bottom slack it reports is the
+// same number `offsetY` has to be.
+const SHIPPED_STATIC_PROPS = [
+  {
+    id: 'ops_console',
+    machine: 'Ops Console',
+    art: '/assets/command-center/prop_ops_console.png',
+    textureKey: 'prop_ops_console',
+    fileWidth: 201, fileHeight: 203,
+    anchorProp: 'prop_ops_console',
+    coversComponents: ['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'],
+    // Measured content: 168x104 at x 16-183, y 49-152 of a 201x203 file.
+    offsetY: 50,
+    shadowWidth: 168
+  }
+];
+
+test('the shipped Ops Console is static art held to the animated sheets\' contract', () => {
+  SHIPPED_STATIC_PROPS.forEach((expected) => {
+    const entry = propSheetFor(expected.id);
+    assert.notEqual(entry, null, `${expected.machine} is not in the prop registry`);
+
+    // Static means static: a plain image, no frames, no loop, no held frame.
+    assert.equal(entry.type, PROP_STATIC, `${expected.machine} is not a static entry`);
+    assert.equal(isAnimatedProp(entry), false, `${expected.machine} resolves as animated`);
+    assert.equal(entry.frames, undefined, `${expected.machine} must not declare frames`);
+    assert.equal(entry.fps, undefined, `${expected.machine} must not declare fps`);
+    assert.equal(propAnimationKeyFor(entry), `prop_${expected.id}`);
+    assert.equal(ensurePropAnimation(entry, fakeAnims()), '', `${expected.machine} registered a loop`);
+    [{ active: true }, { active: false }, { reducedMotion: true }, { reducedMotion: true, active: true }]
+      .forEach((options) => {
+        assert.equal(propPlaybackFor(entry, options), null, `${expected.machine} has playback`);
+      });
+
+    assert.equal(entry.art, expected.art, `${expected.machine} art path`);
+    assert.equal(entry.textureKey, expected.textureKey, `${expected.machine} texture key`);
+    assert.equal(entry.covers[0], expected.anchorProp, `${expected.machine} anchor prop`);
+    assert.deepEqual([...entry.coversComponents], expected.coversComponents, `${expected.machine} components`);
+
+    // Same override budget the sheets get: measured numbers only. No rescale, no
+    // re-origin, no sideways nudge, and a static prop never mirrors.
+    assert.equal(entry.scale, undefined, `${expected.machine} must not override scale`);
+    assert.equal(entry.offsetX, undefined, `${expected.machine} must not override offsetX`);
+    assert.equal(entry.originX, undefined, `${expected.machine} must not override originX`);
+    assert.equal(entry.originY, undefined, `${expected.machine} must not override originY`);
+    assert.equal(entry.flipX, undefined, `${expected.machine} must not flip`);
+    assert.equal(entry.x, undefined, `${expected.machine} must not carry an x`);
+    assert.equal(entry.y, undefined, `${expected.machine} must not carry a y`);
+
+    // The file really is what the registry was measured against.
+    const file = `${__dirname}/../public${entry.art}`;
+    assert.equal(fs.existsSync(file), true, `${expected.art} is missing from public/`);
+    assert.deepEqual(
+      readPngSize(file),
+      { width: expected.fileWidth, height: expected.fileHeight },
+      `${expected.art} is not ${expected.fileWidth}x${expected.fileHeight}`
+    );
+    assert.equal(readPngColorType(file), 6, `${expected.art} must be truecolour RGBA`);
+
+    // And the two art-derived numbers are the real pixels, not an eyeballed
+    // guess: a drifted export fails here instead of rendering subtly wrong.
+    const measured = readPngOpaqueBounds(file, expected.fileWidth, expected.fileHeight);
+    assert.equal(entry.offsetY, measured.bottomSlack, `${expected.machine} offsetY is not its measured bottom slack`);
+    assert.equal(entry.offsetY, expected.offsetY, `${expected.machine} offsetY`);
+    assert.equal(entry.shadowWidth, measured.width, `${expected.machine} shadowWidth is not the art's real width`);
+    assert.equal(entry.shadowWidth, expected.shadowWidth, `${expected.machine} shadowWidth`);
+
+    // Centred in its cell to within the same 0.5px the mirrored sheets are held
+    // to, which is why it needs no origin override.
+    assert.ok(
+      Math.abs(measured.centreX - expected.fileWidth / 2) <= 0.5,
+      `${expected.machine} art is off its cell centre`
+    );
+
+    // Anchored bottom-centre on the sceneConfig box, like every sheet, and
+    // grounded by the same generated pool. 144 + 72 + 50 puts the console's last
+    // opaque row back on the box's bottom edge at y216.
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === expected.anchorProp);
+    assert.deepEqual(propAnchorFor(entry, box), {
+      x: box.x + box.w / 2,
+      y: box.y + box.h + expected.offsetY,
+      originX: 0.5,
+      originY: 1,
+      scale: 1
+    }, `${expected.machine} anchor`);
+    assert.deepEqual(propShadowFor(entry, box), {
+      x: box.x + box.w / 2,
+      y: box.y + box.h,
+      width: expected.shadowWidth * 1.4,
+      height: expected.shadowWidth * 1.4 * 0.22,
+      alpha: 0.55
+    }, `${expected.machine} contact shadow`);
+    // The pool follows the art, not the floor-plan box: 168px of console in a
+    // 192px box. Sizing off the box would have drawn a pool 24px too wide.
+    assert.notEqual(entry.shadowWidth, box.w);
+
+    // Listed in the manifest, and queued as exactly one plain image.
+    const listed = new Set(JSON.parse(
+      fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+    ).files);
+    assert.equal(listed.has(expected.art), true, `${expected.art} missing from manifest.json`);
+    const loader = fakeLoader();
+    queuePropArt(entry, loader);
+    assert.deepEqual(loader.calls, [{ method: 'image', key: expected.textureKey, art: expected.art }]);
+  });
+});
+
+test('the Ops Console art retires its whitebox desk but never the GA//OPS wall display', () => {
+  const console_ = propSheetFor('ops_console');
+  const replacedProps = replacedWhiteboxKeys([console_]);
+  const replaced = replacedComponentKeys([console_]);
+
+  // Body and all three procedural components stop being drawn, and all four stay
+  // in sceneConfig as the development fallback.
+  assert.notEqual(
+    COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_ops_console'),
+    undefined,
+    'prop_ops_console must stay in sceneConfig as the whitebox fallback'
+  );
+  assert.equal(replacedProps.has('prop_ops_console'), true, 'the whitebox desk still draws under the art');
+  ['anim_ops_desk_screens', 'anim_keyboard_leds', 'anim_ops_caret'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_COMPONENTS.find((component) => component.key === key),
+      undefined,
+      `${key} must stay in sceneConfig as the whitebox fallback`
+    );
+    assert.equal(replaced.has(key), true, `${key} still renders over the art`);
+  });
+
+  // The large wall display above it is a different machine — `wall_crt_bank`,
+  // still unshipped — and it carries the GA//OPS readout. No entry may swallow
+  // its body or its component, or the room loses its status screen.
+  assert.equal(replacedProps.has('prop_wall_crt_bank'), false, 'the Ops Console swallowed the wall display');
+  assert.equal(replaced.has('anim_ops_screens'), false, 'the Ops Console swallowed the GA//OPS readout');
+  const live = PROP_SHEETS.filter((entry) => entry.id !== 'wall_crt_bank');
+  assert.equal(replacedWhiteboxKeys(live).has('prop_wall_crt_bank'), false);
+  assert.equal(replacedComponentKeys(live).has('anim_ops_screens'), false);
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  assert.match(scene, /this\.componentObjects\.get\('anim_ops_screens'\)/);
+  assert.match(scene, /GA\/\/OPS/);
+
+  // The console art clears the wall display's bottom edge rather than crowding
+  // it: the box bottom is y108 and the art's top row lands at y112.
+  const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_ops_console');
+  const wall = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_wall_crt_bank');
+  const artTop = propAnchorFor(console_, box).y - 203 + 49;
+  assert.equal(artTop, 112);
+  assert.ok(artTop > wall.y + wall.h, 'the console art overlaps the wall display');
+
+  // The cable stub that used to float at 432,132 went with this pass — box and
+  // registry entry together, the way prop_crate_small did.
+  assert.equal(
+    COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_ops_cable_stub'),
+    undefined,
+    'prop_ops_cable_stub should be deleted, not left floating over the console art'
+  );
+  assert.equal(propSheetFor('ops_cable_stub'), null, 'the cable stub box went but its registry entry stayed');
+
+  // SpawnCamper is untouched by the art pass: same anchor, same operate visual.
+  const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'central-operations');
+  assert.deepEqual(zone.destination, { x: 480, y: 228 });
+  assert.equal(zone.zoneNumber, '01');
+  assert.equal(camperStationaryVisualFor('operate'), 'operate_back');
+});
 
 test('the twelve shipped machine sheets resolve as animated art in the registry', () => {
   SHIPPED_MACHINE_SHEETS.forEach((expected) => {
@@ -2656,11 +2853,16 @@ test('the X Uplink sheet owns the mast, and the rest of the room stays whitebox'
   ]);
 
   // Every other machine in the room is still waiting on art and keeps its
-  // procedural whitebox: unshipped entries make zero requests.
+  // procedural whitebox: unshipped entries make zero requests. The Ops Console
+  // is the one exception and the one shipped static prop — its file IS listed,
+  // so it is expected on this seam alongside the twelve sheets.
   const listed = new Set(JSON.parse(
     fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
   ).files);
-  const shippedIds = new Set(SHIPPED_MACHINE_SHEETS.map((expected) => expected.id));
+  const shippedIds = new Set([
+    ...SHIPPED_MACHINE_SHEETS.map((expected) => expected.id),
+    ...SHIPPED_STATIC_PROPS.map((expected) => expected.id)
+  ]);
   PROP_SHEETS.forEach((sheet) => {
     if (shippedIds.has(sheet.id)) return;
     assert.equal(sheet.type, PROP_STATIC, `${sheet.id} unexpectedly became animated`);
