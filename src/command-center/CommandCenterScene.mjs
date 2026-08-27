@@ -482,15 +482,13 @@ export class CommandCenterScene extends Phaser.Scene {
     const replacedProps = replacedWhiteboxKeys(live);
     this.replacedComponents = replacedComponentKeys(live);
 
+    // No `glyph` branch: the gold "A" text object existed for one prop, the wall
+    // sigil, and that prop's whitebox slab is gone now its emblem PNG ships. A
+    // whitebox part is a rect and nothing else — the same way the `taper`
+    // polygon left with the vent bank.
     COMMAND_CENTER_PROPS.forEach((prop) => {
       if (replacedProps.has(prop.key)) return;
       prop.parts.forEach((part) => this.drawWhiteboxPart(g, prop, part));
-      const glyphPart = prop.parts.find((part) => part.glyph);
-      if (glyphPart) {
-        this.add.text(prop.x + prop.w / 2, prop.y + prop.h / 2, glyphPart.glyph, {
-          fontFamily: 'Russo One, sans-serif', fontSize: '20px', color: hexColor(P.gold)
-        }).setOrigin(0.5).setDepth(DEPTH.props + 1);
-      }
     });
 
     // Shadows first, as one pass: every pool has to end up under every machine,
@@ -523,19 +521,11 @@ export class CommandCenterScene extends Phaser.Scene {
       this.fillMaybeRounded(g, x, y + part.shadow, part.w, part.h, radius);
     }
 
+    // No `taper` branch: the angled wall-vent polygon existed for one prop, the
+    // upper-right vent bank, and that bank is deleted. A whitebox part is a plain
+    // rect, optionally rounded.
     g.fillStyle(part.fill, 1);
-    if (part.taper) {
-      // Angled wall vent: narrower at the top, matching the design's clip-path.
-      const inset = part.w * part.taper;
-      g.fillPoints([
-        { x: x + inset, y },
-        { x: x + part.w - inset, y },
-        { x: x + part.w, y: y + part.h },
-        { x, y: y + part.h }
-      ], true);
-    } else {
-      this.fillMaybeRounded(g, x, y, part.w, part.h, radius);
-    }
+    this.fillMaybeRounded(g, x, y, part.w, part.h, radius);
 
     if (part.stroke !== undefined) {
       g.lineStyle(part.strokeWidth || 1, part.stroke, part.strokeAlpha === undefined ? 1 : part.strokeAlpha);

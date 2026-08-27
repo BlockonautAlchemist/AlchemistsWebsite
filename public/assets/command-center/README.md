@@ -20,7 +20,7 @@ and production art stays in `src/command-center/propSheets.mjs`.
 | Experiment Bench | Playbooks | `playbooks` | Playbooks and repeatable experiments | Wooden alchemist bench, potions and books, glowing magical circle, spell effects |
 | Newsletter Still | Newsletter, Finisher | `newsletter` | Longer-form newsletter distillation | Tall still column, coil, chamber fill, output tray |
 | X Uplink | X Draft, X Publish, X Amplify | `social-x` | Public X formatting and transmission | Communications console, transport CRT, antenna mast |
-| Publish Transmitter | Beehiiv Draft | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, wall receptacle, charge meter |
+| Publish Transmitter | Beehiiv Draft | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, large CRT, charge meter |
 | Opportunity Radar | `254525fa846f` / Opportunity Scout | Hermes-only, no workflow lane yet | Opportunity scouting reserve mapping | Ribbed radar drum with a dominant circular sweep |
 
 Opportunity Radar is configured for Hermes semantics, but no frontend workflow key is
@@ -127,6 +127,23 @@ differences are that it loads through `loader.image` rather than `loader.sprites
 | file | file size | drawn content | `offsetY` | `shadowWidth` | anchors on |
 | --- | --- | --- | --- | --- | --- |
 | `prop_ops_console.png` | 201x203 | 168x104 at x 16-183, y 49-152 | 50 | 168 | `prop_ops_console` |
+| `prop_wall_sigil.png` | 64x64 | 47x62 at x 8-54, y 1-62 | 1 | none (wall art) | `prop_wall_sigil` |
+
+The **wall sigil** is the second, and it separates two axes that had been travelling together.
+Every static prop before it stood on the floor and pooled a shadow; every piece of wall art
+before it was an animated sheet. The sigil is static *and* wall-mounted, so it takes
+`groundShadow: false` and records **no `shadowWidth`**, exactly as the News Array and Agent Lab
+sheets do. Static vs animated and floor vs wall are independent, and the registry now has an
+entry in each corner it needs.
+
+The export is the gold Alchemists **`A`**, 47x62 of real pixels in a 64x64 cell, with one empty
+row under the glyph — so `offsetY: 1` puts its last opaque row back on the box's bottom edge at
+y86. It lands x614-661, y24-86: seated on its own 52x52 slot, level at the top with the GA//OPS
+bank beside it, and wholly inside the 120px wall band. Content sits at x31.5 against a cell
+centre of 32.0, which is inside the same 0.5px tolerance the mirrored sheets are held to, so it
+needs no `offsetX` or origin override. Every pixel it draws is fully opaque against fully
+transparent ground — no baked plate, no anti-aliased fringe — and a test asserts that census so
+a re-encode with smoothing on fails here instead of hazing on the wall.
 
 Art pass 6, and the first static prop to ship. The export is a **throne-style command console**:
 two wing desks, a central seat recess, an overhead arch and every lit readout on it, all in one
@@ -155,6 +172,16 @@ Art pass 2 removed five rows from this table. `prop_creator_console.png`, `prop_
 `prop_disk_tower.png`, `prop_rack.png` and `prop_furnace_chamber.png` are **no longer
 deliverables at all** — the Creator Console, Repo Forge and Model Furnace sheets are the whole
 of those machines, disk tower and both racks included. Do not produce them.
+
+The whitebox cleanup pass removed the rest by deleting the props themselves.
+`prop_wall_receptacle.png`, `prop_crate_wide.png` and `prop_wall_vents.png` are **no longer
+deliverables — do not produce them.** The wall receptacle, both wide crates and the
+three-louvre vent bank were blank whitebox filler with no Hermes job and no zone behind
+them; they were deleted from `COMMAND_CENTER_PROPS` and from the registry together rather
+than left waiting on art. `prop_wall_sigil.png` was the one exception — kept as a deliverable
+because the gold `A` emblem is intentional dressing rather than filler — and it has **since
+shipped**; see *Shipped static props* above. `prop_wall_crt_bank.png` is now the only file this
+directory is still waiting on.
 
 Art pass 3 removed three more. `prop_profit_analyzer.png`, `prop_tx_body.png` and
 `prop_wall_feed_shells.png` are **no longer deliverables either** — the Profit Analyzer,
@@ -328,8 +355,10 @@ get a pool thin enough to read as a line.
 **Wall art casts none.** `groundShadow: false` opts an entry out entirely, because a display
 bolted to the wall stands on nothing and a pool on the floor beneath it would be a shadow
 with no caster. Those entries record no `shadowWidth` either — an unread number is a number
-that drifts. News Array and Agent Lab are the *animated* entries in that category; `prop_wall_crt_bank`,
-`prop_wall_receptacle`, `prop_wall_sigil` and `prop_wall_vents` are the static ones. The Ops
+that drifts. News Array and Agent Lab are the *animated* entries in that category;
+`prop_wall_sigil` is the static one that ships and `prop_wall_crt_bank` the static one still
+awaiting art — the wall receptacle and the vent bank were also in this list until the cleanup
+pass deleted both outright. The Ops
 Console is the counter-example that proves the pool is not an animated-only feature: it is a
 static prop, it stands on the floor, and it pools exactly like a sheet does. A test
 asserts every `groundShadow: false` entry is really wall art — which is why those entry ids
@@ -368,8 +397,12 @@ on `prop_rack_a` would hang the whole machine 96px up the wall. `machineConfig.m
 `model-furnace`'s `propKeys` the same way for the same reason.
 
 Removing both rack entries also removed the registry's original one-file-two-instances
-example. The **wide crates** are now the only shared-texture pair (`prop_crate_wide.png` at
-`prop_crate_wide_a` and `prop_crate_wide_b`); the dedup test points at them.
+example. The **wide crates** inherited that role for a while (`prop_crate_wide.png` at
+`prop_crate_wide_a` and `prop_crate_wide_b`), and the cleanup pass deleted both. **No entry
+shares a texture key with another today.** The dedup guard in `propsToPreload` stays — it is
+loader hygiene, not a crate special case, and one file at two anchors is still a legal
+registry shape — but the test now asserts texture-key uniqueness instead of pointing at a
+pair that no longer exists.
 
 `prop_crate_small` (24x24 @ 300,180) was **deleted** in this pass. It was harmless decoration
 while the Creator Console was a 120x72 whitebox, but the real 123x109 art covers x 262-386,
@@ -402,22 +435,24 @@ Art pass 3 adds the last three, measured the same way:
 
 | machine | art occupies | against its boxes |
 | --- | --- | --- |
-| Profit Analyzer | x 623.5-756.5, y 151-312 | overhangs the 108x72 box (636-744) by ~12.5px each side and rises 89px above its top. Its footprint fully contains the decorative `prop_crate_wide_a` box (648-696, 168-192) — see below |
+| Profit Analyzer | x 623.5-756.5, y 151-312 | overhangs the 108x72 box (636-744) by ~12.5px each side and rises 89px above its top. Its footprint fully contained the decorative `prop_crate_wide_a` box (648-696, 168-192), which the cleanup pass deleted — see below |
 | Publish Transmitter | x 737.5-822.5, y 376-456 | sits **inside** the 168x96 box (696-864), leaving ~41px of bare floor each side and 16px at the top. The Tool Scanner case again: the box is a floor plan, the cabinet is compact |
 | News Array | x 71.5-254.5, y 13-78 | inset ~23px each side of the 232x38 wall strip (48-280) and rising 27px above its top, entirely inside the 120px wall band. No floor pool |
 
 Two consequences of art pass 3 were **not** fixed, because geometry was out of scope for it
 and both are cosmetic:
 
-- `prop_crate_wide_a` (48x24 @ 648,168) now sits inside the Profit Analyzer's art footprint.
-  This is the `prop_crate_small` situation from art pass 2, which was resolved by deleting the
-  crate. Here the crate survives and renders *behind* the art — `buildProps` adds the whitebox
-  `Graphics` before the art sprites at the same `DEPTH.props`, so the sprites win. If it ever
-  reads wrong the fix is to delete the box from `COMMAND_CENTER_PROPS` **and** its registry
-  entry together, never one without the other.
+- `prop_crate_wide_a` (48x24 @ 648,168) sat inside the Profit Analyzer's art footprint. This
+  was the `prop_crate_small` situation from art pass 2, and the **cleanup pass resolved it the
+  same way**: the box came out of `COMMAND_CENTER_PROPS` and its `crate_wide_a` entry out of
+  the registry, together. `prop_crate_wide_b` (48x24 @ 624,432) went with it — it stood on bare
+  floor near the south lane and decorated nothing.
 - Conduit `D8` (`transmitter → wall port`, x 864-936) starts ~41px clear of the transmitter
   art's right edge at x822.5, because the cabinet is narrower than the box the lane was drawn
-  against. Routing, telemetry and the lane's triggers are unchanged.
+  against. It also no longer terminates on anything drawn: `prop_wall_receptacle` (24x30 @
+  912,378) was blank whitebox and the cleanup pass deleted it, so the lane runs into the wall
+  shell. `fore_wall_port` sits in a different band (912,120 24x180). Routing, telemetry and the
+  lane's triggers are unchanged.
 
 Art pass 4 is one machine and one deletion:
 
@@ -465,6 +500,20 @@ the other — and `prop_ops_cable_stub.png` is no longer a deliverable.
 **Missing art is not an error.** If a file is absent, unlisted in `manifest.json`, or fails
 to load, the machine keeps its procedural whitebox. The whitebox is the development
 fallback and the only fallback — production art is never duplicated to provide one.
+
+**One prop has no whitebox at all**, and it is the only one entitled to none. `prop_wall_sigil`
+keeps its box in `sceneConfig.mjs` — that box is the anchor `covers[0]` resolves to, and the art
+registry holds no coordinates by design — but its `parts` array is empty, so it draws nothing of
+its own. Its whitebox used to be a 52x52 slab filled `0x1c0627`, stroked gold, with a `Russo One`
+"A" set over it: a stand-in for a glyph nobody had drawn. Now that the emblem is a finished
+transparent export there is nothing to fall back *to*, and a dark plate behind transparent art is
+not a fallback, it is a plate behind the art. `part.glyph` and its text renderer left the scene
+with that slab, the way `part.taper` left with the vent bank.
+
+This is an allowlist of one (`WHITEBOXLESS_PROPS` in the test suite), not a rule that shipped
+props may drop their parts — the Ops Console ships art and keeps its whitebox desk. Emptying a
+prop's `parts` is a decision that has to be made deliberately, and the suite fails if any other
+prop does it.
 
 ## Machine anchors — one machine, one primary box
 
@@ -521,9 +570,13 @@ unchanged; only which zone the machine physically occupies moved.
 Art pass 5 resolved Agent Lab the same way, against a cosmetic panel rather than a whole
 retired machine. Its art is a **tall wall cabinet**, not a bench, so it took the middle
 louvre of `prop_wall_vents` — three 64x70 tapered panels of unzoned dressing at 724,20, with
-no Hermes job and no zone behind them. That louvre is deleted from the prop's `parts`, so
-nothing renders underneath the machine; the bank keeps its box and its two flanking panels
-and the cabinet hangs between them.
+no Hermes job and no zone behind them. That louvre was deleted from the prop's `parts` and
+the cabinet hung between the two survivors.
+
+The **whitebox cleanup pass then deleted the whole bank**, box and registry entry together,
+along with the `taper` renderer in `drawWhiteboxPart` that no other prop used. The cabinet now
+hangs alone on bare `env_floor_wall.png` between x724 and x940. Its own box, anchor and
+clearances are unchanged.
 
 Why that slot and not another. The upper-right wall has only three candidate louvres, and
 the other two are ruled out by real art, not by the whitebox:

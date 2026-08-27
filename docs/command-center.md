@@ -17,10 +17,13 @@ config-driven areas, a moving agent, state-driven animation modes, simultaneous 
 activity, packet effects, polling/backoff, stale TTL fallback, and responsive canvas
 framing. No Star Office UI artwork or third-party game art is included.
 
-The scene currently ships as the design's **scale-true whitebox**: exact rectangles, exact
-palette, exact animation timings, drawn procedurally. Every prop and animated component is
-registered under the section 08 filename it is waiting for, so generated pixel art drops
-into the same rectangle with no re-layout. See `public/assets/command-center/README.md`.
+The scene began as the design's **scale-true whitebox**: exact rectangles, exact palette,
+exact animation timings, drawn procedurally. Every prop and animated component is registered
+under the section 08 filename it is waiting for, so generated pixel art drops into the same
+rectangle with no re-layout. Fourteen pieces have taken delivery — twelve animated machine
+sheets, the Ops Console and the wall sigil — and exactly one whitebox is left: the
+`prop_wall_crt_bank` housing that carries the live GA//OPS readout. See
+`public/assets/command-center/README.md`.
 
 The implementation is deliberately config-driven:
 
@@ -68,9 +71,10 @@ Exactly one function in the scene reads telemetry:
 applyZoneState(zoneId, group)  // sets that zone's L3 anim keys, fx emitters and local glow
 ```
 
-Ambient loops - fans, feed cycle, core pulse, sigil, idle CRTs, camper idle, and one slow
-cyan spine packet every ~9s - run always, seeded with random phase offsets, and never
-consult state. Operational loops - radar, scan bar, chamber, X CRT, transmitter charge,
+Ambient loops - fans, feed cycle, idle CRTs, camper idle, and one slow cyan spine packet
+every ~9s - run always, seeded with random phase offsets, and never consult state. (The core
+pulse and its sigil were the Power Core's, and retired with it; the wall sigil that remains is
+a finished static prop and does not animate.) Operational loops - radar, scan bar, chamber, X CRT, transmitter charge,
 packets, beam, success, warning, glitch - only run on real telemetry. **Never fake an
 operational animation to fill silence. Idle is the design.**
 
@@ -190,7 +194,7 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
 | 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 300,480 |
 | 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,480 |
-| 07 | `terminal-transmitter` | large CRT + receptacle | charge orb, packet out | 780,480 |
+| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 780,480 |
 | 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,372 |
 | 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
 | 10 | `creator-console` | creator-facing console | full-object sheet | 324,288 |
@@ -203,8 +207,9 @@ recessed well; the Power Core was retired and the Experiment Bench took that poc
 09 is a working station like the rest. Zones 10, 11 and 12 exist for the same reason in
 reverse: a walk destination is per zone, so Creator Console, Profit Analyzer and Agent Lab
 each needed one when they stopped sharing another machine's box. Zone 12 is wall-mounted -
-the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic vent louvre
-used to be, and the anchor is the floor 12px below it.
+the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic vent bank
+used to be (that bank has since been deleted outright), and the anchor is the floor 12px
+below it.
 
 Workflow-to-zone mappings:
 
@@ -258,7 +263,7 @@ Every telemetry state maps to a local event on one machine. The room never chang
 - **writing / coding** - caret and progress glyphs only. **Never real draft text.**
 - **processing / newsletter** - chamber fills, coil rotates, tray ejects a sheet.
 - **posting_to_x** - console CRT, then lamps, then the mast dish charges and a magenta beam exits the top edge.
-- **terminal_publish** - packet down the spine, receptacle charges gold, fires out the right wall port.
+- **terminal_publish** - packet down the spine to the transmitter, then out along `D8` and through the right wall port.
 - **complete** - 2-frame phosphor flash, 600ms, then ease back to ambient over 1.2s.
 - **warning / stale** - amber lamp on that machine, its loop slows to 60%. Room untouched.
 - **error** - local malfunction only: static band, 3px jitter, one spark, red pilot; camper plays `react` once. **No full-screen overlay.**

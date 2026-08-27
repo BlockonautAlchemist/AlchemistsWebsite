@@ -42,9 +42,14 @@ export const PROP_ANIMATED = 'animated';
 // twelve machines ship real animated sheets today (Opportunity Radar, Tool
 // Scanner, Newsletter Still, X Uplink, Creator Console, Repo Forge, Model
 // Furnace, Profit Analyzer, Publish Transmitter, News Array, Experiment Bench,
-// Agent Lab) and the Ops Console ships the room's first real STATIC prop; all
-// thirteen render as finished art. Every other entry names a file the manifest
-// does not list, makes zero requests, and keeps its whitebox.
+// Agent Lab), the Ops Console ships the room's first real STATIC prop and the
+// wall sigil ships the second; all fourteen render as finished art. An entry
+// naming a file the manifest does not list makes zero requests and keeps its
+// whitebox — exactly one is left, `wall_crt_bank`, whose whitebox is the GA//OPS
+// readout's housing and is deliberately protected from every cleanup pass. The
+// blank filler that used to sit alongside it — the wall receptacle, both wide
+// crates and the vent bank — was deleted with its geometry rather than left
+// waiting on art that was never going to be drawn.
 //
 // Static and animated are equal citizens on that seam: the Ops Console is a
 // complete machine that simply has nothing moving in it, so it retires its
@@ -274,12 +279,11 @@ export const PROP_SHEETS = Object.freeze([
     coversComponents: Object.freeze(['anim_x_crt', 'anim_x_lamps', 'anim_x_dish'])
   }),
   // Publish Transmitter (zone 07). Cabinet, CRT, charge meter and pilot lamp are
-  // one object, so all three whitebox components retire with the body. Unlike
-  // the X Uplink mast this export does NOT fold in its neighbour: the art is
-  // 85px wide centred on x780 and `prop_wall_receptacle` is a 24px wall box at
-  // x912, so the receptacle keeps its own entry and its own whitebox. The
-  // 149x144 cell keeps 32 empty rows under the cabinet feet. 6fps is one 1.333s
-  // ambient cycle.
+  // one object, so all three whitebox components retire with the body. The art is
+  // 85px wide centred on x780 and never reached the 24px wall receptacle at x912
+  // — that box was blank whitebox filler and is now deleted outright, so the
+  // cabinet is the whole of zone 07. The 149x144 cell keeps 32 empty rows under
+  // the cabinet feet. 6fps is one 1.333s ambient cycle.
   Object.freeze({
     id: 'tx_body',
     type: PROP_ANIMATED,
@@ -296,15 +300,6 @@ export const PROP_SHEETS = Object.freeze([
     shadowWidth: 85,
     covers: Object.freeze(['prop_tx_body']),
     coversComponents: Object.freeze(['anim_tx_crt', 'anim_tx_charge', 'anim_tx_pilot'])
-  }),
-  Object.freeze({
-    id: 'wall_receptacle',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_wall_receptacle.png`,
-    textureKey: 'prop_wall_receptacle',
-    groundShadow: false,
-    covers: Object.freeze(['prop_wall_receptacle']),
-    coversComponents: Object.freeze([])
   }),
   // Model Furnace (zone 08). The sheet is the complete assembly — chamber, heat
   // gauge and both flanking racks with their LEDs and fans — so one entry owns
@@ -405,42 +400,31 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_profit_analyzer']),
     coversComponents: Object.freeze(['anim_profit_screens'])
   }),
-  // Unzoned dressing: no machine components of their own. The small crate that
-  // used to sit at 300,180 is gone — the Creator Console art footprint swallowed
-  // it whole. Both wide crates are one file at two anchors: one fetch, two
-  // instances.
-  Object.freeze({
-    id: 'crate_wide_a',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_crate_wide.png`,
-    textureKey: 'prop_crate_wide',
-    covers: Object.freeze(['prop_crate_wide_a']),
-    coversComponents: Object.freeze([])
-  }),
-  Object.freeze({
-    id: 'crate_wide_b',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_crate_wide.png`,
-    textureKey: 'prop_crate_wide',
-    covers: Object.freeze(['prop_crate_wide_b']),
-    coversComponents: Object.freeze([])
-  }),
+  // Unzoned dressing, and the only piece of it left: the gold Alchemists emblem,
+  // now shipped art. The small crate at 300,180 went with art pass 2 (the Creator
+  // Console art swallowed it whole), and the cleanup pass took both wide crates
+  // and the vent bank the same way — box and entry together, never one without
+  // the other. The emblem is the opposite case: the entry stays and the whitebox
+  // goes, because the art arrived.
+  //
+  // The 64x64 cell keeps 1 empty row under the glyph, so `offsetY: 1` puts its
+  // last opaque row back on the box's bottom edge at y86 — the same measured-slack
+  // rule the Ops Console's 50 and the News Array's 70 come from. The glyph is
+  // 47x62 of real pixels centred to within 0.5px of the cell centre, so it needs
+  // no origin or `offsetX` override, and it lands x614-661, y24-86: level at the
+  // top with the GA//OPS bank beside it and inside the 120px wall band.
+  //
+  // `groundShadow: false` and no `shadowWidth`: an emblem bolted to the wall
+  // stands on nothing, and a pool on the floor under it would be a shadow with no
+  // caster.
   Object.freeze({
     id: 'wall_sigil',
     type: PROP_STATIC,
     art: `${ART_ROOT}/prop_wall_sigil.png`,
     textureKey: 'prop_wall_sigil',
+    offsetY: 1,
     groundShadow: false,
     covers: Object.freeze(['prop_wall_sigil']),
-    coversComponents: Object.freeze([])
-  }),
-  Object.freeze({
-    id: 'wall_vents',
-    type: PROP_STATIC,
-    art: `${ART_ROOT}/prop_wall_vents.png`,
-    textureKey: 'prop_wall_vents',
-    groundShadow: false,
-    covers: Object.freeze(['prop_wall_vents']),
     coversComponents: Object.freeze([])
   })
 ]);
@@ -528,8 +512,11 @@ export function propShadowFor(entry, box) {
 
 /**
  * The entries whose file the manifest actually ships, deduped by texture key so
- * one file shared by two instances (both wide crates) is fetched once.
- * Everything unlisted keeps its whitebox and makes zero requests.
+ * one file shared by several instances is fetched once. No entry shares a
+ * texture today — the wide crates were the last pair and both were deleted — but
+ * the guard is loader hygiene, not a crate special case, and one file at two
+ * anchors stays a legal registry shape. Everything unlisted keeps its whitebox
+ * and makes zero requests.
  */
 export function propsToPreload(manifest) {
   const listed = manifest instanceof Set ? manifest : new Set(manifest || []);

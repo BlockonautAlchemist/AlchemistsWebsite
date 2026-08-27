@@ -152,11 +152,11 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     name: 'Publish Transmitter',
     shortName: 'Publish',
     description: 'Pushes vetted terminal publishing and Beehiiv draft handoff events.',
-    visualDescription: 'Heavy transmitter cabinet with wall receptacle and charge meter.',
+    visualDescription: 'Heavy transmitter cabinet with a large CRT and charge meter.',
     workflows: ['terminal-publisher'],
     hermesJobs: [job('beehiiv-draft', 'Beehiiv Draft')],
     areaId: 'terminal-transmitter',
-    propKeys: ['prop_tx_body', 'prop_wall_receptacle']
+    propKeys: ['prop_tx_body']
   }),
   machine({
     id: 'opportunity-radar',

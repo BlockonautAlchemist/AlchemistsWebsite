@@ -217,12 +217,6 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
     parts: Object.freeze(deskParts(168, 96, 28))
   }),
   Object.freeze({
-    key: 'prop_wall_receptacle',
-    zone: 'terminal-transmitter',
-    x: 912, y: 378, w: 24, h: 30,
-    parts: Object.freeze([{ x: 0, y: 0, w: 24, h: 30, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.28 }])
-  }),
-  Object.freeze({
     key: 'prop_rack_a',
     zone: 'model-infrastructure',
     x: 744, y: 144, w: 72, h: 120,
@@ -271,13 +265,14 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   }),
   // Zone 12. Agent Lab shared `prop_scanner_bench` with Tool Scanner — two
   // unrelated workflow machines on one 168x48 bench, the last shared anchor left
-  // in the room. Its production art is a tall wall cabinet, so it takes the
-  // middle louvre of the upper-right vent bank: cosmetic whitebox dressing with
-  // no Hermes job behind it, retired from `prop_wall_vents` below. The box is the
-  // art's own 92x160 footprint rather than a floor plan — nothing stands on the
-  // floor here, so there is no footprint to plan. It clears the Profit Analyzer
-  // art (which reaches x 756.5) by 30px and the Model Furnace art (which starts
-  // at y 237) by 57px, and the floor pocket beneath it is empty.
+  // in the room. Its production art is a tall wall cabinet, so it took a slot in
+  // the upper-right vent bank; that bank was cosmetic whitebox dressing with no
+  // Hermes job behind it and has since been deleted outright, so the cabinet now
+  // hangs on bare wall art. The box is the art's own 92x160 footprint rather than
+  // a floor plan — nothing stands on the floor here, so there is no footprint to
+  // plan. It clears the Profit Analyzer art (which reaches x 756.5) by 30px and
+  // the Model Furnace art (which starts at y 237) by 57px, and the floor pocket
+  // beneath it is empty.
   Object.freeze({
     key: 'prop_wall_agent_lab',
     zone: 'agent-lab',
@@ -287,38 +282,29 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
       { x: 22, y: 44, w: 48, h: 82, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28 }
     ])
   }),
-  // Unzoned dressing: crates, wall sigil, cabling boxes. `prop_crate_small` used
-  // to sit at 300,180 — inside the Creator Console's floor pocket, which was
-  // harmless while that console was a 120x72 whitebox but is fully swallowed by
-  // the real 123x109 art. Removed rather than relocated: it decorated nothing.
-  Object.freeze({
-    key: 'prop_crate_wide_a',
-    zone: '',
-    x: 648, y: 168, w: 48, h: 24,
-    parts: Object.freeze([{ x: 0, y: 0, w: 48, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
-  }),
-  Object.freeze({
-    key: 'prop_crate_wide_b',
-    zone: '',
-    x: 624, y: 432, w: 48, h: 24,
-    parts: Object.freeze([{ x: 0, y: 0, w: 48, h: 24, fill: SHELL_DARK, stroke: SHELL_LINE, strokeAlpha: 0.22 }])
-  }),
+  // Unzoned dressing. The wall sigil is the only piece left: it is the gold
+  // Alchemists emblem, and its art has shipped. Everything else here was whitebox
+  // filler and was deleted in the cleanup pass — `prop_crate_small` (24x24 @
+  // 300,180) with art pass 2, then `prop_crate_wide_a` (48x24 @ 648,168),
+  // `prop_crate_wide_b` (48x24 @ 624,432) and the three-louvre `prop_wall_vents`
+  // bank (216x70 @ 724,20). Each went from `COMMAND_CENTER_PROPS` and from
+  // `propSheets.mjs` together: a box present in one but not the other fails the
+  // every-prop-is-described invariant in either direction.
+  //
+  // The one prop in the room with NO whitebox parts, and the only one entitled to
+  // none. Its whitebox was a 52x52 slab filled 0x1c0627, stroked gold, with a
+  // `Russo One` "A" drawn over it — a stand-in for a glyph nobody had drawn yet.
+  // The emblem is now a finished transparent PNG, so there is nothing to fall back
+  // *to*: a dark plate behind transparent art is not a fallback, it is a plate
+  // behind the art. The box itself stays because it is the anchor `covers[0]`
+  // resolves to — the art registry holds no coordinates by design — but it draws
+  // nothing on its own, and `part.glyph` went out of the scene with the slab, the
+  // way `part.taper` went out with the vent bank.
   Object.freeze({
     key: 'prop_wall_sigil',
     zone: '',
     x: 612, y: 34, w: 52, h: 52,
-    parts: Object.freeze([{ x: 0, y: 0, w: 52, h: 52, fill: 0x1c0627, stroke: COMMAND_CENTER_PALETTE.gold, strokeWidth: 2, strokeAlpha: 0.5, glyph: 'A' }])
-  }),
-  Object.freeze({
-    key: 'prop_wall_vents',
-    zone: '',
-    x: 724, y: 20, w: 216, h: 70,
-    // Two louvres, not three: the middle one (offset 76, x 800-864) is now the
-    // Agent Lab's wall slot. The bank keeps its box and its two flanking louvres,
-    // so the machine hangs between them instead of on top of a live whitebox.
-    parts: Object.freeze([0, 152].map((offset) => ({
-      x: offset, y: 0, w: 64, h: 70, fill: SHELL_DARK, stroke: SHELL_TOP, strokeWidth: 2, taper: 0.14
-    })))
+    parts: Object.freeze([])
   })
 ]);
 
@@ -691,14 +677,13 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   Object.freeze({
     id: 'terminal-transmitter', zoneNumber: '07',
     label: 'Terminal Transmitter', shortLabel: 'Terminal',
-    description: 'Large CRT + receptacle',
+    description: 'Publish transmitter cabinet',
     x: 780, y: 408,
     destination: Object.freeze({ x: 780, y: 480 }),
     bounds: Object.freeze({ x: 696, y: 360, width: 168, height: 96 }),
-    hitRects: Object.freeze([
-      Object.freeze({ x: 696, y: 360, width: 168, height: 96 }),
-      Object.freeze({ x: 912, y: 378, width: 24, height: 30 })
-    ]),
+    // One rect, not two: the 24x30 wall receptacle at 912,378 was blank whitebox
+    // dressing and is deleted. The cabinet is the whole of zone 07.
+    hitRects: Object.freeze([Object.freeze({ x: 696, y: 360, width: 168, height: 96 })]),
     color: COMMAND_CENTER_PALETTE.cyan,
     accent: COMMAND_CENTER_PALETTE.gold,
     conduits: Object.freeze(['D6', 'D8']),

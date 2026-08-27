@@ -16,6 +16,19 @@ const { validateTelemetryPayload } = require('../server/command-center/validatio
 const originalIngestSecret = process.env.COMMAND_CENTER_INGEST_SECRET;
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
+// The whitebox is the development fallback for art that has not arrived, so a
+// prop is entitled to skip it only once its art really ships. Exactly one has:
+// the wall sigil, whose whitebox was a dark 52x52 slab with a `Russo One` "A"
+// stroked over it, standing in for a glyph nobody had drawn. The emblem PNG is
+// now a finished transparent export, and a plate behind transparent art is not a
+// fallback — it is a plate behind the art.
+//
+// Deliberately an allowlist rather than a rule like "shipped props may drop their
+// parts": the Ops Console ships art too and keeps its whitebox desk, and nothing
+// else in the room may lose its fallback by accident. Adding a key here is a
+// decision, not a side effect.
+const WHITEBOXLESS_PROPS = new Set(['prop_wall_sigil']);
+
 let fallbackCommandCenterState;
 let areaIdForWorkflow;
 let canonicalAreaId;
@@ -870,6 +883,10 @@ test('command center scene geometry matches the locked design grid', () => {
     // sceneConfig is the authoritative geometry and the whitebox fallback. Real
     // art paths live in propSheets.mjs, never here — one declaration, one place.
     assert.equal(prop.art, undefined, `${prop.key} must not declare art in sceneConfig`);
+    // Every prop keeps a whitebox fallback except the wall sigil, which is
+    // finished transparent art and has nothing to fall back to — see
+    // WHITEBOXLESS_PROPS at the top of this file.
+    if (WHITEBOXLESS_PROPS.has(prop.key)) return;
     assert.equal(prop.parts.length > 0, true, `${prop.key} whitebox fallback`);
   });
 
@@ -1109,12 +1126,20 @@ function readPngOpaqueBounds(file, frameWidth, frameHeight) {
     }
   }
 
+  // The alpha census rides along on the same decode. Pixel art on this seam is
+  // hard-edged: a file that reports semi-transparent pixels has been resized or
+  // re-encoded with smoothing on, which reads as a soft halo against the wall.
   const frames = Math.round(width / frameWidth);
   const bounds = { minX: frameWidth, maxX: -1, minY: frameHeight, maxY: -1 };
+  const alpha = { opaque: 0, semiTransparent: 0, transparent: 0 };
   for (let frame = 0; frame < frames; frame += 1) {
     for (let y = 0; y < frameHeight; y += 1) {
       for (let x = 0; x < frameWidth; x += 1) {
-        if (out[y * stride + (frame * frameWidth + x) * bpp + 3] === 0) continue;
+        const value = out[y * stride + (frame * frameWidth + x) * bpp + 3];
+        if (value === 0) alpha.transparent += 1;
+        else if (value === 255) alpha.opaque += 1;
+        else alpha.semiTransparent += 1;
+        if (value === 0) continue;
         bounds.minX = Math.min(bounds.minX, x);
         bounds.maxX = Math.max(bounds.maxX, x);
         bounds.minY = Math.min(bounds.minY, y);
@@ -1126,7 +1151,8 @@ function readPngOpaqueBounds(file, frameWidth, frameHeight) {
     width: bounds.maxX - bounds.minX + 1,
     height: bounds.maxY - bounds.minY + 1,
     centreX: (bounds.minX + bounds.maxX + 1) / 2,
-    bottomSlack: frameHeight - 1 - bounds.maxY
+    bottomSlack: frameHeight - 1 - bounds.maxY,
+    alpha
   };
 }
 
@@ -1207,7 +1233,9 @@ test('the env art swap leaves station whiteboxes and the camper rig alone', () =
   assert.match(source, /prop\.parts\.forEach\(\(part\) => this\.drawWhiteboxPart\(g, prop, part\)\)/);
   assert.equal(COMMAND_CENTER_PROPS.length > 0, true);
   assert.equal(
-    COMMAND_CENTER_PROPS.every((prop) => Array.isArray(prop.parts) && prop.parts.length > 0),
+    COMMAND_CENTER_PROPS.every((prop) => (
+      Array.isArray(prop.parts) && (prop.parts.length > 0 || WHITEBOXLESS_PROPS.has(prop.key))
+    )),
     true,
     'a station prop lost its whitebox parts'
   );
@@ -1755,14 +1783,20 @@ test('the prop registry rides the manifest seam and unlisted art keeps its white
   });
   assert.deepEqual(propsToPreload(new Set()), []);
 
-  // One file shared by two instances is fetched once, but both instances render.
-  // The racks used to demonstrate this; the Model Furnace sheet swallowed both,
-  // so the wide crates are now the registry's only shared-texture pair.
-  const both = new Set(['/assets/command-center/prop_crate_wide.png']);
-  const queued = propsToPreload(both);
+  // No entry shares a texture with another any more. The racks demonstrated the
+  // one-file-two-instances shape first, the Model Furnace sheet swallowed both,
+  // the wide crates inherited it, and the cleanup pass deleted the crates. The
+  // dedup guard in propsToPreload stays — it is loader hygiene, not a crate
+  // special case — but there is nothing left in the registry for it to collapse,
+  // so the invariant to hold now is that every texture key is unique.
+  const textureKeys = PROP_SHEETS.map((sheet) => sheet.textureKey);
+  assert.equal(new Set(textureKeys).size, textureKeys.length, 'two entries share a texture key');
+
+  // A single-file manifest still queues exactly one entry, and only that one.
+  const one = new Set(['/assets/command-center/prop_ops_console.png']);
+  const queued = propsToPreload(one);
   assert.equal(queued.length, 1);
-  assert.equal(queued[0].textureKey, 'prop_crate_wide');
-  assert.equal(PROP_SHEETS.filter((sheet) => sheet.textureKey === 'prop_crate_wide').length, 2);
+  assert.equal(queued[0].textureKey, 'prop_ops_console');
 
   // Every registry file the manifest does ship must exist on disk at the
   // dimensions its entry claims — measure the PNG, do not guess.
@@ -2297,12 +2331,18 @@ const SHIPPED_MACHINE_SHEETS = [
 ];
 
 
-// The one shipped STATIC prop, measured the same way and held to the same
-// contract. A finished machine does not have to move: the Ops Console PNG is the
-// entire console — both wing desks, the throne seat, the overhead arch and every
-// lit readout — so it retires its whitebox body and all three of its procedural
-// components exactly the way a sheet does, and carries the same two measured
-// numbers off the same real pixels.
+// The shipped STATIC props, measured the same way and held to the same contract.
+// A finished machine does not have to move: the Ops Console PNG is the entire
+// console — both wing desks, the throne seat, the overhead arch and every lit
+// readout — so it retires its whitebox body and all three of its procedural
+// components exactly the way a sheet does, and carries the same measured numbers
+// off the same real pixels.
+//
+// The wall sigil is the second, and it proves the floor is not part of the
+// contract either: it is wall art, so it opts out of the pool with
+// `groundShadow: false` and records no `shadowWidth`, exactly as the News Array
+// and Agent Lab *sheets* do. Static versus animated and floor versus wall are two
+// independent axes, and this table now covers one prop in each corner it needs.
 //
 // `readPngOpaqueBounds` is reused verbatim: passing the file's own dimensions as
 // the cell resolves to a single frame, and the bottom slack it reports is the
@@ -2319,10 +2359,26 @@ const SHIPPED_STATIC_PROPS = [
     // Measured content: 168x104 at x 16-183, y 49-152 of a 201x203 file.
     offsetY: 50,
     shadowWidth: 168
+  },
+  {
+    id: 'wall_sigil',
+    machine: 'Wall Sigil',
+    art: '/assets/command-center/prop_wall_sigil.png',
+    textureKey: 'prop_wall_sigil',
+    fileWidth: 64, fileHeight: 64,
+    anchorProp: 'prop_wall_sigil',
+    coversComponents: [],
+    // Measured content: 47x62 at x 8-54, y 1-62 of a 64x64 file, so exactly one
+    // empty row under the glyph. Centred at x31.5 against a cell centre of 32 —
+    // 0.5px, right on the tolerance, which is why it needs no offsetX.
+    offsetY: 1,
+    // Bolted to the wall, so no pool and deliberately no shadowWidth: an unread
+    // number is a number that drifts.
+    groundShadow: false
   }
 ];
 
-test('the shipped Ops Console is static art held to the animated sheets\' contract', () => {
+test('the shipped static props are held to the animated sheets\' contract', () => {
   SHIPPED_STATIC_PROPS.forEach((expected) => {
     const entry = propSheetFor(expected.id);
     assert.notEqual(entry, null, `${expected.machine} is not in the prop registry`);
@@ -2364,13 +2420,21 @@ test('the shipped Ops Console is static art held to the animated sheets\' contra
     );
     assert.equal(readPngColorType(file), 6, `${expected.art} must be truecolour RGBA`);
 
-    // And the two art-derived numbers are the real pixels, not an eyeballed
-    // guess: a drifted export fails here instead of rendering subtly wrong.
+    // And the art-derived numbers are the real pixels, not an eyeballed guess: a
+    // drifted export fails here instead of rendering subtly wrong.
     const measured = readPngOpaqueBounds(file, expected.fileWidth, expected.fileHeight);
     assert.equal(entry.offsetY, measured.bottomSlack, `${expected.machine} offsetY is not its measured bottom slack`);
     assert.equal(entry.offsetY, expected.offsetY, `${expected.machine} offsetY`);
-    assert.equal(entry.shadowWidth, measured.width, `${expected.machine} shadowWidth is not the art's real width`);
-    assert.equal(entry.shadowWidth, expected.shadowWidth, `${expected.machine} shadowWidth`);
+
+    // Wall art records no width because it draws no pool — the same branch the
+    // animated sheets take for the News Array and the Agent Lab.
+    if (expected.groundShadow === false) {
+      assert.equal(entry.groundShadow, false, `${expected.machine} is wall art but pools on the floor`);
+      assert.equal(entry.shadowWidth, undefined, `${expected.machine} is wall art and must record no shadowWidth`);
+    } else {
+      assert.equal(entry.shadowWidth, measured.width, `${expected.machine} shadowWidth is not the art's real width`);
+      assert.equal(entry.shadowWidth, expected.shadowWidth, `${expected.machine} shadowWidth`);
+    }
 
     // Centred in its cell to within the same 0.5px the mirrored sheets are held
     // to, which is why it needs no origin override.
@@ -2379,9 +2443,9 @@ test('the shipped Ops Console is static art held to the animated sheets\' contra
       `${expected.machine} art is off its cell centre`
     );
 
-    // Anchored bottom-centre on the sceneConfig box, like every sheet, and
-    // grounded by the same generated pool. 144 + 72 + 50 puts the console's last
-    // opaque row back on the box's bottom edge at y216.
+    // Anchored bottom-centre on the sceneConfig box, like every sheet. 144 + 72
+    // + 50 puts the console's last opaque row back on the box's bottom edge at
+    // y216; 34 + 52 + 1 does the same for the sigil's at y86.
     const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === expected.anchorProp);
     assert.deepEqual(propAnchorFor(entry, box), {
       x: box.x + box.w / 2,
@@ -2390,16 +2454,20 @@ test('the shipped Ops Console is static art held to the animated sheets\' contra
       originY: 1,
       scale: 1
     }, `${expected.machine} anchor`);
-    assert.deepEqual(propShadowFor(entry, box), {
-      x: box.x + box.w / 2,
-      y: box.y + box.h,
-      width: expected.shadowWidth * 1.4,
-      height: expected.shadowWidth * 1.4 * 0.22,
-      alpha: 0.55
-    }, `${expected.machine} contact shadow`);
-    // The pool follows the art, not the floor-plan box: 168px of console in a
-    // 192px box. Sizing off the box would have drawn a pool 24px too wide.
-    assert.notEqual(entry.shadowWidth, box.w);
+    if (expected.groundShadow === false) {
+      assert.equal(propShadowFor(entry, box), null, `${expected.machine} pools a shadow on the floor below the wall`);
+    } else {
+      assert.deepEqual(propShadowFor(entry, box), {
+        x: box.x + box.w / 2,
+        y: box.y + box.h,
+        width: expected.shadowWidth * 1.4,
+        height: expected.shadowWidth * 1.4 * 0.22,
+        alpha: 0.55
+      }, `${expected.machine} contact shadow`);
+      // The pool follows the art, not the floor-plan box: 168px of console in a
+      // 192px box. Sizing off the box would have drawn a pool 24px too wide.
+      assert.notEqual(entry.shadowWidth, box.w);
+    }
 
     // Listed in the manifest, and queued as exactly one plain image.
     const listed = new Set(JSON.parse(
@@ -2970,6 +3038,143 @@ test('art pass 2 folds the secondary bodies in and leaves no duplicate whitebox'
 });
 
 // ---------------------------------------------------------------------------
+// Whitebox cleanup pass.
+// ---------------------------------------------------------------------------
+
+test('the leftover whitebox dressing is deleted from geometry and registry together', () => {
+  // Blank filler that was never going to take delivery of art: a 24x30 wall
+  // receptacle, two 48x24 crates and a three-louvre vent bank. Each went the way
+  // prop_crate_small did — box and registry entry in the same pass, because a box
+  // present in one but not the other fails the every-prop-is-described invariant
+  // in either direction.
+  const removed = [
+    ['prop_wall_receptacle', 'wall_receptacle'],
+    ['prop_crate_wide_a', 'crate_wide_a'],
+    ['prop_crate_wide_b', 'crate_wide_b'],
+    ['prop_wall_vents', 'wall_vents']
+  ];
+  removed.forEach(([propKey, sheetId]) => {
+    assert.equal(
+      COMMAND_CENTER_PROPS.find((prop) => prop.key === propKey),
+      undefined,
+      `${propKey} is still in the geometry`
+    );
+    assert.equal(propSheetFor(sheetId), null, `${sheetId} is still in the art registry`);
+    PROP_SHEETS.forEach((sheet) => {
+      assert.equal(sheet.covers.includes(propKey), false, `${sheet.id} covers deleted prop ${propKey}`);
+    });
+    COMMAND_CENTER_MACHINES.forEach((machine) => {
+      assert.equal(
+        machine.propKeys.includes(propKey),
+        false,
+        `${machine.id} still anchors on deleted prop ${propKey}`
+      );
+    });
+  });
+
+  // Zone 07 is the transmitter cabinet and nothing else now: the receptacle rect
+  // came out of its hit area, so the inspect outline strokes one box.
+  const tx = COMMAND_CENTER_AREAS.find((area) => area.id === 'terminal-transmitter');
+  assert.deepEqual([...tx.hitRects], [{ x: 696, y: 360, width: 168, height: 96 }]);
+  assert.deepEqual([...machineById('publish-transmitter').propKeys], ['prop_tx_body']);
+
+  // The two boxes that deliberately survive. `prop_wall_crt_bank` is the GA//OPS
+  // readout's housing, still awaiting art and still drawing its whitebox;
+  // `prop_wall_sigil` is the gold emblem, which has since taken delivery of its
+  // PNG and kept only its box, as the anchor the art hangs on. Both are
+  // intentional, neither is filler, and neither may be swept up by a later pass.
+  ['prop_wall_crt_bank', 'prop_wall_sigil'].forEach((key) => {
+    assert.notEqual(
+      COMMAND_CENTER_PROPS.find((prop) => prop.key === key),
+      undefined,
+      `${key} must survive the cleanup pass`
+    );
+  });
+  assert.notEqual(
+    COMMAND_CENTER_COMPONENTS.find((component) => component.key === 'anim_ops_screens'),
+    undefined,
+    'the GA//OPS readout must survive the cleanup pass'
+  );
+
+  // Two bespoke renderers, each written for exactly one prop, each deleted with
+  // it. The angled-vent polygon went with the vent bank; the gold "A" text object
+  // went with the wall sigil's whitebox slab once the emblem PNG shipped. A
+  // whitebox part is a rect, optionally rounded, and nothing else.
+  const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
+  const drawPart = scene.slice(
+    scene.indexOf('drawWhiteboxPart(g, prop, part) {'),
+    scene.indexOf('fillMaybeRounded(g, x, y, w, h, radius) {')
+  );
+  assert.notEqual(drawPart.length, 0, 'drawWhiteboxPart moved');
+  assert.equal(/part\.taper/.test(drawPart), false, 'the taper branch outlived the vent bank');
+  assert.equal(COMMAND_CENTER_PROPS.some((prop) => prop.parts.some((part) => part.taper)), false);
+  assert.equal(COMMAND_CENTER_PROPS.some((prop) => prop.parts.some((part) => part.glyph)), false);
+  assert.doesNotMatch(scene, /part\.glyph/, 'the glyph renderer outlived the sigil whitebox');
+  assert.doesNotMatch(scene, /Russo One/, 'the whitebox glyph font outlived its only text object');
+});
+
+test('the wall sigil renders as the emblem PNG and nothing is drawn behind it', () => {
+  const entry = propSheetFor('wall_sigil');
+  const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_wall_sigil');
+
+  // The box survives as the anchor — the art registry carries no coordinates —
+  // but it draws nothing of its own. No slab, no gold stroke, no glyph: the
+  // emblem is a transparent export and the only thing that renders here.
+  assert.notEqual(box, undefined, 'the sigil lost the box its art anchors on');
+  assert.deepEqual([...box.parts], [], 'a whitebox plate is still drawn behind the emblem');
+  assert.equal(box.zone, '', 'the sigil is unzoned dressing and must own no zone');
+  assert.deepEqual(
+    { x: box.x, y: box.y, w: box.w, h: box.h },
+    { x: 612, y: 34, w: 52, h: 52 },
+    'the wall slot moved'
+  );
+
+  // Loading the art suppresses the whitebox for this prop and for nothing else.
+  const replacedProps = replacedWhiteboxKeys([entry]);
+  assert.equal(replacedProps.has('prop_wall_sigil'), true, 'the whitebox still draws under the emblem');
+  assert.equal(replacedProps.has('prop_wall_crt_bank'), false, 'the sigil swallowed the GA//OPS housing');
+  assert.deepEqual([...replacedComponentKeys([entry])], [], 'the sigil retired a component it does not own');
+
+  // Where the real pixels land. The file is 64x64 with the glyph at x 8-54,
+  // y 1-62, anchored bottom-centre at (638, 87) with offsetY 1, so the emblem
+  // occupies x 614-661, y 24-86 at native scale.
+  const at = propAnchorFor(entry, box);
+  assert.deepEqual(at, { x: 638, y: 87, originX: 0.5, originY: 1, scale: 1 });
+
+  const file = `${__dirname}/../public${entry.art}`;
+  const measured = readPngOpaqueBounds(file, 64, 64);
+  // Derived from the measured bounds, not from the cell: the glyph is not
+  // symmetric in its 64x64 canvas (8 empty columns left, 9 right), so centring
+  // the cell and centring the content are different answers.
+  const left = at.x - 64 / 2 + measured.centreX - measured.width / 2;
+  const top = at.y - measured.bottomSlack - measured.height;
+  assert.deepEqual(
+    { left, right: left + measured.width, top, bottom: top + measured.height },
+    { left: 614, right: 661, top: 24, bottom: 86 }
+  );
+
+  // Inside the wall band, bottom flush with its own slot, top level with the
+  // GA//OPS bank beside it, and clear of both neighbours on the upper wall.
+  const crtBank = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_wall_crt_bank');
+  const agentLab = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_wall_agent_lab');
+  assert.ok(top >= 0 && top + measured.height <= COMMAND_CENTER_CANVAS.floorTop, 'the emblem leaves the wall band');
+  assert.equal(top + measured.height, box.y + box.h, 'the emblem is not seated on its slot');
+  assert.equal(top, crtBank.y, 'the emblem no longer lines up with the GA//OPS bank');
+  assert.ok(left > crtBank.x + crtBank.w, 'the emblem overlaps the GA//OPS bank');
+  assert.ok(left + measured.width < agentLab.x, 'the emblem overlaps the Agent Lab cabinet');
+
+  // Wall art stands on nothing, so no pool is drawn under it, and a static prop
+  // never animates: attendance can start nothing here.
+  assert.equal(propShadowFor(entry, box), null, 'the emblem pools a shadow on the floor');
+  assert.equal(propPlaybackFor(entry, { active: true }), null, 'the emblem has playback');
+
+  // The PNG really is transparent-ground art: RGBA, and every pixel it draws is
+  // fully opaque, so there is no baked plate and no half-lit fringe on the wall.
+  assert.equal(readPngColorType(file), 6, 'the emblem must be truecolour RGBA');
+  assert.deepEqual(measured.alpha, { opaque: 1654, semiTransparent: 0, transparent: 2442 });
+});
+
+// ---------------------------------------------------------------------------
 // Physical anchor audit (geometry pass 2).
 // ---------------------------------------------------------------------------
 
@@ -3214,12 +3419,18 @@ test('the Agent Lab hangs on the right wall, alone, and casts no floor pool', ()
   assert.deepEqual([...entry.coversComponents], []);
   assert.equal(COMMAND_CENTER_COMPONENTS.some((c) => c.zone === 'agent-lab'), false);
 
-  // The cosmetic louvre it replaced is gone, not hidden behind it: the vent bank
-  // keeps its box and its two flanking panels and nothing renders underneath.
-  const vents = boxFor('prop_wall_vents');
-  assert.equal(vents.parts.length, 2, 'the retired middle louvre came back under the machine');
-  assert.deepEqual(vents.parts.map((part) => part.x), [0, 152]);
-  assert.equal(vents.zone, '', 'the vent bank is dressing and owns no zone');
+  // The cosmetic vent bank it took a slot from is gone entirely — box and
+  // registry entry together — so the cabinet hangs on bare wall art and nothing
+  // whitebox renders underneath or beside it.
+  assert.equal(
+    COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_wall_vents'),
+    undefined,
+    'the vent bank is back in the geometry'
+  );
+  assert.equal(propSheetFor('wall_vents'), null, 'the vent bank box went but its registry entry stayed');
+  PROP_SHEETS.forEach((sheet) => {
+    assert.equal(sheet.covers.includes('prop_wall_vents'), false, `${sheet.id} covers a deleted prop`);
+  });
 });
 
 test('zone 12 is reachable, axis-aligned, and south-anchored', () => {
