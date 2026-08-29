@@ -144,5 +144,79 @@
       "station": "github",
       "target": "repository watch"
     }
+  },
+  {
+    "eventId": "tour-researching",
+    "offsetSeconds": 55,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "researching",
+    "activity": "Sweeping overnight AI gaming sources",
+    "ttlSeconds": 900,
+    "context": {
+      "target": "overnight sources",
+      "count": 34
+    }
+  },
+  {
+    "eventId": "tour-evaluating",
+    "offsetSeconds": 60,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "evaluating",
+    "activity": "Ranking the sweep for signal",
+    "ttlSeconds": 900,
+    "context": {
+      "target": "ranked candidates",
+      "count": 9
+    }
+  },
+  {
+    "eventId": "tour-writing",
+    "offsetSeconds": 65,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "writing",
+    "activity": "Drafting the daily brief",
+    "ttlSeconds": 900,
+    "context": {
+      "target": "daily brief"
+    }
+  },
+  {
+    "eventId": "tour-newsletter",
+    "offsetSeconds": 70,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "newsletter",
+    "activity": "Distilling the brief into newsletter copy",
+    "ttlSeconds": 900,
+    "context": {
+      "target": "newsletter copy"
+    }
+  },
+  {
+    "eventId": "tour-terminal-publish",
+    "offsetSeconds": 75,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "terminal_publish",
+    "activity": "Transmitting the brief to Dev Terminal",
+    "ttlSeconds": 900,
+    "context": {
+      "target": "Dev Terminal"
+    }
+  },
+  {
+    "eventId": "tour-complete",
+    "offsetSeconds": 80,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "complete",
+    "activity": "Daily brief published",
+    "ttlSeconds": 240,
+    "context": {
+      "count": 9
+    }
   }
 ]

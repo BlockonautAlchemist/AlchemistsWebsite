@@ -11,9 +11,10 @@
 // into the same rectangle without touching a single coordinate.
 
 import {
+  areaIdForState,
   areaIdForWorkflow as areaIdForMachineWorkflow
 } from './machineConfig.mjs';
-export { COMMAND_CENTER_WORKFLOW_AREAS } from './machineConfig.mjs';
+export { COMMAND_CENTER_STATE_AREAS, COMMAND_CENTER_WORKFLOW_AREAS } from './machineConfig.mjs';
 
 // Section 09 palette block. The whole facility is drawn from this 16-colour ramp.
 export const COMMAND_CENTER_PALETTE = Object.freeze({
@@ -471,24 +472,30 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
 // ---------------------------------------------------------------------------
 // L6 · foreground / occlusion (section 08). Drawn above the character.
 //
-// Independent of the prop art registry and deliberately so: retained structural
-// foreground pieces carry their own `art` path and their own loader seam, and
-// they are not the old component-overlay system.
+// Independent of the prop art registry and deliberately so: a foreground piece
+// carries its own `art` path and its own loader seam, and is not the old
+// component-overlay system. The seam stays; the registry is empty.
 //
-// Every piece left here is STRUCTURAL — the two pilasters and the wall port.
-// Machine-specific lips are all retired: a lip existed to hide the camper's legs
-// behind a whitebox desk, and a finished machine already draws its own front, so
-// keeping one only paints a flat block over real art. `fore_ops_console_front`
-// was the last of them, retired with the Ops Console art alongside
-// `fore_code_bench_front`, `fore_furnace_lip`, `fore_still_base`, `fore_tx_front`
-// and `fore_x_console_front`. Do not reinstate one for a machine that has art.
+// The machine lips went first: a lip existed to hide the camper's legs behind a
+// whitebox desk, and a finished machine already draws its own front, so keeping
+// one only paints a flat block over real art. `fore_code_bench_front`,
+// `fore_furnace_lip`, `fore_still_base`, `fore_tx_front`, `fore_x_console_front`
+// and finally `fore_ops_console_front` all went with their machines' art.
+//
+// The three STRUCTURAL pieces went the same way, for the same reason, one layer
+// down: `fore_pilaster_l` (0,120 24x408), `fore_pilaster_r` (936,120 24x408) and
+// `fore_wall_port` (912,120 24x180). None of them ever had a PNG, so each could
+// only render as its procedural whitebox — two dark gradient strips and a solid
+// 0x1c0627 slab — painted at DEPTH.fore over the finished env_floor_wall.png,
+// which draws its own wall edges and cable port. They were structural while L1
+// was a whitebox and had nothing left to occlude once it shipped. An untextured
+// occluder over finished art is a block, not an occluder: that rule retired the
+// lips and it retires these. None of the three is an art deliverable any more.
+//
+// Do not reinstate a piece here without a real PNG behind it.
 // ---------------------------------------------------------------------------
 
-export const COMMAND_CENTER_FOREGROUND = Object.freeze([
-  Object.freeze({ key: 'fore_pilaster_l', art: `${ART_ROOT}/fore_pilaster_l.png`, x: 0, y: 120, w: 24, h: 408, kind: 'pilaster-left' }),
-  Object.freeze({ key: 'fore_pilaster_r', art: `${ART_ROOT}/fore_pilaster_r.png`, x: 936, y: 120, w: 24, h: 408, kind: 'pilaster-right' }),
-  Object.freeze({ key: 'fore_wall_port', art: `${ART_ROOT}/fore_wall_port.png`, x: 912, y: 120, w: 24, h: 180, kind: 'wall-port' })
-]);
+export const COMMAND_CENTER_FOREGROUND = Object.freeze([]);
 
 // ---------------------------------------------------------------------------
 // L5 · conduits and packet routes (section 05). One 8x8 packet sprite, five tints.
@@ -844,10 +851,26 @@ export function stationById(stationId) {
   return areaById(stationId);
 }
 
+/**
+ * Where SpawnCamper stands for one telemetry entry, in three steps:
+ *
+ *   1. `context.station` — an explicit per-event override. Optional, and the only
+ *      thing that outranks the activity, because a sender that names a station
+ *      knows something the state alone cannot say.
+ *   2. the activity `state` — the normal path. The work moved, so he moves.
+ *   3. the workflow's own machine — the fallback, and the answer for every state
+ *      that names no activity (idle, waiting, complete, warning, error).
+ *
+ * Callers that pass no `state` get exactly the behaviour they had before step 2
+ * existed, which is why the whitebox and the machine-mapping tests are unaffected.
+ */
 export function areaIdForWorkflow(workflow) {
   const context = workflow && workflow.context;
   const contextArea = canonicalAreaId(context && (context.area || context.station));
   if (contextArea) return contextArea;
+
+  const stateArea = areaIdForState(workflow && workflow.state);
+  if (stateArea) return stateArea;
 
   return areaIdForMachineWorkflow(workflow) || COMMAND_CENTER_FALLBACK_AREA_ID;
 }

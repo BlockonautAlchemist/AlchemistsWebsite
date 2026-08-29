@@ -1346,34 +1346,18 @@ export class CommandCenterScene extends Phaser.Scene {
   // -------------------------------------------------------------------------
 
   buildForeground() {
-    const g = this.add.graphics().setDepth(DEPTH.fore);
     const { width, height, floorTop } = COMMAND_CENTER_CANVAS;
 
     COMMAND_CENTER_FOREGROUND.forEach((piece) => {
       if (this.textures.exists(piece.key)) {
         this.add.image(piece.x, piece.y, piece.key).setOrigin(0, 0).setDepth(DEPTH.fore);
-        return;
       }
-      if (piece.kind === 'pilaster-left' || piece.kind === 'pilaster-right') {
-        for (let x = 0; x < piece.w; x += 1) {
-          const t = piece.kind === 'pilaster-left' ? 1 - x / piece.w : x / piece.w;
-          g.fillStyle(P.bg0, t);
-          g.fillRect(piece.x + x, piece.y, 1, piece.h);
-        }
-        return;
-      }
-      if (piece.kind === 'wall-port') {
-        g.fillStyle(0x1c0627, 1);
-        g.fillRect(piece.x, piece.y, piece.w, piece.h);
-        g.lineStyle(1, P.line, 0.2);
-        g.lineBetween(piece.x, piece.y, piece.x, piece.y + piece.h);
-        return;
-      }
-      // No generic flat-rect fallback any more. It only ever served the machine
-      // lips, and every one of those is retired — the last, the Ops Console
-      // front, went with that machine's art. A piece with neither its texture
-      // nor a `kind` renderer draws nothing, which is the right answer: an
-      // untextured occluder over finished art is a block, not an occluder.
+      // A real texture is the only thing L6 draws. There are no procedural
+      // renderers left: the flat-rect fallback went with the machine lips, and
+      // the pilaster and wall-port renderers went with the two edge strips and
+      // the cable-port slab, which env_floor_wall.png now paints itself. An
+      // untextured occluder over finished art is a block, not an occluder, so a
+      // piece without its PNG draws nothing at all.
     });
 
     // Floor vignette and scanline overlay are baked here, never as full-screen fx.

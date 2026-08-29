@@ -30,6 +30,7 @@ const originalDatabaseUrl = process.env.DATABASE_URL;
 const WHITEBOXLESS_PROPS = new Set(['prop_wall_sigil']);
 
 let fallbackCommandCenterState;
+let COMMAND_CENTER_STATES;
 let areaIdForWorkflow;
 let canonicalAreaId;
 let machineAreaIdForWorkflow;
@@ -52,6 +53,8 @@ let routeThroughWalkGraph;
 let pointOnSegment;
 let walkNodes;
 let COMMAND_CENTER_WORKFLOW_AREAS;
+let COMMAND_CENTER_STATE_AREAS;
+let areaIdForState;
 let COMMAND_CENTER_MACHINES;
 let CAMPER_SHEETS;
 let camperSheetFor;
@@ -81,6 +84,7 @@ let replacedComponentKeys;
 
 test.before(async () => {
   ({
+    COMMAND_CENTER_STATES,
     fallbackCommandCenterState,
     normalizePublicState
   } = await import('../src/command-center/stateModel.mjs'));
@@ -95,10 +99,12 @@ test.before(async () => {
     COMMAND_CENTER_FOREGROUND,
     COMMAND_CENTER_PROPS,
     COMMAND_CENTER_WALK_GRAPH,
+    COMMAND_CENTER_STATE_AREAS,
     COMMAND_CENTER_WORKFLOW_AREAS
   } = await import('../src/command-center/sceneConfig.mjs'));
   ({
     COMMAND_CENTER_MACHINES,
+    areaIdForState,
     areaIdForWorkflow: machineAreaIdForWorkflow,
     machineForWorkflow,
     machineForHermesJobId,
@@ -526,6 +532,134 @@ test('maps workflows and context aliases to command center room areas', () => {
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'social-x' } }), 'x-communications');
   assert.equal(areaIdForWorkflow({ workflow: 'unknown', context: { station: 'terminal-publisher' } }), 'terminal-transmitter');
   assert.equal(canonicalAreaId('central-operations'), 'central-operations');
+});
+
+test('every activity state maps to a real workstation with a reachable anchor', () => {
+  const zonesById = new Map(COMMAND_CENTER_AREAS.map((area) => [area.id, area]));
+
+  Object.entries(COMMAND_CENTER_STATE_AREAS).forEach(([state, areaId]) => {
+    assert.equal(
+      COMMAND_CENTER_STATES.includes(state),
+      true,
+      `${state} is mapped to a workstation but is not a telemetry state`
+    );
+
+    const zone = zonesById.get(areaId);
+    assert.notEqual(zone, undefined, `${state} maps to unknown zone ${areaId}`);
+    assert.equal(areaIdForState(state), areaId, `${state} lookup`);
+
+    // He has to be able to walk there, on lanes, without a diagonal leg.
+    const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, zone.destination);
+    path.slice(1).forEach((point, index) => {
+      const previous = path[index];
+      assert.equal(
+        point.x !== previous.x && point.y !== previous.y,
+        false,
+        `route to ${areaId} for ${state} turned diagonally`
+      );
+    });
+    assert.deepEqual(
+      path[path.length - 1],
+      zone.destination,
+      `route to ${areaId} for ${state} does not end on its anchor`
+    );
+  });
+
+  // The five states that name no activity name no workstation either, which is what
+  // sends a finishing or faulting job back to its own machine instead of a bench.
+  ['idle', 'waiting', 'complete', 'warning', 'error'].forEach((state) => {
+    assert.equal(areaIdForState(state), '', `${state} must not claim a workstation`);
+  });
+  assert.equal(areaIdForState('not-a-state'), '');
+  assert.equal(areaIdForState(undefined), '');
+});
+
+test('activity state outranks the owning machine, and context.station outranks both', () => {
+  // The production path: one Hermes job, no context.station, walking the room.
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'researching' }), 'intelligence-research');
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'evaluating' }), 'profit-analyzer');
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'writing' }), 'creator-console');
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'newsletter' }), 'newsletter');
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'terminal_publish' }), 'terminal-transmitter');
+
+  // States with no workstation of their own fall through to the owning machine, so
+  // the job finishes and faults where it belongs.
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'complete' }), 'intelligence-research');
+  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'waiting' }), 'intelligence-research');
+  assert.equal(areaIdForWorkflow({ workflow: 'github', state: 'error' }), 'github-code');
+  assert.equal(areaIdForWorkflow({ workflow: 'github', state: 'idle' }), 'github-code');
+  assert.equal(areaIdForWorkflow({ workflow: 'unknown-workflow', state: 'complete' }), 'central-operations');
+
+  // The optional explicit override still wins over both.
+  assert.equal(
+    areaIdForWorkflow({ workflow: 'ai-news', state: 'writing', context: { station: 'scanner' } }),
+    'scanner-bench'
+  );
+  assert.equal(
+    areaIdForWorkflow({ workflow: 'ai-news', state: 'researching', context: { station: 'terminal-publisher' } }),
+    'terminal-transmitter'
+  );
+  // An unrecognised station is not an override, so the activity still decides.
+  assert.equal(
+    areaIdForWorkflow({ workflow: 'ai-news', state: 'coding', context: { station: 'nowhere' } }),
+    'github-code'
+  );
+});
+
+test('one hermes job walks the room as its activity state changes', () => {
+  const now = Date.parse('2025-03-04T12:00:00.000Z');
+  const stateAt = (state, offsetSeconds) => normalizePublicState({
+    success: true,
+    fetchedAt: new Date(now).toISOString(),
+    workflows: [{
+      agent: 'spawncamper9000',
+      workflow: 'ai-news',
+      workflowLabel: 'AI News',
+      state,
+      activity: `Hermes is ${state}`,
+      timestamp: new Date(now - offsetSeconds * 1000).toISOString(),
+      ttlSeconds: 900,
+      context: {}
+    }]
+  }, now);
+  const at = (state, offsetSeconds) => stateAt(state, offsetSeconds).primaryWorkflow;
+
+  // Same workflow, same machine owner, five different destinations.
+  assert.equal(at('researching', 5).areaId, 'intelligence-research');
+  assert.equal(at('evaluating', 5).areaId, 'profit-analyzer');
+  assert.equal(at('writing', 5).areaId, 'creator-console');
+  assert.equal(at('terminal_publish', 5).areaId, 'terminal-transmitter');
+  assert.equal(at('writing', 5).machineId, 'news-array', 'the owning machine is unchanged');
+  assert.equal(at('writing', 5).stationId, at('writing', 5).areaId);
+
+  // The complete acknowledgement finishes at the machine that owns the job.
+  const complete = at('complete', 5);
+  assert.equal(complete.displayState, 'complete');
+  assert.equal(complete.areaId, 'intelligence-research');
+
+  // And once the acknowledgement expires he is released: nothing left to focus on,
+  // so the scene walks him home to central operations and idles.
+  const settled = stateAt('complete', 120);
+  assert.equal(settled.primaryWorkflow, null);
+  assert.equal(settled.workflows[0].displayState, 'idle');
+  assert.equal(settled.workflows[0].areaId, 'intelligence-research');
+  assert.equal(settled.workflows[0].isVisible, false);
+
+  // A stale mid-activity entry reads as idle, so it stops pinning him to a bench.
+  const stale = normalizePublicState({
+    success: true,
+    workflows: [{
+      workflow: 'ai-news',
+      state: 'writing',
+      activity: 'Drafting the brief',
+      timestamp: new Date(now - 3600 * 1000).toISOString(),
+      ttlSeconds: 900,
+      isStale: true,
+      context: {}
+    }]
+  }, now).workflows[0];
+  assert.equal(stale.displayState, 'idle');
+  assert.equal(stale.areaId, 'intelligence-research');
 });
 
 test('canonical command center machines map the core research lanes exactly once', () => {
@@ -1240,8 +1374,14 @@ test('the env art swap leaves station whiteboxes and the camper rig alone', () =
     'a station prop lost its whitebox parts'
   );
 
-  // L6 foreground occluders are untouched by this pass.
-  assert.match(source, /piece\.kind === 'pilaster-left' \|\| piece\.kind === 'pilaster-right'/);
+  // L6 has no procedural renderer left to disturb: it draws a real texture or
+  // nothing, so nothing in this pass can paint a flat strip over the env art.
+  const foreBlockEnv = source.slice(
+    source.indexOf('buildForeground() {'),
+    source.indexOf('// Floor vignette and scanline overlay')
+  );
+  assert.equal(foreBlockEnv.length > 0, true, 'could not isolate buildForeground()');
+  assert.doesNotMatch(foreBlockEnv, /piece\.kind/);
 
   // L4 is not implicated at all: no env texture leaks into the character registry.
   const camperSource = fs.readFileSync(`${__dirname}/../src/command-center/camperSheets.mjs`, 'utf8');
@@ -2099,11 +2239,7 @@ test('foreground occlusion stays independent of the prop art registry', () => {
   // L6 is depth, not animation: its own art paths, its own loader seam, its own
   // layer above the character. It was never part of the retired overlay system.
   const foreKeys = new Set(COMMAND_CENTER_FOREGROUND.map((piece) => piece.key));
-  assert.deepEqual([...foreKeys].sort(), [
-    'fore_pilaster_l',
-    'fore_pilaster_r',
-    'fore_wall_port'
-  ]);
+  assert.deepEqual([...foreKeys], []);
 
   // Every machine-specific lip is retired. A lip existed to hide the camper's
   // legs behind a whitebox desk; a finished machine draws its own front, so a
@@ -2111,13 +2247,20 @@ test('foreground occlusion stays independent of the prop art registry', () => {
   // was the last one, retired with the Ops Console art — SpawnCamper stands in
   // that console's throne opening and the 192x14 bar at (384,204) cut his shins
   // in half while erasing the console's own plinth and feet.
+  //
+  // The three structural pieces went the same way once L1 shipped: the pilasters
+  // and the wall port never had a PNG either, and env_floor_wall.png draws the
+  // wall edges and cable port they stood in for. Same rule, one layer down.
   [
     'fore_code_bench_front',
     'fore_furnace_lip',
     'fore_ops_console_front',
     'fore_still_base',
     'fore_tx_front',
-    'fore_x_console_front'
+    'fore_x_console_front',
+    'fore_pilaster_l',
+    'fore_pilaster_r',
+    'fore_wall_port'
   ].forEach((key) => {
     assert.equal(foreKeys.has(key), false, `${key} should no longer render as foreground`);
   });

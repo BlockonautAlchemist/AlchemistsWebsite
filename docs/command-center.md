@@ -52,14 +52,16 @@ the pixel grid. Presentation scale is handled by CSS on the canvas element inste
 | L3 anim | 20 | screen content, LEDs, fans, radar, gauges, chamber fill, furnace heat | yes |
 | L4 camper | 25 | SpawnCamper9000 | yes |
 | L5 fx | 30 | packets, pulses, beam, spark, glitch, success flash, warning lamp | yes |
-| L6 fore | 40 | pilasters, wall port, vignette | no |
+| L6 fore | 40 | floor vignette, scanline overlay | no |
 
 Three rules hold the system together:
 
 1. A machine is never one sprite *while it is a whitebox*. It is an L2 body plus L3 component(s),
-   and shipped art collapses both into one L2 object. L6 is reserved for retained **structural**
-   foreground - pilasters and the wall port. Machine-specific lips are all retired: L6 outranks
-   L2 unconditionally, so a lip over a finished machine paints a block over real art.
+   and shipped art collapses both into one L2 object. L6 is reserved for **structural** foreground
+   that ships a real PNG, and no such piece currently exists - the registry is empty. Machine
+   lips are all retired, and so are the two wall pilasters and the wall port, which never had art
+   either: L6 outranks L2 and L1 unconditionally, so an untextured occluder over finished art is a
+   block, not an occluder.
 2. If a pixel changes with telemetry it lives in L3 or L5. Never in L1 or L2.
 3. Lighting that responds to state is an additive L5 overlay, not a repaint of L1.
 
@@ -211,7 +213,39 @@ the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic ven
 used to be (that bank has since been deleted outright), and the anchor is the floor 12px
 below it.
 
-Workflow-to-zone mappings:
+### Where SpawnCamper stands
+
+Three steps, first hit wins (`areaIdForWorkflow` in `sceneConfig.mjs`):
+
+1. **`context.station`** - an optional explicit override on the event. It outranks everything,
+   because a sender that names a station knows something the state cannot say.
+2. **the activity `state`** - the normal production path. The work moved, so he moves.
+3. **the workflow's own machine** - the fallback, and the answer for every state that names no
+   activity.
+
+State-to-workstation mappings (`COMMAND_CENTER_STATE_AREAS` in `machineConfig.mjs`):
+
+- `researching`, `browsing` -> `intelligence-research`
+- `scanning` -> `scanner-bench`
+- `evaluating` -> `profit-analyzer`
+- `thinking` -> `central-operations`
+- `writing` -> `creator-console`
+- `coding` -> `github-code`
+- `processing`, `executing` -> `model-infrastructure`
+- `newsletter` -> `newsletter`
+- `publishing`, `terminal_publish` -> `terminal-transmitter`
+- `posting_to_x` -> `x-communications`
+
+`idle`, `waiting`, `complete`, `warning` and `error` are deliberately unmapped: none of them
+names an activity, so none of them names a workstation. They fall through to step 3, which is
+what makes a job finish at the machine that owns it and a fault stay put instead of teleporting
+him mid-error. A `complete` is held for 30s (`COMMAND_CENTER_COMPLETE_ACK_MS`) and then reads as
+idle; with nothing else live he walks home to `central-operations`.
+
+Staleness is resolved before the zone is: an expired entry displays as `idle`, so it stops
+pinning him to a bench whose work ended hours ago.
+
+Workflow-to-zone mappings (step 3):
 
 - `ai-news` -> `intelligence-research`
 - `creator-content` -> `creator-console`
@@ -225,9 +259,10 @@ Workflow-to-zone mappings:
 - `social-x` -> `x-communications`
 - `terminal-publisher` -> `terminal-transmitter`
 
-Unknown workflow IDs fall back to `central-operations`. A valid `context.station` overrides
-the mapping through aliases such as `scanner`, `intel`, `creator`, `models`, `furnace`,
-`social-x`, `terminal-publisher`, `experiment`, and `lab`.
+Unknown workflow IDs fall back to `central-operations`. `context.station` resolves through
+aliases such as `scanner`, `intel`, `creator`, `models`, `furnace`, `social-x`,
+`terminal-publisher`, `experiment`, and `lab`; an unrecognised station is not an override, so
+the activity still decides.
 
 ## Conduit Map (section 05)
 
@@ -339,7 +374,6 @@ palette and the rivet language everything else copies.
 4. **Small animated components** - "Sprite sheet of tiny industrial animated parts on transparent background: 4-frame fan blade rotation, 6-frame LED bank blink, 8-frame radar sweep wedge, 10-frame liquid-light chamber fill purple to magenta, 6-frame rotating coil, 8-frame gold charge orb. Uniform 24px-scale chunk. [CONSTRAINT BLOCK]"
 5. **SpawnCamper9000** - "Pixel art robot mascot, 48x64 frames, 6-row sprite sheet: hovering gold ovoid torso with purple riveted collar, glass dome head containing a magenta brain, two dark segmented tentacle arms trailing, small hot orange chest core. Rows: idle 6f, hover travel front 8f, hover travel back 8f, operating console 6f, leaning to inspect 4f, glitch recoil 5f. Never walking, never legs. Baked soft ellipse shadow. [CONSTRAINT BLOCK]"
 6. **Effects** - "Transparent pixel FX sheet: 8x8 glowing data packet 4f, 32x32 soft pulse 6f, 64x16 scan sweep 8f, 8x64 vertical transmission beam 6f, 48x32 success flash 3f, 128x40 CRT static glitch band 4f, 16x16 spark 5f. Single hue each, white core, additive-friendly. [CONSTRAINT BLOCK]"
-7. **Foreground pieces** - "Ops console front strip, two 24x408 wall pilasters and a wall cable port. Slightly darker than the bodies, hard top edge highlight where applicable, transparent elsewhere. [CONSTRAINT BLOCK]"
 
 ### Atlases and budget
 
@@ -347,11 +381,13 @@ Three atlases at most - env (L1+L2), anim (L3+L5), char (L4) - each at or under 
 Every file is transparent except `env_floor_wall.png`. No semi-transparent anti-aliasing on
 L2 edges or the 3/4 overlap seams show. Runtime budget: at most 22 ambient plus 8 operational
 animations at once, one pooled emitter capped at 6 packets, at most 4 additive blends on
-screen, and no full-screen effects ever - the vignette and scanline are baked into L1 and L6.
+screen, and no full-screen effects ever - the vignette and scanline are baked into L1 and L6,
+which are the only things L6 draws.
 
 ## Integration Example
 
-SpawnCamper9000 or Hermes DGX can send heartbeats:
+SpawnCamper9000 or Hermes DGX can send heartbeats. One POST per activity change is all the
+movement needs - the state names the workstation:
 
 ```bash
 curl -X POST "$BASE_URL/api/command-center/telemetry" \
@@ -364,9 +400,24 @@ curl -X POST "$BASE_URL/api/command-center/telemetry" \
     "activity": "Scanning AI gaming tools",
     "ttlSeconds": 900,
     "context": {
-      "station": "scanner",
       "target": "AI gaming tools",
       "count": 12
     }
   }'
 ```
+
+`context.station` is optional and only needed to override the workstation the state would pick:
+
+```bash
+  -d '{ "workflow": "new-tools", "state": "writing", "activity": "Drafting",
+        "context": { "station": "scanner" } }'   # writes at the scanner bench instead
+```
+
+Replay the whole thing locally against a running dev server:
+
+```bash
+COMMAND_CENTER_INGEST_SECRET=... npm run command-center:replay -- --delay-ms=5000
+```
+
+The fixture's last six events are a single `ai-news` job with no `context.station`, walking
+research bench -> analyzer -> creator console -> still -> transmitter -> complete.

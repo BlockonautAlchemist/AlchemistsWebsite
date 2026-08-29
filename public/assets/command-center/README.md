@@ -451,8 +451,8 @@ and both are cosmetic:
   art's right edge at x822.5, because the cabinet is narrower than the box the lane was drawn
   against. It also no longer terminates on anything drawn: `prop_wall_receptacle` (24x30 @
   912,378) was blank whitebox and the cleanup pass deleted it, so the lane runs into the wall
-  shell. `fore_wall_port` sits in a different band (912,120 24x180). Routing, telemetry and the
-  lane's triggers are unchanged.
+  shell — and `fore_wall_port` (912,120 24x180), which sat in a different band anyway, is retired
+  along with the rest of L6. Routing, telemetry and the lane's triggers are unchanged.
 
 Art pass 4 is one machine and one deletion:
 
@@ -585,10 +585,12 @@ the other two are ruled out by real art, not by the whitebox:
   art, which rises to y 151. Clearing it would push a 161px-tall sheet off the top of the
   960x528 canvas.
 - **right (876-940)** — the cabinet would land x 862.5-953.5, through `fore_wall_port`
-  (912-936) and `fore_pilaster_r` (936-960).
+  (912-936) and `fore_pilaster_r` (936-960). Both are retired now, so that band is bare wall art;
+  the middle slot below was chosen on its own clearances and the decision is unchanged.
 - **middle (800-864)** — the cabinet lands x 786.5-877.5, y 20-180: 30px clear of the Profit
   Analyzer art's right edge at x 756.5, 57px clear of the Model Furnace art's top edge at
-  y 237, 34.5px clear of the wall port. The floor pocket beneath it is empty, because the
+  y 237, and 34.5px clear of where the wall port used to sit. The floor pocket beneath it is
+  empty, because the
   furnace's retired rack boxes left a bare band there.
 
 | machine | art occupies | against its boxes |
@@ -714,13 +716,13 @@ origin 24,60, shadow baked in. The real Sprite Fusion exports do not use that gr
 
 ## L6 · foreground / occlusion
 
-`fore_pilaster_l.png` / `fore_pilaster_r.png` 24x408 · `fore_wall_port.png` 24x180
+**No deliverables. The layer is empty.**
 
-These are **not** the retired component overlays and stay independent of machine art. They
-keep their own `art` paths in `COMMAND_CENTER_FOREGROUND` (`sceneConfig.mjs`), their own
-loader seam, and their own layer above the character.
+L6 is not the retired component-overlay system: it is a separate seam with its own `art` paths in
+`COMMAND_CENTER_FOREGROUND` (`sceneConfig.mjs`), its own loader pass and its own layer above the
+character. The seam stays. Its registry does not.
 
-**Every machine-specific lip is now retired.** A lip existed to hide the camper's legs behind a
+**Every machine-specific lip is retired.** A lip existed to hide the camper's legs behind a
 whitebox desk; a finished machine already draws its own front, and L6 outranks L2 unconditionally,
 so a surviving lip can only paint a flat block over real art. `fore_code_bench_front`,
 `fore_furnace_lip`, `fore_still_base`, `fore_tx_front` and `fore_x_console_front` went with their
@@ -736,9 +738,19 @@ Ops Console's throne opening and an occluder there is not obviously wrong:
 * **removed** — the console art already provides the front face down to y216, he stands cleanly in
   front of it framed by the arch, and head, torso, arms and legs all stay readable.
 
-The three pieces above are **structural**, not machine lips, and stay. Each carries a `kind` and
-its own procedural renderer; there is no generic flat-rect fallback left in `buildForeground`, so
-a foreground piece with neither its texture nor a `kind` now draws nothing at all.
+**The three structural pieces are retired too**, by the same rule one layer down:
+`fore_pilaster_l.png` / `fore_pilaster_r.png` (24x408 @ 0,120 and 936,120) and
+`fore_wall_port.png` (24x180 @ 912,120). None of them was ever produced, so each could only render
+as its procedural whitebox — two dark `bg0` gradient strips down the room's edges and a solid
+`0x1c0627` slab on the right wall — painted at `DEPTH.fore` over the finished
+`env_floor_wall.png`, which draws its own wall edges and cable port. They were structural while L1
+was a whitebox and had nothing left to occlude the moment it shipped. **They are not deliverables
+and must never be produced.**
+
+Nothing procedural is left in `buildForeground`: not the generic flat-rect fallback, which only
+ever served the lips, and not the `pilaster-*` / `wall-port` renderers, which went with the strips.
+L6 draws a real texture or it draws nothing — an untextured occluder over finished art is a block,
+not an occluder. Do not add a piece here without a PNG behind it.
 
 Generation prompts, the palette block and the constraint block live in
 `docs/command-center.md`. The character reference render is in

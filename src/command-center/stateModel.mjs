@@ -151,8 +151,12 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
   const displayMachine = machineDisplay(machineForWorkflow(entry.workflow));
+  // `displayState`, not `state`: a stale or long-finished entry reads as idle, and
+  // an idle entry names no activity, so it resolves back to its own machine rather
+  // than pinning him to a workstation whose work ended hours ago.
   const areaId = areaIdForWorkflow({
     workflow: entry.workflow,
+    state: displayState,
     context
   }) || COMMAND_CENTER_FALLBACK_AREA_ID;
   const completeAcknowledged = displayState === 'complete';

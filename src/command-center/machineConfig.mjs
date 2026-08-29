@@ -179,6 +179,38 @@ export const COMMAND_CENTER_WORKFLOW_AREAS = Object.freeze(
   )
 );
 
+// Which workstation the *activity* belongs to, as opposed to which machine owns
+// the Hermes job. This is the normal production path: a single job that moves
+// through researching -> evaluating -> writing -> terminal_publish walks
+// SpawnCamper across the room, because the work genuinely moved. The map above
+// stays the fallback and still answers "whose job is this".
+//
+// Five states are deliberately absent, and their absence is the feature:
+//
+//   idle, waiting, complete, warning, error
+//
+// None of them names an activity, so none of them names a workstation. They fall
+// through to the workflow's own machine, which is what makes a job finish where
+// it was being worked and an error stay put instead of teleporting him mid-fault.
+//
+// Assignments are a table edit, not an architecture change: rearranging the room
+// later means editing the right-hand column here and nothing else.
+export const COMMAND_CENTER_STATE_AREAS = Object.freeze({
+  researching: 'intelligence-research',
+  browsing: 'intelligence-research',
+  scanning: 'scanner-bench',
+  evaluating: 'profit-analyzer',
+  thinking: 'central-operations',
+  writing: 'creator-console',
+  coding: 'github-code',
+  processing: 'model-infrastructure',
+  executing: 'model-infrastructure',
+  newsletter: 'newsletter',
+  publishing: 'terminal-transmitter',
+  terminal_publish: 'terminal-transmitter',
+  posting_to_x: 'x-communications'
+});
+
 const MACHINE_BY_ID = new Map(COMMAND_CENTER_MACHINES.map((entry) => [entry.id, entry]));
 const MACHINE_BY_WORKFLOW = new Map(
   COMMAND_CENTER_MACHINES.flatMap((entry) => entry.workflows.map((workflow) => [workflow, entry]))
@@ -239,6 +271,11 @@ export function machineForHermesJobId(jobId) {
 
 export function areaIdForWorkflow(workflow) {
   return machineForWorkflow(workflow)?.areaId || '';
+}
+
+/** '' for a state with no workstation of its own — see COMMAND_CENTER_STATE_AREAS. */
+export function areaIdForState(state) {
+  return COMMAND_CENTER_STATE_AREAS[cleanToken(state)] || '';
 }
 
 export function machineDisplay(machine) {
