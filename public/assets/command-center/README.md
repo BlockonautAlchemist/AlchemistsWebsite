@@ -410,6 +410,12 @@ y 167-276 and swallows the crate whole. It was removed from `COMMAND_CENTER_PROP
 the registry together — a box present in one but not the other fails the
 every-prop-is-described invariant in either direction.
 
+> **The per-pass tables below record each sheet as it was measured on the day it shipped.**
+> The rendered *sizes* in them are still correct — no art has been regenerated — but the
+> *positions* were superseded by the floor-layout normalization pass. For where every machine
+> stands today, read **Floor layout — the normalization pass** further down; it is the current
+> record and the two must not be read as disagreeing.
+
 Known geometry consequences, kept here so the remaining sheets can be authored around
 them: the radar, scanner and uplink exports are considerably narrower than their whitebox
 boxes (68 vs 96, 72 vs 168, 64 vs 144) while heights line up, so the wide benches read as
@@ -515,6 +521,169 @@ props may drop their parts — the Ops Console ships art and keeps its whitebox 
 prop's `parts` is a decision that has to be made deliberately, and the suite fails if any other
 prop does it.
 
+## Floor layout — the normalization pass
+
+Everything above describes machines one sheet at a time. This section is the room.
+
+Art anchors **bottom-centre** on its box, so for every shipped machine the rendered centre is
+`box.x + box.w/2` and the rendered **foot** is `box.y + box.h`. That is the whole control
+surface: the room is laid out by moving boxes, and no PNG, frame size, `offsetY`,
+`shadowWidth` or `flipX` value was touched to do it.
+
+The layout pass was run against **measured opaque bounds** — every frame of every sheet
+decoded and unioned, with `offsetY` and `flipX` applied — not against the whitebox boxes,
+because the boxes are floor plans and the art routinely overflows them by 40-90px. Measuring
+found two machines that were physically **overlapping** on screen and a third pair touching at
+exactly 0px, none of which the box numbers showed:
+
+| was | measured |
+| --- | --- |
+| Profit Analyzer vs Model Furnace | **11.5 x 75px of shared pixels** |
+| Opportunity Radar vs Tool Scanner | **0px** — radar foot 240 = scanner top 240 |
+| Tool Scanner vs Repo Forge | **-2px** — scanner foot 312, forge top 310 |
+
+### The grid
+
+    columns (art centre x)    132 · 316 · 480 (fixed) · 660 · 828
+    foot lines (art bottom)   264 back rank · 360 centre desk · 456 front rank
+
+|  | C1 = 132 | C2 = 316 | C3 = 480 | C4 = 660 | C5 = 828 |
+| --- | --- | --- | --- | --- | --- |
+| **wall** | News Array | — | GA//OPS bank | Alchemists sigil (637.5) | Agent Lab |
+| **foot 216** | | | **Central Ops** | | |
+| **foot 264** | Opportunity Radar | Tool Scanner | — | Creator Console | — |
+| **foot 336** | | | | | Model Furnace |
+| **foot 360** | | | **Experiment Bench** | | |
+| **foot 456** | Repo Forge | Newsletter Still | X Uplink *(528)* | Profit Analyzer | Publish Transmitter |
+
+Preserved outright, and the regression guard that the pass stayed in its lane: the News Array
+wall strip, the GA//OPS display, the Alchemists emblem, the Agent Lab wall cabinet, Central
+Ops as the room's centre, the Experiment Bench as the central alchemist desk, and the X Uplink.
+
+### Where every machine stands now
+
+| machine | whitebox box | drawn content | rendered bounds | centre / foot |
+| --- | --- | --- | --- | --- |
+| Opportunity Radar | `84,192 96x72` | 54x68 | x 105-159, y 196-264 | 132 / 264 |
+| Repo Forge | `48,384 168x72` | 163x146 | x 50.5-213.5, y 310-456 | 132 / 456 |
+| News Array | `48,40 232x38` | 184x65 | x 71.5-255.5, y 13-78 | 163.5 / 78 |
+| Newsletter Still | `280,312 72x144` | 98x154 | x 266.5-364.5, y 302-456 | 315.5 / 456 |
+| Tool Scanner | `232,216 168x48` | 68x72 | x 282-350, y 192-264 | 316 / 264 |
+| Central Ops | `384,144 192x72` | 168x104 | x 395.5-563.5, y 112-216 | 479.5 / 216 |
+| Experiment Bench | `408,264 144x96` | 127x90 | x 416.5-543.5, y 270-360 | 480 / 360 |
+| X Uplink | `456,384 144x72` | 60x62 | x 498-558, y 392-454 | 528 / 454 |
+| Alchemists sigil | `612,34 52x52` | 47x62 | x 614-661, y 24-86 | 637.5 / 86 |
+| Creator Console | `600,192 120x72` | 123x109 | x 598.5-721.5, y 155-264 | 660 / 264 |
+| Profit Analyzer | `606,384 108x72` | 133x161 | x 593.5-726.5, y 295-456 | 660 / 456 |
+| Model Furnace | `768,264 120x72` | 165x123 | x 745-910, y 213-336 | 827.5 / 336 |
+| Publish Transmitter | `744,360 168x96` | 85x80 | x 785.5-870.5, y 376-456 | 828 / 456 |
+| Agent Lab | `786,20 92x160` | 91x161 | x 786.5-877.5, y 19-180 | 832 / 180 |
+
+The ±0.5px on the Newsletter Still, Central Ops and Model Furnace is cell-centring in the
+export, not a placement error: those three sheets are a half-pixel off centre in their own
+frame. The Model Furnace's 165px art in a 202px cell lands x 745-910 rather than 745.5-910.5.
+
+### Resulting clearances
+
+| clearance | pair |
+| --- | --- |
+| 18.5px | Profit Analyzer ↔ Model Furnace |
+| 23.5px | Creator Console ↔ Model Furnace |
+| 31px | Creator Console ↔ Profit Analyzer |
+| 32px | Experiment Bench ↔ X Uplink |
+| 33px | Model Furnace ↔ Agent Lab |
+| 35px | Central Ops ↔ Creator Console |
+| 35.5px | X Uplink ↔ Profit Analyzer |
+| 38px | Newsletter Still ↔ Tool Scanner |
+| 40px | Model Furnace ↔ Publish Transmitter |
+| 45.5px | Tool Scanner ↔ Central Ops |
+| 46px | Opportunity Radar ↔ Repo Forge |
+| 50px | Experiment Bench ↔ Profit Analyzer |
+| 50.5px | Central Ops ↔ Alchemists sigil |
+| 52px | Newsletter Still ↔ Experiment Bench |
+| 53px | Repo Forge ↔ Newsletter Still |
+| 54px | Central Ops ↔ Experiment Bench |
+| 55px | Experiment Bench ↔ Creator Console |
+| 59px | Profit Analyzer ↔ Publish Transmitter |
+
+Nothing overlaps. The tightest pair is 18.5px, against -11.5px and 0px before the pass.
+
+### Growth reserve — Opportunity Radar and Tool Scanner
+
+Both are placeholders at 54x68 and 68x72, and both are expected to be regenerated larger.
+Each holds a reserved **120x132 envelope** on its column centre and foot line — roughly the
+Profit Analyzer's and Model Furnace's size class. With both envelopes filled to that size the
+tightest clearances become 54px between the two of them, 54px to the News Array above, 46px to
+the Repo Forge, 24px to the GA//OPS bank and 20px to Central Ops. **Either machine can be
+regenerated at Large with no further layout change.**
+
+### The three off-grid exceptions
+
+1. **Model Furnace, foot 336.** Its column is capped above by the Agent Lab cabinet, which
+   hangs to y180, and below by the Publish Transmitter on the 456 rank — 276px of band for
+   123px of art. Foot 336 centres it (33px above, 40px below). Foot 360 would align it with the
+   Experiment Bench but leave **16px** to the transmitter, which would be the room's tightest
+   gap.
+2. **X Uplink, x528.** Its `D5` beam must rise through bare wall, and the only bare bands are
+   x 255-372, 588-614 and 661-786. On the C3 column centre the beam would cross the Ops
+   console, the Experiment Bench and the GA//OPS bank. It did not move at all — same box, same
+   sheet, same zone 06 anchor — and its foot sits at 454 rather than 456 because its cell
+   carries 2px of slack under the art.
+3. **Profit Analyzer / Model Furnace at 18.5px.** The east block is ~348px between the centre
+   lane and the east wall and has to hold 133px + 165px of art plus a walk lane. Side by side
+   at 30px is arithmetically impossible; they are stacked on different foot lines instead, so
+   the gap reads as a corridor.
+
+A fully uniform 3x5 grid is **not achievable** with these sheets and it is worth recording why:
+heights run 62px to 161px, so on a 96px row pitch the six machines taller than 96px each
+consume two row slots — 15 slots of demand against 13 available. The pass therefore locks the
+column centres and the front foot line, which are the alignments the eye actually reads, and
+lets the back rank carry only the machines that fit it.
+
+### Boxes are still floor plans, not outlines
+
+The pass moved boxes and deliberately did **not** resize them, so the art-vs-box mismatches
+survive. Hit rects follow the box, so bare floor inside a zone still selects it — the same
+rule that has applied since the first sheet shipped.
+
+| box | size | art it carries | consequence |
+| --- | --- | --- | --- |
+| `prop_scanner_bench` 232,216 | 168x48 | 68x72 at x 282-350 | the box straddles the west walk lane at x240; the **art** clears it by 42px |
+| `prop_tx_body` 744,360 | 168x96 | 85x80 at x 785.5-870.5 | ~41px of bare floor each side |
+| `prop_still_column` 280,312 | 72x144 | 98x154 at x 266.5-364.5 | art overhangs ~13px each side, rises 10px above the box |
+| `prop_profit_analyzer` 606,384 | 108x72 | 133x161 at x 593.5-726.5 | art overhangs ~12.5px each side, rises 89px above the box |
+| `prop_furnace_chamber` 768,264 | 120x72 | 165x123 at x 745-910 | art spans the rack boxes, which moved with it |
+| `prop_radar_drum` 84,192 | 96x72 | 54x68 at x 105-159 | art inset ~21px each side |
+
+Tightening these to the measured footprints is a separate pass, and would touch the secondary
+boxes (`prop_disk_tower`, `prop_still_tray`, `prop_x_mast`, `prop_rack_a`/`prop_rack_b`) too.
+
+### Routing that moved with the room
+
+Ids, labels, colours, directions, triggers and the `handoff`/`beam` flags are all unchanged;
+only geometry moved, and every segment is still axis-aligned.
+
+| lane / spur | change |
+| --- | --- |
+| `east-lane` | x 898 → **922** — x898 ran through the Model Furnace art, which reaches x910 |
+| `south-lane` | extended to x930 so `east-lane` still lands on it |
+| `centre-spur` | x 622 → **578** — x622 is inside the Profit Analyzer's new footprint |
+| `ops-spur`, `bench-spur` | far ends follow `centre-spur` to x578; the (480,228) and (480,372) anchors do not move |
+| `res-spur` → `north-spur` | (132,276)→(316,276); one segment ending on **both** the Radar and Tool Scanner anchors, crossing `west-lane` at a derived node |
+| `profit-spur` → `profit-stub` | (660,468)→(660,490); the Profit Analyzer is a front-rank machine now, so it is reached from the south lane |
+| `creator-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane` |
+| `newsletter-stub`, `tx-stub` | x 300 → 316, x 780 → 828 |
+| `furnace-spur` | (828,348)→(922,348) |
+| `agent-spur` | (832,192)→(832,348); zone 12's anchor is untouched, only the lane it lands on moved |
+| conduit `SP` spine | y 246 → **288**, x 108-900, so it runs along the front edge of the back rank instead of under it |
+| conduits `D1`,`D2`,`D4`,`D6`,`D7`,`D9` | re-pointed at their machines' new box edges; `D1` flips direction because its machines are now north of the spine |
+| conduit `D5` | y0-276 → **y0-144**. `D5` is the one conduit drawn at `DEPTH.fx`, i.e. *over* the machines, and at 276 it cut across the relocated Creator Console (y155-264). Shortened it now ends 11px above it, still clear of the GA//OPS bank and the emblem, and still leaves through the top of the frame under the "↑ X / EXTERNAL UPLINK" edge label |
+| conduits `D3`, `D8` | unchanged — `D8` now starts 6.5px off the transmitter cabinet instead of 41px |
+| edge label "→ GA TERMINAL" | x 806 → **884**; the transmitter moved out from under it |
+
+Every zone anchor still sits **south** of its machine, so one `operate_back` pose still serves
+the whole room, and every route from the (480,228) home point is still axis-aligned.
+
 ## Machine anchors — one machine, one primary box
 
 Production art is one sprite per workflow machine, so each workflow machine owns one
@@ -538,11 +707,13 @@ describe an actual floor footprint and ground contact, because a 123x109 console
 hang off a 38px wall strip without falling off the top of the canvas.
 
 Because a walk destination is per zone and not per machine, both consoles also needed their
-own zone — while they lived in zone 02 SpawnCamper walked to (132, 324) for them, which is
-across the room from where they now stand. Zones 10 and 11 carry destinations (324, 288)
-and (690, 324), each one axis-aligned spur off an existing lane (`creator-spur` off
-`west-lane`, `profit-spur` off `centre-spur`). Workflow keys, Hermes job ids, telemetry
-state names and the API are unchanged — only which zone a machine physically occupies moved.
+own zone — while they lived in zone 02 SpawnCamper walked to the intel bench for them, which
+was across the room from where they stand. Zones 10 and 11 were created for that, and the
+layout normalization pass then moved both again, into the mid-east column: they now carry
+destinations **(660, 276)** and **(660, 468)**, one axis-aligned segment each off an existing
+lane (`creator-spur` off `centre-spur`, `profit-stub` off `south-lane`). Workflow keys,
+Hermes job ids, telemetry state names and the API are unchanged through both moves — only
+which zone a machine physically occupies, and where that zone sits, has ever changed.
 
 The second three-way collision is now resolved outright:
 
@@ -587,11 +758,12 @@ the other two are ruled out by real art, not by the whitebox:
 - **right (876-940)** — the cabinet would land x 862.5-953.5, through `fore_wall_port`
   (912-936) and `fore_pilaster_r` (936-960). Both are retired now, so that band is bare wall art;
   the middle slot below was chosen on its own clearances and the decision is unchanged.
-- **middle (800-864)** — the cabinet lands x 786.5-877.5, y 20-180: 30px clear of the Profit
-  Analyzer art's right edge at x 756.5, 57px clear of the Model Furnace art's top edge at
-  y 237, and 34.5px clear of where the wall port used to sit. The floor pocket beneath it is
-  empty, because the
-  furnace's retired rack boxes left a bare band there.
+- **middle (800-864)** — the cabinet lands x 786.5-877.5, y 20-180, and it clears its
+  neighbours by a wide margin in both directions. Those margins moved with the layout
+  normalization pass: the Profit Analyzer left the far-east block for the mid-east column and
+  now ends at x726.5 (60px clear), and the Model Furnace came up to y213 (33px clear). The
+  floor pocket that used to sit beneath the cabinet is gone — the Model Furnace and the
+  Publish Transmitter share that column now.
 
 | machine | art occupies | against its boxes |
 | --- | --- | --- |
@@ -604,16 +776,23 @@ Because a walk destination is per zone and not per machine, Agent Lab also neede
 zone — `agents` resolved to zone 03 and SpawnCamper walked to the scanner bench at (132, 324)
 for it, right across the room. Zone 12 carries destination (832, 192): the box's centre, 12px
 below its bottom edge, the same offset every floor console uses, so the one `operate_back`
-pose serves it. Reaching it cost exactly **one** new segment, `agent-spur`, vertical from
-(832, 192) to (832, 372). Unlike the zone 10 and 11 spurs it is vertical rather than
-horizontal, and it lands on the horizontal `furnace-spur`; `buildWalkGraph` derives the
-crossing node at (832, 372) itself, so no existing lane was touched. He routes
-(480,228) → (622,228) → (622,490) → (898,490) → (898,372) → (832,372) → (832,192),
+pose serves it. **That anchor has never moved**, including through the layout normalization
+pass — the cabinet is one of the preserved wall pieces.
+
+Reaching it cost exactly **one** new segment, `agent-spur`, vertical, landing on the
+horizontal `furnace-spur` so that `buildWalkGraph` derives the crossing node itself and no
+existing lane needed editing. The layout pass raised the Model Furnace to foot 336, so the
+spur is now (832, 192) → (832, 348) and the derived crossing is (832, 348); the arrangement is
+otherwise identical. He routes
+(480,228) → (578,228) → (578,490) → (922,490) → (922,348) → (832,348) → (832,192),
 axis-aligned throughout. Workflow keys, Hermes job ids, telemetry state names and the API are
 unchanged — only which zone the machine physically occupies moved.
 
-Tool Scanner is untouched by all of this: same 168x48 bench at 48,264, same sheet, same
-components, same zone 03 destination at (132, 324). It is simply the only owner now.
+Tool Scanner was untouched by all of this — same 168x48 bench, same sheet, same components,
+same zone 03 — and it is the only owner. The layout normalization pass later slid that bench
+to 232,216 and its anchor to (316, 276), because at 48,264 its art touched the Opportunity
+Radar's at exactly 0px and overlapped the Repo Forge's by 2px. Sheet, components, workflow key,
+Hermes job and zone number are all still untouched.
 
 **Nothing outstanding.** Every workflow machine in the room owns a primary box of its own.
 `KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` is empty and stays empty — the test

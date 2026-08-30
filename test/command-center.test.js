@@ -2785,17 +2785,17 @@ test('machine art casts a generated contact shadow on the floor line it stands o
   // Centred on the anchor, sitting on the box's bottom edge — the same floor
   // contact point offsetY exists to preserve — and sized from the measured art.
   assert.deepEqual(propShadowFor(propSheetFor('creator_console'), boxFor('prop_creator_console')), {
-    x: 324, y: 276, width: 123 * 1.4, height: 123 * 1.4 * 0.22, alpha: 0.55
+    x: 660, y: 264, width: 123 * 1.4, height: 123 * 1.4 * 0.22, alpha: 0.55
   });
 
   // Anchors on a 120px chamber but spans 165px of racks: the pool follows the art.
   assert.deepEqual(propShadowFor(propSheetFor('furnace_chamber'), boxFor('prop_furnace_chamber')), {
-    x: 828, y: 360, width: 165 * 1.4, height: 165 * 1.4 * 0.22, alpha: 0.55
+    x: 828, y: 336, width: 165 * 1.4, height: 165 * 1.4 * 0.22, alpha: 0.55
   });
 
   // Small machines stop squashing: below the floor the pool would read as a line.
   assert.deepEqual(propShadowFor(propSheetFor('radar_drum'), boxFor('prop_radar_drum')), {
-    x: 120, y: 240, width: 54 * 1.4, height: 18, alpha: 0.55
+    x: 132, y: 264, width: 54 * 1.4, height: 18, alpha: 0.55
   });
 
   // Unmeasured art falls back to the whitebox footprint rather than casting none.
@@ -2911,12 +2911,12 @@ test('the twelve shipped machines anchor bottom-centre on their whitebox box', (
 
   // The Newsletter Still spelled out, since it is the one entry whose landing
   // point is not simply the bottom edge of its box. `prop_still_column` is
-  // {264,312,72,144}; 312 + 144 + 21 puts the base plate's last opaque row on
+  // {280,312,72,144}; 312 + 144 + 21 puts the base plate's last opaque row on
   // the same floor line every other machine contacts.
   const still = propSheetFor('still_column');
   const stillBox = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_still_column');
   assert.deepEqual(propAnchorFor(still, stillBox), {
-    x: 300, y: 477, originX: 0.5, originY: 1, scale: 1
+    x: 316, y: 477, originX: 0.5, originY: 1, scale: 1
   });
 });
 
@@ -3014,7 +3014,7 @@ test('the Newsletter Still art does not disturb routing, telemetry or the camper
 
   // Station geometry is untouched, so he still walks to the same anchor.
   const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'newsletter');
-  assert.deepEqual(zone.destination, { x: 300, y: 480 });
+  assert.deepEqual(zone.destination, { x: 316, y: 480 });
   assert.equal(zone.zoneNumber, '05');
 
   // And still works the machine with operate_back, in front of it.
@@ -3218,7 +3218,7 @@ test('the leftover whitebox dressing is deleted from geometry and registry toget
   // Zone 07 is the transmitter cabinet and nothing else now: the receptacle rect
   // came out of its hit area, so the inspect outline strokes one box.
   const tx = COMMAND_CENTER_AREAS.find((area) => area.id === 'terminal-transmitter');
-  assert.deepEqual([...tx.hitRects], [{ x: 696, y: 360, width: 168, height: 96 }]);
+  assert.deepEqual([...tx.hitRects], [{ x: 744, y: 360, width: 168, height: 96 }]);
   assert.deepEqual([...machineById('publish-transmitter').propKeys], ['prop_tx_body']);
 
   // The two boxes that deliberately survive. `prop_wall_crt_bank` is the GA//OPS
@@ -3413,8 +3413,8 @@ test('News Array keeps a wall-mounted anchor, and the consoles that left it stan
   // its own box, and neither is the wall strip any more. Both have since taken
   // delivery of their sheets, and both still anchor on the box they were given.
   [
-    ['creator-console', 'prop_creator_console', { x: 264, y: 204, w: 120, h: 72 }, PROP_ANIMATED, 22],
-    ['profit-analyzer', 'prop_profit_analyzer', { x: 636, y: 240, w: 108, h: 72 }, PROP_ANIMATED, 19]
+    ['creator-console', 'prop_creator_console', { x: 600, y: 192, w: 120, h: 72 }, PROP_ANIMATED, 22],
+    ['profit-analyzer', 'prop_profit_analyzer', { x: 606, y: 384, w: 108, h: 72 }, PROP_ANIMATED, 19]
   ].forEach(([machineId, propKey, expected, type, offsetY]) => {
     const machine = machineById(machineId);
     assert.deepEqual([...machine.propKeys], [propKey], `${machineId} anchor`);
@@ -3445,8 +3445,8 @@ test('News Array keeps a wall-mounted anchor, and the consoles that left it stan
 
 test('the two new stations are reachable, axis-aligned, and south-anchored', () => {
   [
-    ['creator-console', { x: 324, y: 288 }, '10'],
-    ['profit-analyzer', { x: 690, y: 324 }, '11']
+    ['creator-console', { x: 660, y: 276 }, '10'],
+    ['profit-analyzer', { x: 660, y: 468 }, '11']
   ].forEach(([areaId, destination, zoneNumber]) => {
     const zone = COMMAND_CENTER_AREAS.find((area) => area.id === areaId);
     assert.notEqual(zone, undefined, `${areaId} has no zone`);
@@ -3467,13 +3467,18 @@ test('the two new stations are reachable, axis-aligned, and south-anchored', () 
     assert.deepEqual(path[path.length - 1], destination, `route to ${areaId} does not end on its anchor`);
   });
 
-  // The two new spurs are horizontal and land on an existing vertical lane, which
-  // is what lets buildWalkGraph derive their crossing nodes with no other change.
-  const spurs = COMMAND_CENTER_WALK_GRAPH.segments.filter((s) => s.id === 'creator-spur' || s.id === 'profit-spur');
-  assert.equal(spurs.length, 2, 'both station spurs must exist');
-  spurs.forEach((spur) => assert.equal(spur.from.y, spur.to.y, `${spur.id} must be horizontal`));
-  assert.equal(spurs.find((s) => s.id === 'creator-spur').from.x, 240, 'creator-spur must meet west-lane');
-  assert.equal(spurs.find((s) => s.id === 'profit-spur').from.x, 622, 'profit-spur must meet centre-spur');
+  // Both stations moved to the mid-east column in the layout normalization pass,
+  // so each is now reached off centre-spur or the south lane rather than off
+  // west-lane. Each is still one segment landing on an existing lane, which is
+  // what lets buildWalkGraph derive the crossing node with no other change.
+  const creatorSpur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'creator-spur');
+  const profitStub = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'profit-stub');
+  assert.notEqual(creatorSpur, undefined, 'creator-spur must exist');
+  assert.notEqual(profitStub, undefined, 'profit-stub must exist');
+  assert.equal(creatorSpur.from.y, creatorSpur.to.y, 'creator-spur must be horizontal');
+  assert.equal(creatorSpur.from.x, 578, 'creator-spur must meet centre-spur');
+  assert.equal(profitStub.from.x, profitStub.to.x, 'profit-stub must be vertical');
+  assert.equal(profitStub.to.y, 490, 'profit-stub must meet the south lane');
 });
 
 test('the geometry pass changed no workflow, Hermes or telemetry semantics', () => {
@@ -3597,18 +3602,21 @@ test('zone 12 is reachable, axis-aligned, and south-anchored', () => {
 
   // Unlike the two floor stations, this spur is vertical: it drops from the wall
   // onto the horizontal furnace-spur, and buildWalkGraph derives the crossing at
-  // (832, 372) itself — one new segment, no edits to any existing lane.
+  // (832, 348) itself — one new segment, no edits to any existing lane. The
+  // crossing moved up with the Model Furnace, which now stands at foot 336.
   const spur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'agent-spur');
   assert.notEqual(spur, undefined, 'agent-spur must exist');
   assert.equal(spur.from.x, spur.to.x, 'agent-spur must be vertical');
   const furnace = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'furnace-spur');
   assert.equal(pointOnSegment({ x: spur.to.x, y: spur.to.y }, furnace), true, 'agent-spur must meet furnace-spur');
-  assert.notEqual(walkNodes().get('832,372'), undefined, 'the crossing node was not derived');
+  assert.notEqual(walkNodes().get('832,348'), undefined, 'the crossing node was not derived');
 
-  // Zone 03 stayed exactly where it was, and is Tool Scanner's alone.
+  // Zone 03 moved to the second west column in the layout normalization pass so
+  // the Opportunity Radar and the Tool Scanner stopped touching, but it is still
+  // Tool Scanner's alone and still one box.
   const scanner = COMMAND_CENTER_AREAS.find((area) => area.id === 'scanner-bench');
-  assert.deepEqual({ x: scanner.destination.x, y: scanner.destination.y }, { x: 132, y: 324 });
-  assert.deepEqual(scanner.hitRects[0], { x: 48, y: 264, width: 168, height: 48 });
+  assert.deepEqual({ x: scanner.destination.x, y: scanner.destination.y }, { x: 316, y: 276 });
+  assert.deepEqual(scanner.hitRects[0], { x: 232, y: 216, width: 168, height: 48 });
   assert.equal(canonicalAreaId('new-tools'), 'scanner-bench');
   assert.equal(canonicalAreaId('agents'), 'agent-lab');
   assert.equal(machineById('agent-lab').areaId, 'agent-lab');
@@ -3652,11 +3660,12 @@ test('the Experiment Bench occupies the retired Power Core pocket, alone', () =>
   }
   assert.deepEqual(path[path.length - 1], { x: 480, y: 372 });
 
-  // The spur he arrives on is the Power Core's, renamed and otherwise untouched:
-  // no walk-graph geometry changed for this move.
+  // The spur he arrives on is the Power Core's, renamed and kept: the bench end
+  // at (480, 372) has never moved. Only its far end followed centre-spur when the
+  // layout pass slid that lane from x622 to x578, clear of the Profit Analyzer.
   const spur = COMMAND_CENTER_WALK_GRAPH.segments.find((segment) => segment.id === 'bench-spur');
   assert.notEqual(spur, undefined, 'the centre spur is gone');
-  assert.deepEqual([spur.from, spur.to], [{ x: 480, y: 372 }, { x: 622, y: 372 }]);
+  assert.deepEqual([spur.from, spur.to], [{ x: 480, y: 372 }, { x: 578, y: 372 }]);
 
   // Semantics are exactly what they were on the scanner bench. Only areaId and
   // propKeys moved; the workflow key and the Hermes job did not.

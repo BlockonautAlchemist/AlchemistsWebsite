@@ -94,7 +94,7 @@ direction of travel. Six modes, named for the sheet rows so `spawncamper_9000.pn
 without remapping: `idle`, `hover_travel_front`, `hover_travel_back`, `operate`, `inspect`,
 `react`. `visualMappings.mjs` maps every telemetry state onto one of them via `camperAnim`.
 
-Movement follows the walk graph (4 lanes + 6 spurs, every segment axis-aligned), so no route
+Movement follows the walk graph (4 lanes + 11 spurs and stubs, every segment axis-aligned), so no route
 is ever diagonal and no diagonal cel is needed. On refresh he snaps to the newest live
 workflow's anchor with no travel animation and machines resume mid-loop - no replayed history.
 
@@ -191,16 +191,16 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | # | zone id | machine | anim | anchor |
 | --- | --- | --- | --- | --- |
 | 01 | `central-operations` | ops console (static art) + wall CRT array | GA//OPS wall readout | 480,228 |
-| 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,324 |
-| 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 132,324 (shared with 02) |
+| 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,276 |
+| 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 316,276 |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
-| 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 300,480 |
+| 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 316,480 |
 | 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,480 |
-| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 780,480 |
-| 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,372 |
+| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 828,480 |
+| 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,348 |
 | 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
-| 10 | `creator-console` | creator-facing console | full-object sheet | 324,288 |
-| 11 | `profit-analyzer` | monetization console | full-object sheet | 690,324 |
+| 10 | `creator-console` | creator-facing console | full-object sheet | 660,276 |
+| 11 | `profit-analyzer` | monetization console | full-object sheet | 660,468 |
 | 12 | `agent-lab` | wall-mounted lab cabinet | full-object sheet | 832,192 |
 
 Every anchor sits **south** of its machine, so one `operate` animation serves every working
@@ -212,6 +212,14 @@ each needed one when they stopped sharing another machine's box. Zone 12 is wall
 the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic vent bank
 used to be (that bank has since been deleted outright), and the anchor is the floor 12px
 below it.
+
+Zones 02, 03, 05, 07, 08, 10 and 11 moved in the **floor-layout normalization pass**, which
+re-laid the room on the machines' *rendered* art bounds rather than on their whitebox boxes.
+Nothing about what a zone means changed - no workflow key, Hermes job, telemetry state,
+alias or machine identity - only where the machine physically stands and therefore where the
+anchor south of it sits. The layout is five columns at art-centre x 132 / 316 / 480 / 660 /
+828 and three foot lines at art-bottom y 264 / 360 / 456; see the art README for the measured
+table, the three documented off-grid exceptions and the resulting clearances.
 
 ### Where SpawnCamper stands
 

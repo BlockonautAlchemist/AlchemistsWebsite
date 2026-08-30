@@ -104,7 +104,7 @@ export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
   ]),
   edgeLabels: Object.freeze([
     Object.freeze({ x: 600, y: 6, text: '↑ X / EXTERNAL UPLINK', color: COMMAND_CENTER_PALETTE.magenta, alpha: 0.85 }),
-    Object.freeze({ x: 806, y: 414, text: '→ GA TERMINAL', color: COMMAND_CENTER_PALETTE.gold, alpha: 0.85 }),
+    Object.freeze({ x: 884, y: 414, text: '→ GA TERMINAL', color: COMMAND_CENTER_PALETTE.gold, alpha: 0.85 }),
     Object.freeze({ x: 10, y: 498, text: '← PUBLIC SITE', color: COMMAND_CENTER_PALETTE.line, alpha: 0.7 })
   ])
 });
@@ -118,6 +118,26 @@ export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
 // registry; each of its entries names the prop key it covers and the scene
 // anchors the file to this box (bottom-centre). Loading a machine's real asset
 // suppresses the whitebox body below and its components in the next section.
+//
+// LAYOUT. Because art anchors bottom-centre, a shipped machine's rendered centre
+// is `x + w/2` and its rendered FOOT is `y + h` — the box positions the art even
+// when, as is usual, the art is nothing like the box's size. The floor is laid
+// out on those rendered numbers, not on the boxes:
+//
+//   columns (art centre x)   132 · 316 · 480 (fixed) · 660 · 828
+//   foot lines (art bottom)  264 back rank · 360 centre desk · 456 front rank
+//
+// Central Ops keeps its own wall-backed line at 216. Three pieces deliberately
+// sit off the grid, each for a dimensional reason recorded where it stands: the
+// Model Furnace (foot 336 — the Agent Lab cabinet caps its column at y180), the
+// X Uplink (x528 — its D5 beam has to rise through bare wall), and the Profit
+// Analyzer / Model Furnace pair, which clear each other by 18.5px because the
+// east block cannot hold 133px and 165px of art side by side with a lane.
+//
+// The whitebox boxes are floor plans and are deliberately NOT the art's outline:
+// the Tool Scanner's 68px art sits in a 168px box, the Publish Transmitter's 85px
+// cabinet in a 168px box. Hit rects follow the box, so bare floor inside a zone
+// still selects it. See the README for the full measured table.
 // ---------------------------------------------------------------------------
 
 const SHELL = COMMAND_CENTER_PALETTE.bg3;
@@ -156,7 +176,7 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_radar_drum',
     zone: 'intelligence-research',
-    x: 72, y: 168, w: 96, h: 72,
+    x: 84, y: 192, w: 96, h: 72,
     parts: Object.freeze([
       { x: 0, y: 22, w: 96, h: 50, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 },
       { x: 0, y: 0, w: 96, h: 24, fill: SHELL_TOP, stroke: SHELL_LINE, strokeAlpha: 0.28, radius: Object.freeze([48, 48, 0, 0]) }
@@ -165,7 +185,7 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_scanner_bench',
     zone: 'scanner-bench',
-    x: 48, y: 264, w: 168, h: 48,
+    x: 232, y: 216, w: 168, h: 48,
     parts: Object.freeze(deskParts(168, 48, 16))
   }),
   Object.freeze({
@@ -183,7 +203,7 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_still_column',
     zone: 'newsletter',
-    x: 264, y: 312, w: 72, h: 144,
+    x: 280, y: 312, w: 72, h: 144,
     parts: Object.freeze([
       { x: 6, y: 0, w: 60, h: 144, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, radius: Object.freeze([30, 30, 4, 4]), shadow: 4 },
       { x: 0, y: 36, w: 72, h: 8, fill: SHELL_TOP },
@@ -193,7 +213,7 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_still_tray',
     zone: 'newsletter',
-    x: 348, y: 408, w: 60, h: 48,
+    x: 364, y: 408, w: 60, h: 48,
     parts: Object.freeze([{ x: 0, y: 0, w: 60, h: 48, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
@@ -214,25 +234,25 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_tx_body',
     zone: 'terminal-transmitter',
-    x: 696, y: 360, w: 168, h: 96,
+    x: 744, y: 360, w: 168, h: 96,
     parts: Object.freeze(deskParts(168, 96, 28))
   }),
   Object.freeze({
     key: 'prop_rack_a',
     zone: 'model-infrastructure',
-    x: 744, y: 144, w: 72, h: 120,
+    x: 744, y: 120, w: 72, h: 120,
     parts: Object.freeze([{ x: 0, y: 0, w: 72, h: 120, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_rack_b',
     zone: 'model-infrastructure',
-    x: 840, y: 144, w: 72, h: 120,
+    x: 840, y: 120, w: 72, h: 120,
     parts: Object.freeze([{ x: 0, y: 0, w: 72, h: 120, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 }])
   }),
   Object.freeze({
     key: 'prop_furnace_chamber',
     zone: 'model-infrastructure',
-    x: 768, y: 288, w: 120, h: 72,
+    x: 768, y: 264, w: 120, h: 72,
     parts: Object.freeze(deskParts(120, 72, 22))
   }),
   // Zone 09. This 144x96 pocket in the middle of the room was the Power Core's
@@ -249,19 +269,24 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   // Zone 10 and 11. Creator Console and Profit Analyzer used to hang off
   // `prop_wall_feed_shells` alongside News Array — three unrelated workflow
   // machines on one 232x38 wall strip. Production art is one sprite per machine,
-  // so each now owns a floor-standing console box of its own. Both footprints
-  // were checked clash-free against every other prop and sit one axis-aligned
-  // spur off an existing lane.
+  // so each now owns a floor-standing console box of its own.
+  //
+  // The layout normalization pass then moved both into the mid-east column at
+  // centre x660: the Creator Console onto the back rank (art y 155-264) and the
+  // Profit Analyzer onto the front rank (art y 295-456). The Profit Analyzer's
+  // art is 133x161 against a 108x72 box, and at its old 636,240 it overlapped the
+  // Model Furnace's art by 11.5x75px — the collision the pass existed to fix.
+  // The two now share a column and clear each other by 96px vertically.
   Object.freeze({
     key: 'prop_creator_console',
     zone: 'creator-console',
-    x: 264, y: 204, w: 120, h: 72,
+    x: 600, y: 192, w: 120, h: 72,
     parts: Object.freeze(deskParts(120, 72, 22))
   }),
   Object.freeze({
     key: 'prop_profit_analyzer',
     zone: 'profit-analyzer',
-    x: 636, y: 240, w: 108, h: 72,
+    x: 606, y: 384, w: 108, h: 72,
     parts: Object.freeze(deskParts(108, 72, 22))
   }),
   // Zone 12. Agent Lab shared `prop_scanner_bench` with Tool Scanner — two
@@ -271,9 +296,11 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   // Hermes job behind it and has since been deleted outright, so the cabinet now
   // hangs on bare wall art. The box is the art's own 92x160 footprint rather than
   // a floor plan — nothing stands on the floor here, so there is no footprint to
-  // plan. It clears the Profit Analyzer art (which reaches x 756.5) by 30px and
-  // the Model Furnace art (which starts at y 237) by 57px, and the floor pocket
-  // beneath it is empty.
+  // plan. After the layout normalization pass it clears the Profit Analyzer art
+  // (which now ends at x 726.5, in the mid-east column) by 60px and the Model
+  // Furnace art (which now starts at y 213) by 33px. The Model Furnace and the
+  // Publish Transmitter stand in the column beneath it, so the floor pocket that
+  // used to sit here is gone.
   Object.freeze({
     key: 'prop_wall_agent_lab',
     zone: 'agent-lab',
@@ -353,19 +380,19 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   }),
   Object.freeze({
     key: 'anim_radar_sweep', zone: 'intelligence-research', kind: 'radar',
-    x: 84, y: 176, w: 72, h: 72,
+    x: 96, y: 200, w: 72, h: 72,
     color: COMMAND_CENTER_PALETTE.cyan, accent: COMMAND_CENTER_PALETTE.gold,
     ambient: 'blip', operational: 'sweep'
   }),
   Object.freeze({
     key: 'anim_scan_bar', zone: 'scanner-bench', kind: 'scan-bar',
-    x: 60, y: 280, w: 144, h: 16,
+    x: 244, y: 232, w: 144, h: 16,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     operational: 'sweep'
   }),
   Object.freeze({
     key: 'anim_scan_lamp', zone: 'scanner-bench', kind: 'lamp',
-    x: 60, y: 266, w: 6, h: 6,
+    x: 244, y: 218, w: 6, h: 6,
     color: COMMAND_CENTER_PALETTE.phosphor, ambient: 'blink', operational: 'solid'
   }),
   Object.freeze({
@@ -387,18 +414,18 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   }),
   Object.freeze({
     key: 'anim_still_chamber', zone: 'newsletter', kind: 'chamber',
-    x: 276, y: 330, w: 48, h: 108,
+    x: 292, y: 330, w: 48, h: 108,
     color: COMMAND_CENTER_PALETTE.brand, accent: COMMAND_CENTER_PALETTE.magenta,
     screen: 0x0d1b26, operational: 'fill'
   }),
   Object.freeze({
     key: 'anim_still_coil', zone: 'newsletter', kind: 'coil',
-    x: 288, y: 350, w: 24, h: 24,
+    x: 304, y: 350, w: 24, h: 24,
     color: COMMAND_CENTER_PALETTE.gold, operational: 'spin'
   }),
   Object.freeze({
     key: 'anim_tray_print', zone: 'newsletter', kind: 'tray',
-    x: 354, y: 414, w: 48, h: 20,
+    x: 370, y: 414, w: 48, h: 20,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     operational: 'print'
   }),
@@ -420,34 +447,34 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   }),
   Object.freeze({
     key: 'anim_tx_crt', zone: 'terminal-transmitter', kind: 'tx-crt',
-    x: 708, y: 372, w: 96, h: 60,
+    x: 756, y: 372, w: 96, h: 60,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     ambient: 'standby', operational: 'link'
   }),
   Object.freeze({
     key: 'anim_tx_charge', zone: 'terminal-transmitter', kind: 'charge-orb',
-    x: 816, y: 378, w: 36, h: 36,
+    x: 864, y: 378, w: 36, h: 36,
     color: COMMAND_CENTER_PALETTE.gold, operational: 'charge'
   }),
   Object.freeze({
     key: 'anim_tx_pilot', zone: 'terminal-transmitter', kind: 'lamp',
-    x: 756, y: 336, w: 12, h: 12,
+    x: 804, y: 336, w: 12, h: 12,
     color: COMMAND_CENTER_PALETTE.phosphor, ambient: 'blink'
   }),
   Object.freeze({
     key: 'anim_rack_leds', zone: 'model-infrastructure', kind: 'led-bank',
-    x: 752, y: 152, w: 56, h: 104, cells: 4,
+    x: 752, y: 128, w: 56, h: 104, cells: 4,
     color: COMMAND_CENTER_PALETTE.phosphor, accent: COMMAND_CENTER_PALETTE.cyan,
     ambient: 'blink', operational: 'chase'
   }),
   Object.freeze({
     key: 'anim_fan', zone: 'model-infrastructure', kind: 'fan-stack',
-    x: 848, y: 152, w: 56, h: 104, cells: 2,
+    x: 848, y: 128, w: 56, h: 104, cells: 2,
     color: COMMAND_CENTER_PALETTE.line, ambient: 'spin', operational: 'spin-fast'
   }),
   Object.freeze({
     key: 'anim_furnace_heat', zone: 'model-infrastructure', kind: 'furnace',
-    x: 780, y: 296, w: 96, h: 38,
+    x: 780, y: 272, w: 96, h: 38,
     color: COMMAND_CENTER_PALETTE.gold, accent: COMMAND_CENTER_PALETTE.magenta,
     screen: 0x1b0a10, bezel: COMMAND_CENTER_PALETTE.warm,
     ambient: 'gauge', operational: 'heat'
@@ -457,13 +484,13 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   // ships as one full-object sheet, so it declares no whitebox components at all.
   Object.freeze({
     key: 'anim_creator_screens', zone: 'creator-console', kind: 'crt-row',
-    x: 276, y: 214, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
+    x: 612, y: 202, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     ambient: 'flicker', operational: 'screens'
   }),
   Object.freeze({
     key: 'anim_profit_screens', zone: 'profit-analyzer', kind: 'crt-row',
-    x: 648, y: 250, w: 84, h: 26, cells: 3, cellWidth: 24, cellGap: 6,
+    x: 618, y: 394, w: 84, h: 26, cells: 3, cellWidth: 24, cellGap: 6,
     color: COMMAND_CENTER_PALETTE.gold, screen: 0x1b1405, bezel: 0x4a3a0e,
     ambient: 'flicker', operational: 'screens'
   })
@@ -503,17 +530,17 @@ export const COMMAND_CENTER_FOREGROUND = Object.freeze([]);
 
 export const COMMAND_CENTER_CONDUITS = Object.freeze([
   Object.freeze({
-    id: 'SP', label: 'spine', axis: 'h', x: 132, y: 246, length: 768, thickness: 6,
+    id: 'SP', label: 'spine', axis: 'h', x: 108, y: 288, length: 792, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.cyan, zone: '', idleTraffic: true,
     triggers: Object.freeze(['*'])
   }),
   Object.freeze({
-    id: 'D1', label: 'intel bench → spine', axis: 'v', x: 129, y: 252, length: 60, thickness: 6,
-    direction: -1, color: COMMAND_CENTER_PALETTE.cyan, zone: 'intelligence-research',
+    id: 'D1', label: 'intel bench → spine', axis: 'v', x: 132, y: 264, length: 24, thickness: 6,
+    direction: 1, color: COMMAND_CENTER_PALETTE.cyan, zone: 'intelligence-research',
     triggers: Object.freeze(['researching', 'browsing', 'scanning'])
   }),
   Object.freeze({
-    id: 'D2', label: 'spine → newsletter still', axis: 'v', x: 297, y: 252, length: 60, thickness: 6,
+    id: 'D2', label: 'spine → newsletter still', axis: 'v', x: 316, y: 294, length: 18, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.brand, zone: 'newsletter', handoff: true,
     triggers: Object.freeze(['newsletter', 'processing', 'writing'])
   }),
@@ -523,22 +550,22 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['evaluating', 'thinking'])
   }),
   Object.freeze({
-    id: 'D4', label: 'spine → X console', axis: 'v', x: 525, y: 252, length: 132, thickness: 6,
+    id: 'D4', label: 'spine → X console', axis: 'v', x: 525, y: 294, length: 90, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.magenta, zone: 'x-communications',
     triggers: Object.freeze(['writing', 'posting_to_x', 'publishing'])
   }),
   Object.freeze({
-    id: 'D5', label: 'X mast → outside', axis: 'v', x: 596, y: 0, length: 276, thickness: 8,
+    id: 'D5', label: 'X mast → outside', axis: 'v', x: 596, y: 0, length: 144, thickness: 8,
     direction: -1, color: COMMAND_CENTER_PALETTE.magenta, zone: 'x-communications', beam: true,
     triggers: Object.freeze(['posting_to_x'])
   }),
   Object.freeze({
-    id: 'D6', label: 'spine → terminal transmitter', axis: 'v', x: 777, y: 252, length: 108, thickness: 6,
+    id: 'D6', label: 'spine → terminal transmitter', axis: 'v', x: 840, y: 294, length: 66, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.gold, zone: 'terminal-transmitter', handoff: true,
     triggers: Object.freeze(['terminal_publish'])
   }),
   Object.freeze({
-    id: 'D7', label: 'furnace → spine', axis: 'v', x: 825, y: 252, length: 36, thickness: 6,
+    id: 'D7', label: 'furnace → spine', axis: 'v', x: 810, y: 294, length: 42, thickness: 6,
     direction: -1, color: COMMAND_CENTER_PALETTE.gold, zone: 'model-infrastructure',
     triggers: Object.freeze(['processing', 'executing'])
   }),
@@ -548,7 +575,7 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['terminal_publish'])
   }),
   Object.freeze({
-    id: 'D9', label: 'spine → code station', axis: 'v', x: 153, y: 252, length: 132, thickness: 6,
+    id: 'D9', label: 'spine → code station', axis: 'v', x: 132, y: 294, length: 90, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.phosphor, zone: 'github-code',
     triggers: Object.freeze(['coding'])
   })
@@ -562,23 +589,37 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
 export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
   segments: Object.freeze([
     Object.freeze({ id: 'west-lane', from: Object.freeze({ x: 240, y: 132 }), to: Object.freeze({ x: 240, y: 496 }) }),
-    Object.freeze({ id: 'south-lane', from: Object.freeze({ x: 240, y: 490 }), to: Object.freeze({ x: 900, y: 490 }) }),
-    Object.freeze({ id: 'east-lane', from: Object.freeze({ x: 898, y: 300 }), to: Object.freeze({ x: 898, y: 492 }) }),
-    Object.freeze({ id: 'centre-spur', from: Object.freeze({ x: 622, y: 228 }), to: Object.freeze({ x: 622, y: 492 }) }),
-    Object.freeze({ id: 'ops-spur', from: Object.freeze({ x: 480, y: 228 }), to: Object.freeze({ x: 622, y: 228 }) }),
-    Object.freeze({ id: 'res-spur', from: Object.freeze({ x: 132, y: 324 }), to: Object.freeze({ x: 240, y: 324 }) }),
+    // Extended east to x930 so east-lane, which moved out from under the Model
+    // Furnace's art, still lands on it.
+    Object.freeze({ id: 'south-lane', from: Object.freeze({ x: 240, y: 490 }), to: Object.freeze({ x: 930, y: 490 }) }),
+    // x898 ran straight through the Model Furnace's art, which reaches x910.5. At
+    // x922 the lane clears it by 11.5px and still sits 12px inside the floor marking.
+    Object.freeze({ id: 'east-lane', from: Object.freeze({ x: 922, y: 300 }), to: Object.freeze({ x: 922, y: 492 }) }),
+    // x622 was 1.5px off the Profit Analyzer's old art edge and is inside its new
+    // footprint (x 593.5-726.5). At x578 it runs the corridor between the central
+    // column (Ops art ends x563.5) and the mid-east column, clear of both.
+    Object.freeze({ id: 'centre-spur', from: Object.freeze({ x: 578, y: 228 }), to: Object.freeze({ x: 578, y: 492 }) }),
+    Object.freeze({ id: 'ops-spur', from: Object.freeze({ x: 480, y: 228 }), to: Object.freeze({ x: 578, y: 228 }) }),
+    // One segment for the whole back rank west of centre: it ends on the Opportunity
+    // Radar anchor AND the Tool Scanner anchor, and buildWalkGraph derives its
+    // crossing with west-lane at (240, 276) itself. Replaces the old res-spur.
+    Object.freeze({ id: 'north-spur', from: Object.freeze({ x: 132, y: 276 }), to: Object.freeze({ x: 316, y: 276 }) }),
     Object.freeze({ id: 'code-spur', from: Object.freeze({ x: 132, y: 468 }), to: Object.freeze({ x: 240, y: 468 }) }),
-    Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 828, y: 372 }), to: Object.freeze({ x: 898, y: 372 }) }),
-    Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 622, y: 372 }) }),
-    Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 300, y: 480 }), to: Object.freeze({ x: 300, y: 490 }) }),
+    Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 828, y: 348 }), to: Object.freeze({ x: 922, y: 348 }) }),
+    Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 578, y: 372 }) }),
+    Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 316, y: 480 }), to: Object.freeze({ x: 316, y: 490 }) }),
     Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
-    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 780, y: 480 }), to: Object.freeze({ x: 780, y: 490 }) }),
-    Object.freeze({ id: 'creator-spur', from: Object.freeze({ x: 240, y: 288 }), to: Object.freeze({ x: 324, y: 288 }) }),
-    Object.freeze({ id: 'profit-spur', from: Object.freeze({ x: 622, y: 324 }), to: Object.freeze({ x: 690, y: 324 }) }),
-    // Zone 12. Vertical, so it lands on the horizontal `furnace-spur` at
-    // (832, 372) — buildWalkGraph derives that crossing node itself, which is why
-    // reaching the upper-right wall costs exactly one new segment and no edits.
-    Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 832, y: 192 }), to: Object.freeze({ x: 832, y: 372 }) })
+    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 828, y: 480 }), to: Object.freeze({ x: 828, y: 490 }) }),
+    // The Creator Console moved to the mid-east column, so its spur comes off
+    // centre-spur rather than west-lane. Still horizontal, still one segment.
+    Object.freeze({ id: 'creator-spur', from: Object.freeze({ x: 578, y: 276 }), to: Object.freeze({ x: 660, y: 276 }) }),
+    // The Profit Analyzer moved to the front rank, so it is reached from the south
+    // lane by a stub like every other front-rank machine. Replaces profit-spur.
+    Object.freeze({ id: 'profit-stub', from: Object.freeze({ x: 660, y: 468 }), to: Object.freeze({ x: 660, y: 490 }) }),
+    // Zone 12. Vertical, so it lands on the horizontal furnace-spur at (832, 348) —
+    // buildWalkGraph derives that crossing node itself, which is why reaching the
+    // upper-right wall still costs exactly one segment and no edits elsewhere.
+    Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 832, y: 192 }), to: Object.freeze({ x: 832, y: 348 }) })
   ])
 });
 
@@ -608,11 +649,11 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'intelligence-research', zoneNumber: '02',
     label: 'AI Intelligence Array', shortLabel: 'Intel',
     description: 'Radar drum + wall feed bank',
-    x: 120, y: 204,
-    destination: Object.freeze({ x: 132, y: 324 }),
-    bounds: Object.freeze({ x: 48, y: 40, width: 232, height: 200 }),
+    x: 132, y: 204,
+    destination: Object.freeze({ x: 132, y: 276 }),
+    bounds: Object.freeze({ x: 48, y: 40, width: 232, height: 224 }),
     hitRects: Object.freeze([
-      Object.freeze({ x: 72, y: 168, width: 96, height: 72 }),
+      Object.freeze({ x: 84, y: 192, width: 96, height: 72 }),
       Object.freeze({ x: 48, y: 40, width: 232, height: 38 })
     ]),
     color: COMMAND_CENTER_PALETTE.cyan,
@@ -624,10 +665,10 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'scanner-bench', zoneNumber: '03',
     label: 'Scanner Bench', shortLabel: 'Scanner',
     description: 'New Tools',
-    x: 132, y: 288,
-    destination: Object.freeze({ x: 132, y: 324 }),
-    bounds: Object.freeze({ x: 48, y: 264, width: 168, height: 48 }),
-    hitRects: Object.freeze([Object.freeze({ x: 48, y: 264, width: 168, height: 48 })]),
+    x: 316, y: 240,
+    destination: Object.freeze({ x: 316, y: 276 }),
+    bounds: Object.freeze({ x: 232, y: 216, width: 168, height: 48 }),
+    hitRects: Object.freeze([Object.freeze({ x: 232, y: 216, width: 168, height: 48 })]),
     color: COMMAND_CENTER_PALETTE.cyan,
     accent: COMMAND_CENTER_PALETTE.phosphor,
     conduits: Object.freeze(['D1']),
@@ -653,12 +694,12 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'newsletter', zoneNumber: '05',
     label: 'Newsletter Still', shortLabel: 'Letter',
     description: 'Distillation column + tray',
-    x: 300, y: 384,
-    destination: Object.freeze({ x: 300, y: 480 }),
-    bounds: Object.freeze({ x: 264, y: 312, width: 144, height: 144 }),
+    x: 316, y: 384,
+    destination: Object.freeze({ x: 316, y: 480 }),
+    bounds: Object.freeze({ x: 280, y: 312, width: 144, height: 144 }),
     hitRects: Object.freeze([
-      Object.freeze({ x: 264, y: 312, width: 72, height: 144 }),
-      Object.freeze({ x: 348, y: 408, width: 60, height: 48 })
+      Object.freeze({ x: 280, y: 312, width: 72, height: 144 }),
+      Object.freeze({ x: 364, y: 408, width: 60, height: 48 })
     ]),
     color: COMMAND_CENTER_PALETTE.brand,
     accent: COMMAND_CENTER_PALETTE.magenta,
@@ -685,12 +726,12 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'terminal-transmitter', zoneNumber: '07',
     label: 'Terminal Transmitter', shortLabel: 'Terminal',
     description: 'Publish transmitter cabinet',
-    x: 780, y: 408,
-    destination: Object.freeze({ x: 780, y: 480 }),
-    bounds: Object.freeze({ x: 696, y: 360, width: 168, height: 96 }),
+    x: 828, y: 408,
+    destination: Object.freeze({ x: 828, y: 480 }),
+    bounds: Object.freeze({ x: 744, y: 360, width: 168, height: 96 }),
     // One rect, not two: the 24x30 wall receptacle at 912,378 was blank whitebox
     // dressing and is deleted. The cabinet is the whole of zone 07.
-    hitRects: Object.freeze([Object.freeze({ x: 696, y: 360, width: 168, height: 96 })]),
+    hitRects: Object.freeze([Object.freeze({ x: 744, y: 360, width: 168, height: 96 })]),
     color: COMMAND_CENTER_PALETTE.cyan,
     accent: COMMAND_CENTER_PALETTE.gold,
     conduits: Object.freeze(['D6', 'D8']),
@@ -700,13 +741,13 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'model-infrastructure', zoneNumber: '08',
     label: 'Model Furnace', shortLabel: 'Models',
     description: '2 racks + processing chamber',
-    x: 828, y: 240,
-    destination: Object.freeze({ x: 828, y: 372 }),
-    bounds: Object.freeze({ x: 744, y: 144, width: 168, height: 216 }),
+    x: 828, y: 216,
+    destination: Object.freeze({ x: 828, y: 348 }),
+    bounds: Object.freeze({ x: 744, y: 120, width: 168, height: 216 }),
     hitRects: Object.freeze([
-      Object.freeze({ x: 744, y: 144, width: 72, height: 120 }),
-      Object.freeze({ x: 840, y: 144, width: 72, height: 120 }),
-      Object.freeze({ x: 768, y: 288, width: 120, height: 72 })
+      Object.freeze({ x: 744, y: 120, width: 72, height: 120 }),
+      Object.freeze({ x: 840, y: 120, width: 72, height: 120 }),
+      Object.freeze({ x: 768, y: 264, width: 120, height: 72 })
     ]),
     color: COMMAND_CENTER_PALETTE.gold,
     accent: COMMAND_CENTER_PALETTE.warm,
@@ -728,17 +769,20 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   }),
   // Zones 10 and 11 exist because a walk destination is per-zone, not per-machine:
   // while Creator Console and Profit Analyzer lived in zone 02 the camper walked to
-  // (132, 324) for them, which is now across the room from where they stand. Their
-  // workflow keys, Hermes jobs and telemetry state names are untouched — only which
-  // zone the machine physically occupies moved.
+  // the intel bench for them, which was across the room from where they stand. Both
+  // moved again in the layout normalization pass — into the mid-east column, back
+  // rank and front rank — so their destinations are (660, 276) and (660, 468), one
+  // off `creator-spur` and one off `profit-stub`. Their workflow keys, Hermes jobs
+  // and telemetry state names are untouched throughout: only which zone the machine
+  // physically occupies, and where that zone sits, has ever moved.
   Object.freeze({
     id: 'creator-console', zoneNumber: '10',
     label: 'Creator Console', shortLabel: 'Creator',
     description: 'Creator-facing intelligence console',
-    x: 324, y: 240,
-    destination: Object.freeze({ x: 324, y: 288 }),
-    bounds: Object.freeze({ x: 264, y: 204, width: 120, height: 72 }),
-    hitRects: Object.freeze([Object.freeze({ x: 264, y: 204, width: 120, height: 72 })]),
+    x: 660, y: 228,
+    destination: Object.freeze({ x: 660, y: 276 }),
+    bounds: Object.freeze({ x: 600, y: 192, width: 120, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 600, y: 192, width: 120, height: 72 })]),
     color: COMMAND_CENTER_PALETTE.cyan,
     accent: COMMAND_CENTER_PALETTE.magenta,
     conduits: Object.freeze([]),
@@ -748,10 +792,10 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'profit-analyzer', zoneNumber: '11',
     label: 'Profit Analyzer', shortLabel: 'Profit',
     description: 'Monetization and partner opportunity console',
-    x: 690, y: 276,
-    destination: Object.freeze({ x: 690, y: 324 }),
-    bounds: Object.freeze({ x: 636, y: 240, width: 108, height: 72 }),
-    hitRects: Object.freeze([Object.freeze({ x: 636, y: 240, width: 108, height: 72 })]),
+    x: 660, y: 420,
+    destination: Object.freeze({ x: 660, y: 468 }),
+    bounds: Object.freeze({ x: 606, y: 384, width: 108, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 606, y: 384, width: 108, height: 72 })]),
     color: COMMAND_CENTER_PALETTE.gold,
     accent: COMMAND_CENTER_PALETTE.phosphor,
     conduits: Object.freeze([]),
