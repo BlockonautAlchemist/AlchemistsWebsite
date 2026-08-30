@@ -2090,11 +2090,12 @@ test('only the machine SpawnCamper stands at runs; every other one holds frame 0
   assert.deepEqual(room('terminal-transmitter'), ['tx_body']);
   assert.deepEqual(room('profit-analyzer'), ['profit_analyzer']);
 
-  // Zone 02 is the one zone that owns two finished machines — News Array on the
-  // wall and the Opportunity Radar on the floor below it — and standing there
-  // wakes both. Attendance is per zone, not per machine, and always was; the
-  // News Array sheet is simply the first delivery that makes that visible.
-  assert.deepEqual(room('intelligence-research'), ['radar_drum', 'wall_feed_shells']);
+  // Zone 02 used to be the one zone that owned two finished machines, News Array on
+  // the wall and the Opportunity Radar on the floor below it. The swap moved the drum
+  // to the mid-east column and it was carved out into zone 13, so each zone now owns
+  // exactly one machine and standing at one wakes only that one.
+  assert.deepEqual(room('intelligence-research'), ['wall_feed_shells']);
+  assert.deepEqual(room('opportunity-radar'), ['radar_drum']);
 
   // Every zone that owns art wakes exactly its own art, one zone at a time.
   byZone.forEach((entries, zoneId) => {
@@ -2785,7 +2786,7 @@ test('machine art casts a generated contact shadow on the floor line it stands o
   // Centred on the anchor, sitting on the box's bottom edge — the same floor
   // contact point offsetY exists to preserve — and sized from the measured art.
   assert.deepEqual(propShadowFor(propSheetFor('creator_console'), boxFor('prop_creator_console')), {
-    x: 660, y: 264, width: 123 * 1.4, height: 123 * 1.4 * 0.22, alpha: 0.55
+    x: 132, y: 264, width: 123 * 1.4, height: 123 * 1.4 * 0.22, alpha: 0.55
   });
 
   // Anchors on a 120px chamber but spans 165px of racks: the pool follows the art.
@@ -2795,7 +2796,7 @@ test('machine art casts a generated contact shadow on the floor line it stands o
 
   // Small machines stop squashing: below the floor the pool would read as a line.
   assert.deepEqual(propShadowFor(propSheetFor('radar_drum'), boxFor('prop_radar_drum')), {
-    x: 132, y: 264, width: 54 * 1.4, height: 18, alpha: 0.55
+    x: 660, y: 264, width: 54 * 1.4, height: 18, alpha: 0.55
   });
 
   // Unmeasured art falls back to the whitebox footprint rather than casting none.
@@ -3413,7 +3414,7 @@ test('News Array keeps a wall-mounted anchor, and the consoles that left it stan
   // its own box, and neither is the wall strip any more. Both have since taken
   // delivery of their sheets, and both still anchor on the box they were given.
   [
-    ['creator-console', 'prop_creator_console', { x: 600, y: 192, w: 120, h: 72 }, PROP_ANIMATED, 22],
+    ['creator-console', 'prop_creator_console', { x: 72, y: 192, w: 120, h: 72 }, PROP_ANIMATED, 22],
     ['profit-analyzer', 'prop_profit_analyzer', { x: 606, y: 384, w: 108, h: 72 }, PROP_ANIMATED, 19]
   ].forEach(([machineId, propKey, expected, type, offsetY]) => {
     const machine = machineById(machineId);
@@ -3445,7 +3446,7 @@ test('News Array keeps a wall-mounted anchor, and the consoles that left it stan
 
 test('the two new stations are reachable, axis-aligned, and south-anchored', () => {
   [
-    ['creator-console', { x: 660, y: 276 }, '10'],
+    ['creator-console', { x: 132, y: 276 }, '10'],
     ['profit-analyzer', { x: 660, y: 468 }, '11']
   ].forEach(([areaId, destination, zoneNumber]) => {
     const zone = COMMAND_CENTER_AREAS.find((area) => area.id === areaId);
@@ -3467,16 +3468,23 @@ test('the two new stations are reachable, axis-aligned, and south-anchored', () 
     assert.deepEqual(path[path.length - 1], destination, `route to ${areaId} does not end on its anchor`);
   });
 
-  // Both stations moved to the mid-east column in the layout normalization pass,
-  // so each is now reached off centre-spur or the south lane rather than off
-  // west-lane. Each is still one segment landing on an existing lane, which is
-  // what lets buildWalkGraph derive the crossing node with no other change.
-  const creatorSpur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'creator-spur');
+  // The Profit Analyzer is reached off the south lane. The Creator Console swapped
+  // columns with the Opportunity Radar and is now reached off north-spur, so the
+  // mid-east segment built for it carries the radar's name instead — same geometry,
+  // still one horizontal segment landing on centre-spur.
+  const radarSpur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'radar-spur');
+  const northSpur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'north-spur');
   const profitStub = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'profit-stub');
-  assert.notEqual(creatorSpur, undefined, 'creator-spur must exist');
+  assert.equal(
+    COMMAND_CENTER_WALK_GRAPH.segments.some((s) => s.id === 'creator-spur'), false,
+    'creator-spur was renamed and must not linger'
+  );
+  assert.notEqual(radarSpur, undefined, 'radar-spur must exist');
   assert.notEqual(profitStub, undefined, 'profit-stub must exist');
-  assert.equal(creatorSpur.from.y, creatorSpur.to.y, 'creator-spur must be horizontal');
-  assert.equal(creatorSpur.from.x, 578, 'creator-spur must meet centre-spur');
+  assert.equal(radarSpur.from.y, radarSpur.to.y, 'radar-spur must be horizontal');
+  assert.equal(radarSpur.from.x, 578, 'radar-spur must meet centre-spur');
+  assert.deepEqual(radarSpur.to, { x: 660, y: 276 }, 'radar-spur must end on the zone 13 anchor');
+  assert.deepEqual(northSpur.from, { x: 132, y: 276 }, 'north-spur must end on the Creator Console anchor');
   assert.equal(profitStub.from.x, profitStub.to.x, 'profit-stub must be vertical');
   assert.equal(profitStub.to.y, 490, 'profit-stub must meet the south lane');
 });
@@ -3512,10 +3520,16 @@ test('the geometry pass changed no workflow, Hermes or telemetry semantics', () 
     assert.equal(machineForHermesJobId(jobId)?.id, machineId, `${jobId} Hermes mapping`);
   });
 
-  // Zone 02 still exists and still owns News Array and the radar.
+  // Zone 02 still exists and still owns News Array. The Opportunity Radar was carved
+  // out of it into zone 13 when the two machines swapped columns — the same one-field
+  // move zones 10, 11 and 12 each made. Zone 02's id, aliases and the ai-news lane
+  // that resolves to it are the guard that the carve-out took only the drum.
   assert.equal(canonicalAreaId('research'), 'intelligence-research');
   assert.equal(canonicalAreaId('ai-news'), 'intelligence-research');
-  assert.equal(machineById('opportunity-radar').areaId, 'intelligence-research');
+  assert.equal(machineById('news-array').areaId, 'intelligence-research');
+  assert.equal(machineById('opportunity-radar').areaId, 'opportunity-radar');
+  assert.equal(canonicalAreaId('radar'), 'opportunity-radar');
+  assert.equal(machineForHermesJobId('254525fa846f').id, 'opportunity-radar');
 
   // The twelve finished machines each anchor where they are supposed to.
   assert.deepEqual(

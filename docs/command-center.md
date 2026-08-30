@@ -191,7 +191,7 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | # | zone id | machine | anim | anchor |
 | --- | --- | --- | --- | --- |
 | 01 | `central-operations` | ops console (static art) + wall CRT array | GA//OPS wall readout | 480,228 |
-| 02 | `intelligence-research` | radar drum + wall feed bank | radar sweep, 4 feeds | 132,276 |
+| 02 | `intelligence-research` | wall feed bank | 4 feeds | 216,276 |
 | 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 316,276 |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
 | 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 316,480 |
@@ -199,9 +199,10 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 828,480 |
 | 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,348 |
 | 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
-| 10 | `creator-console` | creator-facing console | full-object sheet | 660,276 |
+| 10 | `creator-console` | creator-facing console | full-object sheet | 132,276 |
 | 11 | `profit-analyzer` | monetization console | full-object sheet | 660,468 |
 | 12 | `agent-lab` | wall-mounted lab cabinet | full-object sheet | 832,192 |
+| 13 | `opportunity-radar` | opportunity scouting drum | radar sweep | 660,276 |
 
 Every anchor sits **south** of its machine, so one `operate` animation serves every working
 station - there is no per-station interaction art. Zone 09 was the Power Core, an ambient-only
@@ -220,6 +221,16 @@ alias or machine identity - only where the machine physically stands and therefo
 anchor south of it sits. The layout is five columns at art-centre x 132 / 316 / 480 / 660 /
 828 and three foot lines at art-bottom y 264 / 360 / 456; see the art README for the measured
 table, the three documented off-grid exceptions and the resulting clearances.
+
+Zone 13 was then carved out of zone 02 when the **Opportunity Radar and Creator Console swapped
+columns** (radar x132 -> x660, console x660 -> x132). Zone 02 owned two machines - the
+wall-mounted News Array and the radar drum standing below it - under one bounds box, one hit
+area and one anchor, which only worked while both stood in the same corner. With the drum
+across the room the zone had to split, exactly as zones 10, 11 and 12 were split off before it.
+Zone 02 keeps its id, label, aliases and conduit, and the `ai-news` workflow plus the
+`researching` / `browsing` states still resolve to it; the radar took its Hermes job
+(`254525fa846f`, Opportunity Scout) and its empty workflow list to zone 13 unchanged. Because
+that machine drives no workflow lane, zone 13 is idle unless that Hermes job fires.
 
 ### Where SpawnCamper stands
 

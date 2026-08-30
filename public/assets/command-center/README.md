@@ -308,11 +308,11 @@ None of the twelve overrides `staticFrame`, so all twelve rest on frame 0 of the
 whenever he is not — which is most of the time, and the reason frame 0 should read as a
 powered-but-idle pose rather than a mid-motion pose.
 
-Attendance is per **zone**, not per machine, and zone 02 is the first zone to own two
-finished machines: News Array on the wall and the Opportunity Radar on the floor below it.
-Standing at zone 02 runs both. That is the existing seam, not a new rule — it was simply
-invisible while no zone had two sheets. Zone 12 is deliberately the opposite case: Agent Lab
-is alone in it, so attending it runs that cabinet's chamber and nothing else.
+Attendance is per **zone**, not per machine. Zone 02 was for a while the one zone that owned
+two finished machines — News Array on the wall and the Opportunity Radar on the floor below it
+— and standing there ran both. That seam still exists, but nothing uses it today: when the
+radar swapped columns with the Creator Console it was carved out into zone 13, so **every zone
+now owns exactly one machine** and attending one runs only that one.
 
 ### Generated contact shadows
 
@@ -551,7 +551,7 @@ exactly 0px, none of which the box numbers showed:
 | --- | --- | --- | --- | --- | --- |
 | **wall** | News Array | — | GA//OPS bank | Alchemists sigil (637.5) | Agent Lab |
 | **foot 216** | | | **Central Ops** | | |
-| **foot 264** | Opportunity Radar | Tool Scanner | — | Creator Console | — |
+| **foot 264** | Creator Console | Tool Scanner | — | Opportunity Radar | — |
 | **foot 336** | | | | | Model Furnace |
 | **foot 360** | | | **Experiment Bench** | | |
 | **foot 456** | Repo Forge | Newsletter Still | X Uplink *(528)* | Profit Analyzer | Publish Transmitter |
@@ -564,7 +564,7 @@ Ops as the room's centre, the Experiment Bench as the central alchemist desk, an
 
 | machine | whitebox box | drawn content | rendered bounds | centre / foot |
 | --- | --- | --- | --- | --- |
-| Opportunity Radar | `84,192 96x72` | 54x68 | x 105-159, y 196-264 | 132 / 264 |
+| Creator Console | `72,192 120x72` | 123x109 | x 70.5-193.5, y 155-264 | 132 / 264 |
 | Repo Forge | `48,384 168x72` | 163x146 | x 50.5-213.5, y 310-456 | 132 / 456 |
 | News Array | `48,40 232x38` | 184x65 | x 71.5-255.5, y 13-78 | 163.5 / 78 |
 | Newsletter Still | `280,312 72x144` | 98x154 | x 266.5-364.5, y 302-456 | 315.5 / 456 |
@@ -573,7 +573,7 @@ Ops as the room's centre, the Experiment Bench as the central alchemist desk, an
 | Experiment Bench | `408,264 144x96` | 127x90 | x 416.5-543.5, y 270-360 | 480 / 360 |
 | X Uplink | `456,384 144x72` | 60x62 | x 498-558, y 392-454 | 528 / 454 |
 | Alchemists sigil | `612,34 52x52` | 47x62 | x 614-661, y 24-86 | 637.5 / 86 |
-| Creator Console | `600,192 120x72` | 123x109 | x 598.5-721.5, y 155-264 | 660 / 264 |
+| Opportunity Radar | `612,192 96x72` | 54x68 | x 633-687, y 196-264 | 660 / 264 |
 | Profit Analyzer | `606,384 108x72` | 133x161 | x 593.5-726.5, y 295-456 | 660 / 456 |
 | Model Furnace | `768,264 120x72` | 165x123 | x 745-910, y 213-336 | 827.5 / 336 |
 | Publish Transmitter | `744,360 168x96` | 85x80 | x 785.5-870.5, y 376-456 | 828 / 456 |
@@ -583,27 +583,62 @@ The ±0.5px on the Newsletter Still, Central Ops and Model Furnace is cell-centr
 export, not a placement error: those three sheets are a half-pixel off centre in their own
 frame. The Model Furnace's 165px art in a 202px cell lands x 745-910 rather than 745.5-910.5.
 
+### The radar / console swap, and zone 13
+
+After the normalization pass the **Opportunity Radar** and the **Creator Console** traded
+columns — radar x132 → x660, console x660 → x132. Both were already on foot line 264, so the
+move itself was two box `x` values and their two whitebox components.
+
+What it was not, was a two-line change. **Zone 02 owned two machines**: the wall-mounted News
+Array at x48-280 *and* the radar drum on the floor below it, sharing one `bounds` box, one hit
+area and one walk anchor. That works only while both stand in the same corner. With the drum at
+x633-687 the zone would have spanned x48-720, hung its label over empty floor, and kept a single
+anchor that cannot stand in front of both — so the drum was carved out into **zone 13
+`opportunity-radar`**, the same operation done for the Creator Console (10), the Profit
+Analyzer (11) and the Agent Lab (12).
+
+Zone 02 keeps its id, label, aliases and conduit; the `ai-news` workflow and the `researching`
+/ `browsing` states still resolve to it. The radar carried its Hermes job (`254525fa846f`,
+Opportunity Scout) and its deliberately empty workflow list into zone 13 unchanged. Because it
+drives no workflow lane, **zone 13 sits idle unless that Hermes job fires** — already true of
+the machine, now simply visible as a zone of its own.
+
+Two anchors moved and no walk segment was added:
+
+| zone | anchor | why |
+| --- | --- | --- |
+| 13 Opportunity Radar | (660, 276) | already the far end of the segment built for the Creator Console when it held this slot — renamed `creator-spur` → `radar-spur` |
+| 10 Creator Console | (132, 276) | already the west end of `north-spur` |
+| 02 News Array | (132, 276) → **(216, 276)** | 12px below a wall strip is still inside the wall band, so the anchor stays on the floor; x132 is the Creator Console's slot now, and leaving it there would have him work the News Array standing in front of another zone's machine. (216, 276) is under the east third of the display, 22.5px clear of the console art and 24px clear of west-lane, and lies **on** `north-spur` |
+
+Conduit `D1` moved with that anchor, x132 → **x216**. It had started exactly on the Creator
+Console's foot, which read as the console's lane rather than the News Array's; at x216 it runs
+on bare floor directly below zone 02's anchor, still under the same wall strip and still into
+the spine. Its id, label, zone, colour, direction and triggers are unchanged.
+
+`D5` was trimmed again, 144 → **108**. It is the only conduit drawn over the machines, and the
+radar's growth reserve at x600-720 / y132-264 would have clipped it by 4px; at y0-108 it sits
+entirely in the wall band and clears that reserve by 24px.
+
 ### Resulting clearances
 
 | clearance | pair |
 | --- | --- |
 | 18.5px | Profit Analyzer ↔ Model Furnace |
-| 23.5px | Creator Console ↔ Model Furnace |
-| 31px | Creator Console ↔ Profit Analyzer |
+| 31px | Opportunity Radar ↔ Profit Analyzer |
 | 32px | Experiment Bench ↔ X Uplink |
 | 33px | Model Furnace ↔ Agent Lab |
-| 35px | Central Ops ↔ Creator Console |
 | 35.5px | X Uplink ↔ Profit Analyzer |
 | 38px | Newsletter Still ↔ Tool Scanner |
 | 40px | Model Furnace ↔ Publish Transmitter |
 | 45.5px | Tool Scanner ↔ Central Ops |
-| 46px | Opportunity Radar ↔ Repo Forge |
+| 46px | Creator Console ↔ Repo Forge |
 | 50px | Experiment Bench ↔ Profit Analyzer |
 | 50.5px | Central Ops ↔ Alchemists sigil |
 | 52px | Newsletter Still ↔ Experiment Bench |
 | 53px | Repo Forge ↔ Newsletter Still |
 | 54px | Central Ops ↔ Experiment Bench |
-| 55px | Experiment Bench ↔ Creator Console |
+| 58px | Opportunity Radar ↔ Model Furnace |
 | 59px | Profit Analyzer ↔ Publish Transmitter |
 
 Nothing overlaps. The tightest pair is 18.5px, against -11.5px and 0px before the pass.
@@ -612,10 +647,12 @@ Nothing overlaps. The tightest pair is 18.5px, against -11.5px and 0px before th
 
 Both are placeholders at 54x68 and 68x72, and both are expected to be regenerated larger.
 Each holds a reserved **120x132 envelope** on its column centre and foot line — roughly the
-Profit Analyzer's and Model Furnace's size class. With both envelopes filled to that size the
-tightest clearances become 54px between the two of them, 54px to the News Array above, 46px to
-the Repo Forge, 24px to the GA//OPS bank and 20px to Central Ops. **Either machine can be
-regenerated at Large with no further layout change.**
+Profit Analyzer's and Model Furnace's size class. The reserve travelled with the Opportunity
+Radar when it swapped columns, and at x600-720 / y132-264 it clears the Model Furnace by 25px,
+the Profit Analyzer by 31px, the GA//OPS bank by 24px and the trimmed `D5` beam by 24px. The
+Tool Scanner's reserve at x256-376 / y132-264 is untouched and clears the GA//OPS bank by 24px
+and Central Ops by 19.5px. **Either machine can be regenerated at Large with no further layout
+change.**
 
 ### The three off-grid exceptions
 
@@ -671,12 +708,12 @@ only geometry moved, and every segment is still axis-aligned.
 | `ops-spur`, `bench-spur` | far ends follow `centre-spur` to x578; the (480,228) and (480,372) anchors do not move |
 | `res-spur` → `north-spur` | (132,276)→(316,276); one segment ending on **both** the Radar and Tool Scanner anchors, crossing `west-lane` at a derived node |
 | `profit-spur` → `profit-stub` | (660,468)→(660,490); the Profit Analyzer is a front-rank machine now, so it is reached from the south lane |
-| `creator-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane` |
+| `creator-spur` → `radar-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane`. Renamed when the Opportunity Radar took that slot from the Creator Console — same geometry, no new segment |
 | `newsletter-stub`, `tx-stub` | x 300 → 316, x 780 → 828 |
 | `furnace-spur` | (828,348)→(922,348) |
 | `agent-spur` | (832,192)→(832,348); zone 12's anchor is untouched, only the lane it lands on moved |
 | conduit `SP` spine | y 246 → **288**, x 108-900, so it runs along the front edge of the back rank instead of under it |
-| conduits `D1`,`D2`,`D4`,`D6`,`D7`,`D9` | re-pointed at their machines' new box edges; `D1` flips direction because its machines are now north of the spine |
+| conduits `D1`,`D2`,`D4`,`D6`,`D7`,`D9` | re-pointed at their machines' new box edges; `D1` flips direction because its machines are now north of the spine, and later moved x132 → x216 in the swap |
 | conduit `D5` | y0-276 → **y0-144**. `D5` is the one conduit drawn at `DEPTH.fx`, i.e. *over* the machines, and at 276 it cut across the relocated Creator Console (y155-264). Shortened it now ends 11px above it, still clear of the GA//OPS bank and the emblem, and still leaves through the top of the frame under the "↑ X / EXTERNAL UPLINK" edge label |
 | conduits `D3`, `D8` | unchanged — `D8` now starts 6.5px off the transmitter cabinet instead of 41px |
 | edge label "→ GA TERMINAL" | x 806 → **884**; the transmitter moved out from under it |
@@ -708,12 +745,14 @@ hang off a 38px wall strip without falling off the top of the canvas.
 
 Because a walk destination is per zone and not per machine, both consoles also needed their
 own zone — while they lived in zone 02 SpawnCamper walked to the intel bench for them, which
-was across the room from where they stand. Zones 10 and 11 were created for that, and the
-layout normalization pass then moved both again, into the mid-east column: they now carry
-destinations **(660, 276)** and **(660, 468)**, one axis-aligned segment each off an existing
-lane (`creator-spur` off `centre-spur`, `profit-stub` off `south-lane`). Workflow keys,
-Hermes job ids, telemetry state names and the API are unchanged through both moves — only
-which zone a machine physically occupies, and where that zone sits, has ever changed.
+was across the room from where they stand. Zones 10 and 11 were created for that, and both
+moved again in the layout normalization pass. The Profit Analyzer settled at **(660, 468)**,
+one vertical `profit-stub` off the south lane. The Creator Console went to the mid-east column
+and then swapped back west with the Opportunity Radar, so it carries **(132, 276)**, the west
+end of `north-spur`, and the mid-east segment it left behind was renamed `radar-spur`.
+Workflow keys, Hermes job ids, telemetry state names and the API are unchanged through every
+one of those moves — only which zone a machine physically occupies, and where that zone sits,
+has ever changed.
 
 The second three-way collision is now resolved outright:
 

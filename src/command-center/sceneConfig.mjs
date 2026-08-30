@@ -175,8 +175,8 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   }),
   Object.freeze({
     key: 'prop_radar_drum',
-    zone: 'intelligence-research',
-    x: 84, y: 192, w: 96, h: 72,
+    zone: 'opportunity-radar',
+    x: 612, y: 192, w: 96, h: 72,
     parts: Object.freeze([
       { x: 0, y: 22, w: 96, h: 50, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28, shadow: 4 },
       { x: 0, y: 0, w: 96, h: 24, fill: SHELL_TOP, stroke: SHELL_LINE, strokeAlpha: 0.28, radius: Object.freeze([48, 48, 0, 0]) }
@@ -280,7 +280,7 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_creator_console',
     zone: 'creator-console',
-    x: 600, y: 192, w: 120, h: 72,
+    x: 72, y: 192, w: 120, h: 72,
     parts: Object.freeze(deskParts(120, 72, 22))
   }),
   Object.freeze({
@@ -379,8 +379,8 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
     ambient: 'scanline', operational: 'cycle'
   }),
   Object.freeze({
-    key: 'anim_radar_sweep', zone: 'intelligence-research', kind: 'radar',
-    x: 96, y: 200, w: 72, h: 72,
+    key: 'anim_radar_sweep', zone: 'opportunity-radar', kind: 'radar',
+    x: 624, y: 200, w: 72, h: 72,
     color: COMMAND_CENTER_PALETTE.cyan, accent: COMMAND_CENTER_PALETTE.gold,
     ambient: 'blip', operational: 'sweep'
   }),
@@ -484,7 +484,7 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   // ships as one full-object sheet, so it declares no whitebox components at all.
   Object.freeze({
     key: 'anim_creator_screens', zone: 'creator-console', kind: 'crt-row',
-    x: 612, y: 202, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
+    x: 84, y: 202, w: 96, h: 26, cells: 3, cellWidth: 28, cellGap: 6,
     color: COMMAND_CENTER_PALETTE.cyan, screen: 0x02181d, bezel: 0x0e4a41,
     ambient: 'flicker', operational: 'screens'
   }),
@@ -535,7 +535,11 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['*'])
   }),
   Object.freeze({
-    id: 'D1', label: 'intel bench → spine', axis: 'v', x: 132, y: 264, length: 24, thickness: 6,
+    // x132 is the Creator Console's slot since the swap, and D1 started exactly on
+    // its foot, so the News Array's lane read as the console's. x216 keeps it under
+    // the same wall strip (x 71.5-255.5), on bare floor 22.5px clear of the console
+    // art and 18px clear of west-lane, directly below zone 02's anchor at (216, 276).
+    id: 'D1', label: 'intel bench → spine', axis: 'v', x: 216, y: 264, length: 24, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.cyan, zone: 'intelligence-research',
     triggers: Object.freeze(['researching', 'browsing', 'scanning'])
   }),
@@ -555,7 +559,7 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['writing', 'posting_to_x', 'publishing'])
   }),
   Object.freeze({
-    id: 'D5', label: 'X mast → outside', axis: 'v', x: 596, y: 0, length: 144, thickness: 8,
+    id: 'D5', label: 'X mast → outside', axis: 'v', x: 596, y: 0, length: 108, thickness: 8,
     direction: -1, color: COMMAND_CENTER_PALETTE.magenta, zone: 'x-communications', beam: true,
     triggers: Object.freeze(['posting_to_x'])
   }),
@@ -610,9 +614,11 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 316, y: 480 }), to: Object.freeze({ x: 316, y: 490 }) }),
     Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
     Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 828, y: 480 }), to: Object.freeze({ x: 828, y: 490 }) }),
-    // The Creator Console moved to the mid-east column, so its spur comes off
-    // centre-spur rather than west-lane. Still horizontal, still one segment.
-    Object.freeze({ id: 'creator-spur', from: Object.freeze({ x: 578, y: 276 }), to: Object.freeze({ x: 660, y: 276 }) }),
+    // Built for the Creator Console when it moved to the mid-east column; it now
+    // serves the Opportunity Radar, which took that slot in the swap, so it carries
+    // that machine's name. Same geometry, still horizontal, still one segment off
+    // centre-spur. The Creator Console went to x132 and is reached by north-spur.
+    Object.freeze({ id: 'radar-spur', from: Object.freeze({ x: 578, y: 276 }), to: Object.freeze({ x: 660, y: 276 }) }),
     // The Profit Analyzer moved to the front rank, so it is reached from the south
     // lane by a stub like every other front-rank machine. Replaces profit-spur.
     Object.freeze({ id: 'profit-stub', from: Object.freeze({ x: 660, y: 468 }), to: Object.freeze({ x: 660, y: 490 }) }),
@@ -648,12 +654,22 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   Object.freeze({
     id: 'intelligence-research', zoneNumber: '02',
     label: 'AI Intelligence Array', shortLabel: 'Intel',
-    description: 'Radar drum + wall feed bank',
-    x: 132, y: 204,
-    destination: Object.freeze({ x: 132, y: 276 }),
-    bounds: Object.freeze({ x: 48, y: 40, width: 232, height: 224 }),
+    // The Opportunity Radar drum was carved out of this zone into zone 13 when the
+    // two machines swapped columns: one zone cannot own a wall strip at x48-280 and
+    // a drum at x633-687 with a single bounds box, hit area and walk anchor. Zone 02
+    // is the News Array's wall display alone now. Its id, label, aliases, conduit and
+    // the ai-news workflow and researching/browsing states that resolve here are all
+    // untouched — only the drum left.
+    description: 'Wall feed bank',
+    x: 164, y: 78,
+    // 12px below the strip would still be inside the wall band, so the anchor stays
+    // on the floor. It sits under the east third of the display rather than at its
+    // centre, because x132 is the Creator Console's slot now and he would otherwise
+    // work the News Array standing in front of another zone's machine. The point is
+    // on `north-spur`, so no walk-graph segment was needed for it.
+    destination: Object.freeze({ x: 216, y: 276 }),
+    bounds: Object.freeze({ x: 48, y: 40, width: 232, height: 38 }),
     hitRects: Object.freeze([
-      Object.freeze({ x: 84, y: 192, width: 96, height: 72 }),
       Object.freeze({ x: 48, y: 40, width: 232, height: 38 })
     ]),
     color: COMMAND_CENTER_PALETTE.cyan,
@@ -779,10 +795,10 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'creator-console', zoneNumber: '10',
     label: 'Creator Console', shortLabel: 'Creator',
     description: 'Creator-facing intelligence console',
-    x: 660, y: 228,
-    destination: Object.freeze({ x: 660, y: 276 }),
-    bounds: Object.freeze({ x: 600, y: 192, width: 120, height: 72 }),
-    hitRects: Object.freeze([Object.freeze({ x: 600, y: 192, width: 120, height: 72 })]),
+    x: 132, y: 228,
+    destination: Object.freeze({ x: 132, y: 276 }),
+    bounds: Object.freeze({ x: 72, y: 192, width: 120, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 72, y: 192, width: 120, height: 72 })]),
     color: COMMAND_CENTER_PALETTE.cyan,
     accent: COMMAND_CENTER_PALETTE.magenta,
     conduits: Object.freeze([]),
@@ -819,6 +835,34 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     accent: COMMAND_CENTER_PALETTE.brand,
     conduits: Object.freeze([]),
     depth: 20
+  }),
+  // Zone 13. The Opportunity Radar rode in zone 02 as a passenger, sharing the News
+  // Array's bounds box, hit area and walk anchor because both stood in the same
+  // corner. Swapping it with the Creator Console put the drum at x660 and the wall
+  // display stayed at x48-280, and one zone cannot span that: the bounds box would
+  // run x48-720, the label would hang over empty floor, and a single anchor cannot
+  // stand in front of both. So the drum was carved out, exactly as the Creator
+  // Console, Profit Analyzer and Agent Lab were before it.
+  //
+  // Its Hermes job (254525fa846f / Opportunity Scout), its deliberately empty
+  // workflow list and its prop are all untouched — only which zone it occupies moved.
+  // It declares no conduit because it drives no workflow lane, so this zone stays
+  // idle unless that Hermes job actually fires, which was already true of the machine.
+  //
+  // No new walk segment: (660, 276) is already the far end of `radar-spur`, the
+  // segment built for the Creator Console when it held this slot.
+  Object.freeze({
+    id: 'opportunity-radar', zoneNumber: '13',
+    label: 'Opportunity Radar', shortLabel: 'Radar',
+    description: 'Opportunity scouting drum',
+    x: 660, y: 228,
+    destination: Object.freeze({ x: 660, y: 276 }),
+    bounds: Object.freeze({ x: 612, y: 192, width: 96, height: 72 }),
+    hitRects: Object.freeze([Object.freeze({ x: 612, y: 192, width: 96, height: 72 })]),
+    color: COMMAND_CENTER_PALETTE.cyan,
+    accent: COMMAND_CENTER_PALETTE.gold,
+    conduits: Object.freeze([]),
+    depth: 20
   })
 ]);
 
@@ -831,6 +875,10 @@ export const COMMAND_CENTER_AREA_ALIASES = Object.freeze({
   servers: 'central-operations',
   research: 'intelligence-research',
   intel: 'intelligence-research',
+  radar: 'opportunity-radar',
+  opportunity: 'opportunity-radar',
+  'opportunity-radar': 'opportunity-radar',
+  'opportunity-scout': 'opportunity-radar',
   creator: 'creator-console',
   'creator-content': 'creator-console',
   'creator-console': 'creator-console',

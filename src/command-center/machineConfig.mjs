@@ -165,8 +165,12 @@ export const COMMAND_CENTER_MACHINES = Object.freeze([
     description: 'Reserved semantic mapping for the Hermes opportunity scout job.',
     visualDescription: 'Ribbed radar drum with one dominant circular sweep silhouette.',
     workflows: [],
+    // Zone 13. It shared zone 02 with the News Array until the swap moved the drum
+    // to the mid-east column and left the wall display in the corner; one zone could
+    // not own both. Hermes job, the deliberately empty workflow list and the prop are
+    // untouched — only which zone it physically occupies moved, as for zones 10-12.
     hermesJobs: [job('254525fa846f', 'Opportunity Scout')],
-    areaId: 'intelligence-research',
+    areaId: 'opportunity-radar',
     propKeys: ['prop_radar_drum']
   })
 ]);
