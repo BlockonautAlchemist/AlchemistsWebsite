@@ -1055,6 +1055,124 @@ test('every command center zone anchor sits south of its machine', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Operating positions. A zone's `destination` is the single point SpawnCamper
+// walks to and plays `operate_back` at, so it has to travel with its machine.
+// It did not: the layout normalization pass moved boxes and left four anchors
+// behind, and this pair of invariants is the guard that was missing.
+// ---------------------------------------------------------------------------
+
+// The box each zone's operating position is measured from — the machine he
+// actually works, which is `covers[0]` for its art and `propKeys[0]` for its
+// semantics. Zone 01 is the one zone with no `COMMAND_CENTER_MACHINES` entry
+// (Central Ops is the room, not a Hermes workflow) and it owns two boxes: he
+// stands at the console, not under the GA//OPS wall bank above it.
+function primaryBoxKeyForZone(areaId) {
+  if (areaId === 'central-operations') return 'prop_ops_console';
+  const machine = COMMAND_CENTER_MACHINES.find((entry) => entry.areaId === areaId);
+  return machine ? machine.propKeys[0] : '';
+}
+
+// The camper clamps to y >= 132 in `moveCamperTo`, which is also the top of
+// `west-lane`: the northernmost floor line he can stand on. It is a floor under
+// the rule, not an exception to it, and only the News Array reaches it.
+const STAND_MIN_Y = 132;
+const STAND_GAP = 12;
+
+test('every zone anchor stands one consistent gap in front of its own machine', () => {
+  COMMAND_CENTER_AREAS.forEach((area) => {
+    const key = primaryBoxKeyForZone(area.id);
+    assert.notEqual(key, '', `${area.id} has no primary machine box`);
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === key);
+    assert.notEqual(box, undefined, `${area.id} names a box that does not exist`);
+
+    // Art anchors bottom-centre, so the machine's rendered centre column is
+    // `x + w/2` and its floor contact line is `y + h`. He stands on that column,
+    // one gap south of that line — the whole rule, and the reason a machine can
+    // be moved by editing its box alone.
+    assert.equal(
+      area.destination.x,
+      box.x + box.w / 2,
+      `${area.id} does not stand on its machine's centre column`
+    );
+    assert.equal(
+      area.destination.y,
+      Math.max(box.y + box.h + STAND_GAP, STAND_MIN_Y),
+      `${area.id} does not stand ${STAND_GAP}px in front of its machine`
+    );
+  });
+
+  // The floor clause binds on exactly one zone, and naming it here is what keeps
+  // it from quietly swallowing a second machine that has drifted up the wall.
+  const clamped = COMMAND_CENTER_AREAS.filter((area) => {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === primaryBoxKeyForZone(area.id));
+    return box.y + box.h + STAND_GAP < STAND_MIN_Y;
+  });
+  assert.deepEqual(clamped.map((area) => area.id), ['intelligence-research']);
+});
+
+test('no walk lane or spur runs through a machine', () => {
+  const manifest = new Set(JSON.parse(
+    fs.readFileSync(`${__dirname}/../public/assets/command-center/manifest.json`, 'utf8')
+  ).files);
+
+  // Measured off the real PNGs, not off the boxes: a box is a floor plan and the
+  // art routinely overflows it by 40-90px, which is exactly how `agent-spur` came
+  // to run 123px down through the middle of the Model Furnace unnoticed.
+  const machines = PROP_SHEETS.filter((entry) => manifest.has(entry.art)).map((entry) => {
+    const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === entry.covers[0]);
+    const file = `${__dirname}/../public${entry.art}`;
+    const cell = isAnimatedProp(entry)
+      ? { width: entry.frameWidth, height: entry.frameHeight }
+      : readPngSize(file);
+    const measured = readPngOpaqueBounds(file, cell.width, cell.height);
+    const anchor = propAnchorFor(entry, box);
+
+    // `offsetY` is the empty rows under the machine, so the last opaque row lands
+    // that far above the frame's bottom edge. `flipX` mirrors about the anchor, so
+    // the content's horizontal offset within its cell flips sign with it.
+    const bottom = anchor.y - measured.bottomSlack;
+    const drift = measured.centreX - cell.width / 2;
+    const centre = anchor.x + (entry.flipX ? -drift : drift);
+    return {
+      id: entry.id,
+      left: centre - measured.width / 2,
+      right: centre + measured.width / 2,
+      top: bottom - measured.height,
+      bottom
+    };
+  });
+  assert.equal(machines.length, 14, 'the shipped machine count changed');
+
+  COMMAND_CENTER_WALK_GRAPH.segments.forEach((segment) => {
+    const minX = Math.min(segment.from.x, segment.to.x);
+    const maxX = Math.max(segment.from.x, segment.to.x);
+    const minY = Math.min(segment.from.y, segment.to.y);
+    const maxY = Math.max(segment.from.y, segment.to.y);
+    machines.forEach((machine) => {
+      const overlaps = maxX > machine.left && minX < machine.right
+        && maxY > machine.top && minY < machine.bottom;
+      assert.equal(overlaps, false, `${segment.id} runs through ${machine.id}`);
+    });
+  });
+
+  // And the routes built on those lanes are clear too, anchors included: a lane
+  // may skirt a machine and still hand him a final step that cuts the corner.
+  COMMAND_CENTER_AREAS.forEach((area) => {
+    const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, area.destination);
+    path.slice(1).forEach((point, index) => {
+      const previous = path[index];
+      machines.forEach((machine) => {
+        const overlaps = Math.max(previous.x, point.x) > machine.left
+          && Math.min(previous.x, point.x) < machine.right
+          && Math.max(previous.y, point.y) > machine.top
+          && Math.min(previous.y, point.y) < machine.bottom;
+        assert.equal(overlaps, false, `the route to ${area.id} crosses ${machine.id}`);
+      });
+    });
+  });
+});
+
 test('the command center walk graph has no diagonal travel', () => {
   COMMAND_CENTER_WALK_GRAPH.segments.forEach((segment) => {
     const axisAligned = segment.from.x === segment.to.x || segment.from.y === segment.to.y;
@@ -3013,9 +3131,11 @@ test('the Newsletter Still art does not disturb routing, telemetry or the camper
   assert.equal(machineForHermesJobId('newsletter').id, 'newsletter-still');
   assert.equal(machineForHermesJobId('finisher').id, 'newsletter-still');
 
-  // Station geometry is untouched, so he still walks to the same anchor.
+  // The still is a front-rank machine at foot 456, so he works it from 12px south
+  // like every other console. It was left at y480 — out on the south lane, 24px
+  // off — when the layout pass moved the machine and not its anchor.
   const zone = COMMAND_CENTER_AREAS.find((area) => area.id === 'newsletter');
-  assert.deepEqual(zone.destination, { x: 316, y: 480 });
+  assert.deepEqual(zone.destination, { x: 316, y: 468 });
   assert.equal(zone.zoneNumber, '05');
 
   // And still works the machine with operate_back, in front of it.
@@ -3571,8 +3691,9 @@ test('the Agent Lab hangs on the right wall, alone, and casts no floor pool', ()
   box.parts.forEach((part) => assert.equal(part.shadow, undefined, 'wall whitebox drops a floor shadow'));
 
   // Bottom-centre + the measured 20 rows of slack put the cabinet at y 20-180,
-  // spanning x 786.5-877.5 — 30px clear of the Profit Analyzer art (which reaches
-  // x 756.5) and 57px clear of the Model Furnace art (which starts at y 237).
+  // spanning x 786.5-877.5 — 60px clear of the Profit Analyzer art (which reaches
+  // x 726.5 since the layout pass) and 33px clear of the Model Furnace art (which
+  // starts at y 213 since the same pass).
   assert.deepEqual(propAnchorFor(entry, box), { x: 832, y: 200, originX: 0.5, originY: 1, scale: 1 });
 
   // It is a full object, so it retires no procedural components: there is
@@ -3614,16 +3735,22 @@ test('zone 12 is reachable, axis-aligned, and south-anchored', () => {
   }
   assert.deepEqual(path[path.length - 1], { x: 832, y: 192 }, 'route to agent-lab does not end on its anchor');
 
-  // Unlike the two floor stations, this spur is vertical: it drops from the wall
-  // onto the horizontal furnace-spur, and buildWalkGraph derives the crossing at
-  // (832, 348) itself — one new segment, no edits to any existing lane. The
-  // crossing moved up with the Model Furnace, which now stands at foot 336.
+  // The spur was vertical at x832, dropping from the wall onto furnace-spur, and
+  // that was clear until the layout pass raised the Model Furnace into the same
+  // column: its art spans x 745-910, y 213-336, so the old spur ran 123px straight
+  // down through the middle of the machine. It is horizontal now, leaving the
+  // extended east-lane at x922 and crossing above the furnace at y192.
   const spur = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'agent-spur');
   assert.notEqual(spur, undefined, 'agent-spur must exist');
-  assert.equal(spur.from.x, spur.to.x, 'agent-spur must be vertical');
+  assert.equal(spur.from.y, spur.to.y, 'agent-spur must be horizontal');
+  assert.deepEqual(spur.to, { x: 832, y: 192 }, 'agent-spur must end on the zone 12 anchor');
+  const east = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'east-lane');
+  assert.equal(pointOnSegment({ x: spur.from.x, y: spur.from.y }, east), true, 'agent-spur must meet east-lane');
+  assert.notEqual(walkNodes().get('922,192'), undefined, 'the east-lane junction node is missing');
+  // furnace-spur still lands on the same lane, at a node buildWalkGraph derives.
   const furnace = COMMAND_CENTER_WALK_GRAPH.segments.find((s) => s.id === 'furnace-spur');
-  assert.equal(pointOnSegment({ x: spur.to.x, y: spur.to.y }, furnace), true, 'agent-spur must meet furnace-spur');
-  assert.notEqual(walkNodes().get('832,348'), undefined, 'the crossing node was not derived');
+  assert.equal(pointOnSegment({ x: 922, y: 348 }, furnace), true, 'furnace-spur must still reach east-lane');
+  assert.notEqual(walkNodes().get('922,348'), undefined, 'the crossing node was not derived');
 
   // Zone 03 moved to the second west column in the layout normalization pass so
   // the Opportunity Radar and the Tool Scanner stopped touching, but it is still

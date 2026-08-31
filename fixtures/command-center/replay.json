@@ -218,5 +218,84 @@
     "context": {
       "count": 9
     }
+  },
+  {
+    "eventId": "bench-playbooks",
+    "offsetSeconds": 85,
+    "workflow": "playbooks",
+    "workflowLabel": "Playbooks",
+    "state": "evaluating",
+    "activity": "Turning the sweep into a repeatable playbook",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "experiment",
+      "target": "tool discovery playbook"
+    }
+  },
+  {
+    "eventId": "profit-monetization",
+    "offsetSeconds": 90,
+    "workflow": "monetization",
+    "workflowLabel": "Monetization",
+    "state": "evaluating",
+    "activity": "Scoring partner and monetization signals",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "profit",
+      "target": "partner signals",
+      "count": 5
+    }
+  },
+  {
+    "eventId": "agents-review",
+    "offsetSeconds": 95,
+    "workflow": "agents",
+    "workflowLabel": "Agents",
+    "state": "processing",
+    "activity": "Replaying agent workflow traces",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "agents",
+      "target": "agent traces",
+      "count": 9
+    }
+  },
+  {
+    "eventId": "radar-scout",
+    "offsetSeconds": 100,
+    "workflow": "opportunity-scout",
+    "workflowLabel": "Opportunity Scout",
+    "state": "scanning",
+    "activity": "Sweeping for unclaimed opportunities",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "radar",
+      "target": "opportunity sweep"
+    }
+  },
+  {
+    "eventId": "ops-thinking",
+    "offsetSeconds": 105,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "thinking",
+    "activity": "Weighing the run at the ops console",
+    "ttlSeconds": 900,
+    "context": {
+      "station": "ops",
+      "target": "run plan"
+    }
+  },
+  {
+    "eventId": "tour-stand-down",
+    "offsetSeconds": 110,
+    "workflow": "ai-news",
+    "workflowLabel": "AI News",
+    "state": "idle",
+    "activity": "Standing by for the next sweep",
+    "ttlSeconds": 120,
+    "context": {
+      "station": "ops"
+    }
   }
 ]

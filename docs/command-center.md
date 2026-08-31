@@ -191,12 +191,12 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | # | zone id | machine | anim | anchor |
 | --- | --- | --- | --- | --- |
 | 01 | `central-operations` | ops console (static art) + wall CRT array | GA//OPS wall readout | 480,228 |
-| 02 | `intelligence-research` | wall feed bank | 4 feeds | 216,276 |
+| 02 | `intelligence-research` | wall feed bank | 4 feeds | 164,132 |
 | 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 316,276 |
 | 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
-| 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 316,480 |
-| 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,480 |
-| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 828,480 |
+| 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 316,468 |
+| 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,468 |
+| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 828,468 |
 | 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,348 |
 | 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
 | 10 | `creator-console` | creator-facing console | full-object sheet | 132,276 |
@@ -205,7 +205,20 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 | 13 | `opportunity-radar` | opportunity scouting drum | radar sweep | 660,276 |
 
 Every anchor sits **south** of its machine, so one `operate` animation serves every working
-station - there is no per-station interaction art. Zone 09 was the Power Core, an ambient-only
+station - there is no per-station interaction art. The anchor is derived, not authored:
+
+    destination.x = box.x + box.w / 2
+    destination.y = max(box.y + box.h + 12, 132)
+
+Art anchors bottom-centre, so a machine's rendered centre column is `x + w/2` and its floor
+contact line is `y + h`; he stands on that column 12px in front of that line. The `132` floor
+is the camper's own clamp in `moveCamperTo` and the top of `west-lane` - the northernmost
+floor line he can stand on - and it binds on **zone 02 alone**, whose display hangs entirely
+inside the 120px wall band and cannot be approached to 12px. Moving a machine is therefore
+still one box edit, but the anchor has to be recomputed with it: the layout normalization
+pass moved four machines and left their anchors behind, which is what put him 24px out at
+zones 05, 06 and 07 and 198px out at zone 02. `test/command-center.test.js` asserts the rule
+for all thirteen zones now. Zone 09 was the Power Core, an ambient-only
 recessed well; the Power Core was retired and the Experiment Bench took that pocket, so zone
 09 is a working station like the rest. Zones 10, 11 and 12 exist for the same reason in
 reverse: a walk destination is per zone, so Creator Console, Profit Analyzer and Agent Lab

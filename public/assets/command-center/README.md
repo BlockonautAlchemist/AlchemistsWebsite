@@ -609,7 +609,7 @@ Two anchors moved and no walk segment was added:
 | --- | --- | --- |
 | 13 Opportunity Radar | (660, 276) | already the far end of the segment built for the Creator Console when it held this slot — renamed `creator-spur` → `radar-spur` |
 | 10 Creator Console | (132, 276) | already the west end of `north-spur` |
-| 02 News Array | (132, 276) → **(216, 276)** | 12px below a wall strip is still inside the wall band, so the anchor stays on the floor; x132 is the Creator Console's slot now, and leaving it there would have him work the News Array standing in front of another zone's machine. (216, 276) is under the east third of the display, 22.5px clear of the console art and 24px clear of west-lane, and lies **on** `north-spur` |
+| 02 News Array | (132, 276) → **(216, 276)** | 12px below a wall strip is still inside the wall band, so the anchor stays on the floor; x132 is the Creator Console's slot now, and leaving it there would have him work the News Array standing in front of another zone's machine. (216, 276) is under the east third of the display, 22.5px clear of the console art and 24px clear of west-lane, and lies **on** `north-spur`. **Superseded** — the operating-position pass moved it again, to (164, 132): staying on `north-spur` had left him 198px south of the machine he was working. See *The operating-position pass* |
 
 Conduit `D1` moved with that anchor, x132 → **x216**. It had started exactly on the Creator
 Console's foot, which read as the console's lane rather than the News Array's; at x216 it runs
@@ -711,7 +711,7 @@ only geometry moved, and every segment is still axis-aligned.
 | `creator-spur` → `radar-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane`. Renamed when the Opportunity Radar took that slot from the Creator Console — same geometry, no new segment |
 | `newsletter-stub`, `tx-stub` | x 300 → 316, x 780 → 828 |
 | `furnace-spur` | (828,348)→(922,348) |
-| `agent-spur` | (832,192)→(832,348); zone 12's anchor is untouched, only the lane it lands on moved |
+| `agent-spur` | (832,192)→(832,348); zone 12's anchor is untouched, only the lane it lands on moved. **Superseded** — this is the geometry that put the spur through the Model Furnace; see *The operating-position pass* |
 | conduit `SP` spine | y 246 → **288**, x 108-900, so it runs along the front edge of the back rank instead of under it |
 | conduits `D1`,`D2`,`D4`,`D6`,`D7`,`D9` | re-pointed at their machines' new box edges; `D1` flips direction because its machines are now north of the spine, and later moved x132 → x216 in the swap |
 | conduit `D5` | y0-276 → **y0-144**. `D5` is the one conduit drawn at `DEPTH.fx`, i.e. *over* the machines, and at 276 it cut across the relocated Creator Console (y155-264). Shortened it now ends 11px above it, still clear of the GA//OPS bank and the emblem, and still leaves through the top of the frame under the "↑ X / EXTERNAL UPLINK" edge label |
@@ -720,6 +720,69 @@ only geometry moved, and every segment is still axis-aligned.
 
 Every zone anchor still sits **south** of its machine, so one `operate_back` pose still serves
 the whole room, and every route from the (480,228) home point is still axis-aligned.
+
+### The operating-position pass
+
+What the layout pass did **not** carry with the machines was four of their walk anchors. A
+zone's `destination` is the single point SpawnCamper walks to and plays `operate_back` at, so
+a machine that moves without its anchor is worked from wherever the anchor was left. The rule
+the room already followed, now written down and asserted:
+
+    destination.x = box.x + box.w / 2
+    destination.y = max(box.y + box.h + 12, 132)
+
+Art anchors bottom-centre, so `x + w/2` is the machine's rendered centre column and `y + h`
+its floor contact line — the same two numbers the whole layout is built on. The `132` term is
+the camper's own clamp in `moveCamperTo` and the top of `west-lane`: the northernmost floor
+line he can stand on. It is a floor under the rule, not an exception to it, and it binds on
+one zone.
+
+| zone | was | now | gap from the drawn art |
+| --- | --- | --- | --- |
+| 02 News Array | (216, 276) | **(164, 132)** | 54 — see below |
+| 05 Newsletter Still | (316, 480) | **(316, 468)** | 12 |
+| 06 X Uplink | (528, 480) | **(528, 468)** | 14 — its cell carries 2px of slack, so the art foot is 454 against a box foot of 456 |
+| 07 Publish Transmitter | (828, 480) | **(828, 468)** | 12 |
+
+The other nine were already right and did not move: Central Ops stays centred at (480, 228)
+in the throne opening, the Experiment Bench is still met from the front at (480, 372), and the
+Agent Lab keeps (832, 192). All five front-rank consoles — Repo Forge, Newsletter Still, X
+Uplink, Profit Analyzer, Publish Transmitter — now stand on one line at y468.
+
+**Zone 02 is the one zone the 12px gap cannot reach.** The News Array's foot is y78, inside
+the 120px wall band, and the camper clamps to y ≥ 132, so `max(90, 132)` puts him on the
+back-wall line at the closest the floor comes to the display. Raising him also returned him to
+the display's own centre at x164: x216 had been a workaround for x132 being the Creator
+Console's slot, and at y132 that no longer applies — the console's art starts at y155, 23px
+below him, so neither he nor the leg that brings him there touches it. Conduit `D1` stays at
+x216; a data-flow lane is not an operating position, and x216 is still the only clear column
+between the console art and `west-lane`.
+
+Reaching the corrected anchors cost three stub extensions, one lane extension, one re-routed
+spur and one new segment:
+
+| lane / spur | change |
+| --- | --- |
+| `newsletter-stub` | (316,480)–(316,490) → **(316,468)–(316,490)** |
+| `x-stub` | (528,480)–(528,490) → **(528,468)–(528,490)** |
+| `tx-stub` | (828,480)–(828,490) → **(828,468)–(828,490)** |
+| `east-lane` | y 300–492 → **y 192–492**, so `agent-spur` can leave it above the Model Furnace |
+| `agent-spur` | (832,192)–(832,348) vertical → **(922,192)–(832,192) horizontal** — see below |
+| `intel-stub` *(new)* | **(240,132)–(164,132)**, off `west-lane`'s existing top endpoint; it runs above the Creator Console art (top y155) |
+
+**`agent-spur` was routing him through the Model Furnace.** It was vertical at x832 from the
+wall down to `furnace-spur`, and that column was clear when it was drawn — the layout pass then
+raised the furnace to y213–336 across x745–910, and the spur ran 123px straight down through
+the middle of the machine. The box numbers never showed it, because the furnace's 165x123 of
+art anchors on a 120x72 chamber box. It is horizontal now, leaving the extended `east-lane` at
+x922 (12px clear of the furnace art's right edge at x910) and crossing above the furnace at
+y192, which clears its top edge by 21px and the Agent Lab cabinet's foot by 12px. Zone 12's
+anchor has not moved, and it is still one segment.
+
+Two invariants in `test/command-center.test.js` now hold all of this: every zone anchor
+matches the rule above, and **no walk segment or route leg intersects any machine's measured
+art rect** — measured off the PNGs by the same decoder the sheet tables use, not off the
+boxes, which is precisely why the furnace collision went unseen.
 
 ## Machine anchors — one machine, one primary box
 
@@ -818,14 +881,22 @@ below its bottom edge, the same offset every floor console uses, so the one `ope
 pose serves it. **That anchor has never moved**, including through the layout normalization
 pass — the cabinet is one of the preserved wall pieces.
 
-Reaching it cost exactly **one** new segment, `agent-spur`, vertical, landing on the
-horizontal `furnace-spur` so that `buildWalkGraph` derives the crossing node itself and no
-existing lane needed editing. The layout pass raised the Model Furnace to foot 336, so the
-spur is now (832, 192) → (832, 348) and the derived crossing is (832, 348); the arrangement is
-otherwise identical. He routes
-(480,228) → (578,228) → (578,490) → (922,490) → (922,348) → (832,348) → (832,192),
-axis-aligned throughout. Workflow keys, Hermes job ids, telemetry state names and the API are
-unchanged — only which zone the machine physically occupies moved.
+Reaching it cost exactly **one** segment, `agent-spur`, and it still does — but not the one
+it started as. It was vertical at x832, dropping from the wall onto the horizontal
+`furnace-spur` so that `buildWalkGraph` derived the crossing node itself and no existing lane
+needed editing. That was clear when it was drawn. The layout pass then raised the Model
+Furnace into the same column — art x745–910, y213–336 — and the spur ran 123px straight down
+through the middle of it, which the box numbers could not show because the furnace's 165x123
+of art anchors on a 120x72 chamber box.
+
+The operating-position pass turned it horizontal: `east-lane` was extended north to y192 and
+the spur now runs (922, 192) → (832, 192), crossing above the furnace rather than through it —
+21px clear of its top edge, 12px clear of the Agent Lab cabinet's foot, and 12px clear of the
+furnace art's right edge at x910 on the way up. He routes
+(480,228) → (578,228) → (578,490) → (922,490) → (922,348) → (922,192) → (832,192),
+axis-aligned throughout, and zone 12's anchor is still untouched. Workflow keys, Hermes job
+ids, telemetry state names and the API are unchanged — only which zone the machine physically
+occupies moved.
 
 Tool Scanner was untouched by all of this — same 168x48 bench, same sheet, same components,
 same zone 03 — and it is the only owner. The layout normalization pass later slid that bench

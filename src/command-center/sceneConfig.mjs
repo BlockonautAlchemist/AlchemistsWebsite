@@ -538,7 +538,10 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     // x132 is the Creator Console's slot since the swap, and D1 started exactly on
     // its foot, so the News Array's lane read as the console's. x216 keeps it under
     // the same wall strip (x 71.5-255.5), on bare floor 22.5px clear of the console
-    // art and 18px clear of west-lane, directly below zone 02's anchor at (216, 276).
+    // art and 18px clear of west-lane. It no longer runs below zone 02's walk anchor,
+    // which went back to the display's own centre at (164, 132) when the operating
+    // positions were corrected — a data-flow lane is not an operating position, and
+    // x216 is still the only clear column between the console art and west-lane.
     id: 'D1', label: 'intel bench → spine', axis: 'v', x: 216, y: 264, length: 24, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.cyan, zone: 'intelligence-research',
     triggers: Object.freeze(['researching', 'browsing', 'scanning'])
@@ -598,7 +601,11 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'south-lane', from: Object.freeze({ x: 240, y: 490 }), to: Object.freeze({ x: 930, y: 490 }) }),
     // x898 ran straight through the Model Furnace's art, which reaches x910.5. At
     // x922 the lane clears it by 11.5px and still sits 12px inside the floor marking.
-    Object.freeze({ id: 'east-lane', from: Object.freeze({ x: 922, y: 300 }), to: Object.freeze({ x: 922, y: 492 }) }),
+    //
+    // Extended north from y300 to y192 so `agent-spur` can leave it above the Model
+    // Furnace instead of through it. The new stretch runs the corridor between the
+    // furnace art (which ends x910) and the east wall, 12px clear of it.
+    Object.freeze({ id: 'east-lane', from: Object.freeze({ x: 922, y: 192 }), to: Object.freeze({ x: 922, y: 492 }) }),
     // x622 was 1.5px off the Profit Analyzer's old art edge and is inside its new
     // footprint (x 593.5-726.5). At x578 it runs the corridor between the central
     // column (Ops art ends x563.5) and the mid-east column, clear of both.
@@ -611,9 +618,12 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'code-spur', from: Object.freeze({ x: 132, y: 468 }), to: Object.freeze({ x: 240, y: 468 }) }),
     Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 828, y: 348 }), to: Object.freeze({ x: 922, y: 348 }) }),
     Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 578, y: 372 }) }),
-    Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 316, y: 480 }), to: Object.freeze({ x: 316, y: 490 }) }),
-    Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 480 }), to: Object.freeze({ x: 528, y: 490 }) }),
-    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 828, y: 480 }), to: Object.freeze({ x: 828, y: 490 }) }),
+    // The three front-rank stubs each reach 12px further north than they did, to the
+    // `foot + 12` anchors their machines had been left short of. Each still meets the
+    // south lane at y490 and each runs on bare floor below its machine's art.
+    Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 316, y: 468 }), to: Object.freeze({ x: 316, y: 490 }) }),
+    Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 468 }), to: Object.freeze({ x: 528, y: 490 }) }),
+    Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 828, y: 468 }), to: Object.freeze({ x: 828, y: 490 }) }),
     // Built for the Creator Console when it moved to the mid-east column; it now
     // serves the Opportunity Radar, which took that slot in the swap, so it carries
     // that machine's name. Same geometry, still horizontal, still one segment off
@@ -622,10 +632,21 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     // The Profit Analyzer moved to the front rank, so it is reached from the south
     // lane by a stub like every other front-rank machine. Replaces profit-spur.
     Object.freeze({ id: 'profit-stub', from: Object.freeze({ x: 660, y: 468 }), to: Object.freeze({ x: 660, y: 490 }) }),
-    // Zone 12. Vertical, so it lands on the horizontal furnace-spur at (832, 348) —
-    // buildWalkGraph derives that crossing node itself, which is why reaching the
-    // upper-right wall still costs exactly one segment and no edits elsewhere.
-    Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 832, y: 192 }), to: Object.freeze({ x: 832, y: 348 }) })
+    // Zone 12. It was vertical at x832 from the wall down to `furnace-spur`, which
+    // was clear when it was drawn — and stopped being clear when the layout pass
+    // raised the Model Furnace into that column. The furnace art spans x745-910,
+    // y213-336, so the old spur ran 123px straight down through the middle of it.
+    //
+    // Horizontal now, off the extended `east-lane` at x922: the approach climbs the
+    // corridor east of the furnace and crosses above it at y192, which clears the
+    // furnace art's top edge by 21px and the Agent Lab cabinet's foot by 12px. Still
+    // one segment, still axis-aligned, and the zone 12 anchor has not moved.
+    Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 922, y: 192 }), to: Object.freeze({ x: 832, y: 192 }) }),
+    // Zone 02. The News Array anchor sits on the back-wall line at y132, which no
+    // lane reached: `west-lane` starts there but at x240. One horizontal segment off
+    // its existing top endpoint is the whole cost. It runs above the Creator Console
+    // art (top y155), so nothing on it passes through a machine.
+    Object.freeze({ id: 'intel-stub', from: Object.freeze({ x: 240, y: 132 }), to: Object.freeze({ x: 164, y: 132 }) })
   ])
 });
 
@@ -662,12 +683,15 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     // untouched — only the drum left.
     description: 'Wall feed bank',
     x: 164, y: 78,
-    // 12px below the strip would still be inside the wall band, so the anchor stays
-    // on the floor. It sits under the east third of the display rather than at its
-    // centre, because x132 is the Creator Console's slot now and he would otherwise
-    // work the News Array standing in front of another zone's machine. The point is
-    // on `north-spur`, so no walk-graph segment was needed for it.
-    destination: Object.freeze({ x: 216, y: 276 }),
+    // The one zone where the room's `foot + 12` rule is unreachable: the display's
+    // foot is y78, inside the 120px wall band, and `moveCamperTo` clamps him to
+    // y >= 132. So the rule carries a floor — `max(box.y + box.h + 12, 132)` — and
+    // this is the only anchor it binds on. He stands hard against the back wall at
+    // the display's own centre x164; the previous (216, 276) left him 198px south of
+    // the machine he was working, out on `north-spur` in the middle of the floor.
+    // x164 is clear because the y moved: the Creator Console's art starts at y155,
+    // 23px below him, so neither he nor the leg that brings him here touches it.
+    destination: Object.freeze({ x: 164, y: 132 }),
     bounds: Object.freeze({ x: 48, y: 40, width: 232, height: 38 }),
     hitRects: Object.freeze([
       Object.freeze({ x: 48, y: 40, width: 232, height: 38 })
@@ -711,7 +735,9 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     label: 'Newsletter Still', shortLabel: 'Letter',
     description: 'Distillation column + tray',
     x: 316, y: 384,
-    destination: Object.freeze({ x: 316, y: 480 }),
+    // Foot 456 + 12. It stood at 480 — on the south lane, 24px out — after the still
+    // moved to the front rank without its anchor.
+    destination: Object.freeze({ x: 316, y: 468 }),
     bounds: Object.freeze({ x: 280, y: 312, width: 144, height: 144 }),
     hitRects: Object.freeze([
       Object.freeze({ x: 280, y: 312, width: 72, height: 144 }),
@@ -727,7 +753,10 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     label: 'X Comms Uplink', shortLabel: 'X Comms',
     description: 'Console + mast + dish',
     x: 528, y: 396,
-    destination: Object.freeze({ x: 528, y: 480 }),
+    // Box foot 456 + 12. The console's cell carries 2px of slack under the art, so
+    // this is 14px off the drawn pixels and 12px off the floor contact line every
+    // other machine is measured from.
+    destination: Object.freeze({ x: 528, y: 468 }),
     bounds: Object.freeze({ x: 456, y: 276, width: 168, height: 180 }),
     hitRects: Object.freeze([
       Object.freeze({ x: 456, y: 384, width: 144, height: 72 }),
@@ -743,7 +772,9 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     label: 'Terminal Transmitter', shortLabel: 'Terminal',
     description: 'Publish transmitter cabinet',
     x: 828, y: 408,
-    destination: Object.freeze({ x: 828, y: 480 }),
+    // Foot 456 + 12, level with the Newsletter Still, the X Uplink, the Repo Forge
+    // and the Profit Analyzer: every front-rank console is worked from y468 now.
+    destination: Object.freeze({ x: 828, y: 468 }),
     bounds: Object.freeze({ x: 744, y: 360, width: 168, height: 96 }),
     // One rect, not two: the 24x30 wall receptacle at 912,378 was blank whitebox
     // dressing and is deleted. The cabinet is the whole of zone 07.
