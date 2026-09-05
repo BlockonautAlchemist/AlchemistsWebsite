@@ -258,7 +258,7 @@ export function machineById(machineId) {
 
 export function machineForWorkflow(workflow) {
   const workflowId = cleanToken(workflow && typeof workflow === 'object' ? workflow.workflow : workflow);
-  return MACHINE_BY_WORKFLOW.get(workflowId) || null;
+  return MACHINE_BY_WORKFLOW.get(workflowId) || machineForHermesJobId(workflowId) || null;
 }
 
 export function machineForHermesJobId(jobId) {

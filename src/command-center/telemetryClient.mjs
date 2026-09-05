@@ -1,143 +1,106 @@
-import {
-  fallbackCommandCenterState,
-  normalizePublicState
-} from './stateModel.mjs';
+import { fallbackCommandCenterState, normalizePublicState, validPublicPayload } from './stateModel.mjs';
 
-const DEFAULT_ENDPOINT = '/api/command-center/state';
-
-function visibleDelay({ visible, baseIntervalMs, hiddenIntervalMs, backoffMs }) {
-  if (!visible) return Math.max(hiddenIntervalMs, backoffMs);
-  return Math.max(baseIntervalMs, backoffMs);
-}
-
-function nextBackoff(current, maxBackoffMs) {
-  if (!current) return 2000;
-  return Math.min(current * 1.8, maxBackoffMs);
-}
-
-function jitter(ms) {
-  return Math.round(ms * (0.86 + Math.random() * 0.28));
-}
-
+/** One owner per request, plus a clock that keeps expiry moving during outages. */
 export function createTelemetryClient({
-  endpoint = DEFAULT_ENDPOINT,
-  baseIntervalMs = 5000,
-  hiddenIntervalMs = 60000,
-  maxBackoffMs = 60000,
-  historyLimit = 30,
-  onState = () => {},
-  onStatus = () => {}
+  endpoint = '/api/command-center/state', agent = 'spawncamper9000',
+  baseIntervalMs = 5000, hiddenIntervalMs = 60000, maxBackoffMs = 60000,
+  timeoutMs = 10000, historyLimit = 30, onState = () => {}, onStatus = () => {},
+  fetchImpl = globalThis.fetch, clock = () => Date.now(), timers = globalThis,
+  documentRef = globalThis.document, origin = globalThis.location?.origin || 'http://localhost'
 } = {}) {
-  let running = false;
-  let timer = 0;
-  let controller = null;
-  let backoffMs = 0;
-  let lastGoodState = null;
-
-  function clearTimer() {
-    if (!timer) return;
-    window.clearTimeout(timer);
-    timer = 0;
+  let running = false, disposed = false, generation = 0, request = null;
+  let pollTimer, expiryTimer, backoffMs = 0, rawState = null, lastGoodState = null;
+  let serverTime = 0, receivedTime = 0, publishedSignature = '';
+  const visible = () => documentRef?.visibilityState !== 'hidden';
+  const alignedNow = () => serverTime + Math.max(0, clock() - receivedTime);
+  const clearPoll = () => { timers.clearTimeout(pollTimer); pollTimer = undefined; };
+  function publish() {
+    if (!running || !rawState) return;
+    const next = normalizePublicState(rawState, alignedNow(), { previousState: lastGoodState, agent });
+    const signature = JSON.stringify(next);
+    lastGoodState = next;
+    if (signature !== publishedSignature) { publishedSignature = signature; onState(next); }
   }
-
-  function isVisible() {
-    return typeof document === 'undefined' || document.visibilityState !== 'hidden';
-  }
-
-  function stateUrl() {
-    const url = new URL(endpoint, window.location.origin);
-    url.searchParams.set('historyLimit', String(historyLimit));
-    return url;
-  }
-
-  function schedule() {
+  function scheduleExpiry() {
+    timers.clearTimeout(expiryTimer);
     if (!running) return;
-
-    clearTimer();
-    const delay = visibleDelay({
-      visible: isVisible(),
-      baseIntervalMs,
-      hiddenIntervalMs,
-      backoffMs
-    });
-
-    timer = window.setTimeout(() => {
-      poll();
-    }, jitter(delay));
+    expiryTimer = timers.setTimeout(() => { publish(); scheduleExpiry(); }, 250);
   }
-
-  async function poll({ manual = false } = {}) {
-    if (!running && !manual) return;
-
-    if (controller) controller.abort();
-    controller = new AbortController();
+  function schedulePoll() {
+    clearPoll();
+    if (!running) return;
+    pollTimer = timers.setTimeout(poll, Math.max(visible() ? baseIntervalMs : hiddenIntervalMs, backoffMs));
+  }
+  function cancelRequest() {
+    generation += 1;
+    if (request) { timers.clearTimeout(request.timeout); request.controller.abort(); request.cancel?.(); request = null; }
+  }
+  async function poll() {
+    if (!running) return;
+    clearPoll();
+    cancelRequest();
+    const own = { generation, controller: new AbortController() };
+    request = own;
+    const current = () => running && request === own && generation === own.generation;
     onStatus({ status: lastGoodState ? 'syncing' : 'connecting', lastGoodState });
-
     try {
-      const response = await fetch(stateUrl(), {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
-      });
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok || payload.success !== true) {
-        throw new Error(payload.error || `Request failed (${response.status})`);
-      }
-
-      const normalized = normalizePublicState(payload);
-      lastGoodState = normalized;
+      const url = new URL(endpoint, origin);
+      url.searchParams.set('historyLimit', String(historyLimit));
+      if (agent) url.searchParams.set('agent', agent);
+      // Race the whole response, including JSON parsing. Aborting fetch alone is
+      // insufficient for transports that ignore AbortSignal or stall in body reads.
+      const payload = await Promise.race([
+        (async () => {
+          const response = await fetchImpl(url, { headers: { Accept: 'application/json' }, signal: own.controller.signal });
+          if (!response.ok) throw new Error(`Request failed (${response.status})`);
+          const body = await response.json();
+          if (!validPublicPayload(body)) throw new Error('Malformed telemetry snapshot');
+          return body;
+        })(),
+        new Promise((_, reject) => {
+          own.cancel = () => reject(new Error('Telemetry request superseded'));
+          own.timeout = timers.setTimeout(() => {
+            own.controller.abort(); reject(new Error('Telemetry request timed out'));
+          }, timeoutMs);
+        })
+      ]);
+      if (!current()) return;
+      const timestamp = Date.parse(payload.fetchedAt);
+      if (rawState && timestamp < Date.parse(rawState.fetchedAt)) throw new Error('Older telemetry snapshot ignored');
+      // A cached snapshot must not rewind the expiry clock.
+      serverTime = rawState ? Math.max(alignedNow(), timestamp) : timestamp;
+      receivedTime = clock();
+      rawState = payload;
       backoffMs = 0;
-      onState(normalized);
-      onStatus({ status: 'live', state: normalized });
+      publish();
+      onStatus({ status: 'live', state: lastGoodState });
     } catch (error) {
-      if (error.name === 'AbortError') return;
-
-      backoffMs = nextBackoff(backoffMs, maxBackoffMs);
+      if (!current()) return;
+      backoffMs = Math.min(backoffMs ? backoffMs * 1.8 : 2000, maxBackoffMs);
       onStatus({ status: 'offline', error, lastGoodState });
-
-      if (!lastGoodState) {
-        onState(fallbackCommandCenterState({
-          message: error.message || 'Telemetry unavailable'
-        }));
-      }
+      if (!lastGoodState) onState(fallbackCommandCenterState({ message: error.message, now: clock() }));
     } finally {
-      controller = null;
-      if (running) schedule();
+      timers.clearTimeout(own.timeout);
+      if (current()) { request = null; schedulePoll(); }
     }
   }
-
-  function start() {
-    if (running) return;
-    running = true;
-    onStatus({ status: 'connecting', lastGoodState });
-    poll();
-  }
-
-  function stop() {
-    running = false;
-    clearTimer();
-    if (controller) controller.abort();
-    controller = null;
-  }
-
-  function refresh() {
-    clearTimer();
-    return poll({ manual: true });
-  }
-
-  function handleVisibilityChange() {
+  function handleVisibility() {
     if (!running) return;
-    if (isVisible()) refresh();
-    else schedule();
+    publish();
+    if (visible()) poll(); else schedulePoll();
   }
-
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-  }
-
   return {
-    refresh,
-    start,
-    stop
+    start() {
+      if (running || disposed) return;
+      running = true;
+      documentRef?.addEventListener('visibilitychange', handleVisibility);
+      publish(); scheduleExpiry(); poll();
+    },
+    stop() {
+      running = false; clearPoll(); cancelRequest(); timers.clearTimeout(expiryTimer);
+      documentRef?.removeEventListener('visibilitychange', handleVisibility);
+    },
+    refresh: poll,
+    destroy() { this.stop(); disposed = true; }
   };
 }

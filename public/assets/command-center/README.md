@@ -3,6 +3,10 @@
 Generated pixel art goes here. The scene ships as the design's scale-true whitebox and
 swaps to art **per file**, so this directory can fill up one asset at a time.
 
+## Current runtime geometry
+
+The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The measured west corridor is X=241; Zone 2 stands at (164,180).
+
 ## Machine → Hermes workflow mapping
 
 This is semantic mapping only. Coordinates stay in `src/command-center/sceneConfig.mjs`,
@@ -37,8 +41,7 @@ Every machine and prop is delivered as **exactly one** of these:
 | **animated prop** | `anim_<name>_sheet.png` | one sprite sheet where **every frame contains the complete object** |
 
 An animated sheet **is** the machine. There is no static body rendered underneath it and
-no animated overlay rendered above it. Both modes render at the same depth, on the same
-code path, at the same place in the room.
+no animated overlay rendered above it. Both modes use the same ground-baseline depth rule and placement path.
 
 **You never ship both files for the same machine**, and you never hand-extract a moving
 subcomponent — no separate screens, radar sweeps, LED clusters, CRT regions, coils or
@@ -59,7 +62,8 @@ the legacy section at the bottom.
 
 3. Add (or edit) its entry in the art registry,
    `src/command-center/propSheets.mjs` — see the two examples below.
-4. Reload. `CommandCenterScene.preload()` queues only manifest-listed files, so an
+4. Run `npm run command-center:measure` and validate station geometry, foot clearance and screen surfaces.
+5. Reload. `CommandCenterScene.preload()` queues only manifest-listed files, so an
    empty manifest makes zero failed requests and every unlisted machine keeps its
    whitebox.
 

@@ -8,9 +8,14 @@
     "build": "vite build",
     "command-center:replay": "node --env-file-if-exists=.env.local scripts/replay-command-center-telemetry.js",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "command-center:verify:browser": "node scripts/verify-command-center.mjs",
+    "command-center:verify:db": "node scripts/verify-command-center-db.mjs",
+    "command-center:measure": "node scripts/measure-command-center.mjs"
   },
   "devDependencies": {
+    "pg": "^8.20.0",
+    "playwright": "^1.63.0",
     "vercel": "^54.4.1",
     "vite": "^8.0.13"
   },

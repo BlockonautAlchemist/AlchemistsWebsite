@@ -16,8 +16,7 @@ import {
   CAMPER_SHEETS,
   camperFrameOrderFor,
   camperSheetFor,
-  camperStaticFrameFor,
-  createCamperVisuals
+  camperStaticFrameFor
 } from './camperSheets.mjs';
 import {
   PROP_SHEETS,
@@ -32,19 +31,19 @@ import {
   replacedWhiteboxKeys
 } from './propSheets.mjs';
 import { COMMAND_CENTER_TIMINGS, visualForState } from './visualMappings.mjs';
-import { routeThroughWalkGraph } from './walkGraph.mjs';
+import { createLocomotion } from './locomotion.mjs';
+import { stationGeometry } from './stationGeometry.mjs';
 
-// Section 11 scene graph. L4 sits above L3 because every anchor is south of its
-// machine, so the camper is always nearer the camera than the screen he works at.
-// L6 always wins — that is the whole depth system.
+// Ground baselines sort machinery and the character. Shadows, wall fixtures,
+// effects and interface objects occupy explicit layers.
 const DEPTH = Object.freeze({
   env: 0,
   props: 10,
   anim: 20,
   camper: 25,
-  fx: 30,
-  fore: 40,
-  hud: 100
+  fx: 700,
+  fore: 800,
+  hud: 900
 });
 
 const MONO = 'JetBrains Mono, ui-monospace, monospace';
@@ -82,6 +81,7 @@ export class CommandCenterScene extends Phaser.Scene {
     this.conduitObjects = new Map();
     this.packetPool = [];
     this.completeKeys = new Set();
+    this.transientEffects = new Set();
     this.latestState = null;
     this.selectedZoneId = '';
     this.phoneViewport = false;
@@ -94,6 +94,9 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   preload() {
+    this.load.setCORS('anonymous');
+    this.load.maxRetries = 1;
+    this.load.xhr.timeout = 8000;
     // Section 08 swap seam: art is queued only when the manifest says the file
     // exists, so the whitebox build makes zero failed requests.
     const queue = (entry) => {
@@ -134,7 +137,16 @@ export class CommandCenterScene extends Phaser.Scene {
     this.buildInteraction();
 
     this.configureViewport();
-    this.scale.on('resize', () => this.configureViewport());
+    this.resizeHandler = () => this.configureViewport();
+    this.scale.on('resize', this.resizeHandler);
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.resizeHandler);
+      this.locomotion?.cancel();
+      this.cameras.main.panEffect.reset();
+      this.tweens.killAll();
+      this.time.removeAllEvents();
+      this.input.removeAllListeners();
+    });
 
     this.startAmbient();
     this.applyAreaGroups([]);
@@ -170,6 +182,9 @@ export class CommandCenterScene extends Phaser.Scene {
     const phone = width <= COMMAND_CENTER_CAMERA.phoneMaxWidth && portrait;
 
     if (phone === this.phoneViewport && this.viewportReady) return;
+    this.cameras.main.panEffect.reset();
+    this.focusZoneId = '';
+    this.lastFocusAt = -Infinity;
     this.phoneViewport = phone;
     this.viewportReady = true;
 
@@ -209,7 +224,12 @@ export class CommandCenterScene extends Phaser.Scene {
     this.focusCamera({ x: area.x, y: area.y + 60 });
   }
 
-  update() {
+  update(_time, delta = 0) {
+    if (this.locomotion) this.renderLocomotion(this.locomotion.update(delta));
+    if (this.latestState) this.focusZone(this.latestState.primaryWorkflow?.areaId || 'central-operations');
+    if (this.camperInspected && this.time.now - (this.lastInspectorAt || 0) > 250) {
+      this.lastInspectorAt = this.time.now; this.inspectCamper();
+    }
     const camera = this.cameras.main;
     // Round scroll to integers every frame (section 01).
     camera.scrollX = Math.round(camera.scrollX);
@@ -388,7 +408,9 @@ export class CommandCenterScene extends Phaser.Scene {
     const object = isAnimatedProp(entry)
       ? this.add.sprite(at.x, at.y, entry.textureKey)
       : this.add.image(at.x, at.y, entry.textureKey);
-    object.setOrigin(at.originX, at.originY).setScale(at.scale).setDepth(DEPTH.props);
+    const geometry = stationGeometry(box?.zone)?.parts.find(part => part.id === entry.id);
+    object.setOrigin(at.originX, at.originY).setScale(at.scale)
+      .setDepth(geometry?.wall ? DEPTH.props : DEPTH.props + (geometry?.baseline || box.y + box.h));
 
     // Turning a machine around is a registry edit, not an art edit: the sheet on
     // disk stays exactly what Sprite Fusion exported. Safe about a centred
@@ -472,7 +494,7 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   buildProps() {
-    const g = this.add.graphics().setDepth(DEPTH.props);
+    this.fallbackBodies = new Map();
     this.ensurePropAnimations();
 
     // A real asset is the complete machine, so it owns both its whitebox body
@@ -488,12 +510,20 @@ export class CommandCenterScene extends Phaser.Scene {
     // polygon left with the vent bank.
     COMMAND_CENTER_PROPS.forEach((prop) => {
       if (replacedProps.has(prop.key)) return;
+      const geometry = stationGeometry(prop.zone);
+      const wall = prop.key.includes('wall_');
+      const g = this.add.graphics().setDepth(wall ? DEPTH.props : DEPTH.props + (geometry?.baseline || prop.y + prop.h));
+      this.fallbackBodies.set(prop.key, g);
+      this.fallbackGroups ||= new Map();
+      if (!wall) {
+        if (!this.fallbackGroups.has(prop.zone)) this.fallbackGroups.set(prop.zone, this.add.container(0, 0).setDepth(g.depth));
+        this.fallbackGroups.get(prop.zone).add(g);
+      }
       prop.parts.forEach((part) => this.drawWhiteboxPart(g, prop, part));
     });
 
     // Shadows first, as one pass: every pool has to end up under every machine,
-    // not just under its own, and art is drawn in registry order at one flat
-    // depth.
+    // not just under its own. Machinery then sorts by ground baseline.
     live.forEach((entry) => this.addPropShadow(entry));
     live.forEach((entry) => this.addPropArt(entry));
 
@@ -507,8 +537,8 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   zoneNumberAnchor(area) {
-    const first = area.hitRects[0];
-    return { x: first.x + 6, y: first.y - 16 };
+    const first = stationGeometry(area.id)?.bounds || area.hitRects[0];
+    return { x: first.x + 6, y: Math.max(4, first.y - 16) };
   }
 
   drawWhiteboxPart(g, prop, part) {
@@ -557,7 +587,8 @@ export class CommandCenterScene extends Phaser.Scene {
       // Subsumed by a real machine asset (buildProps runs first). No whitebox
       // screen, LED, sweep or coil is ever drawn over finished art.
       if (this.replacedComponents.has(spec.key)) return;
-      const container = this.add.container(spec.x, spec.y).setDepth(DEPTH.anim);
+      const baseline = stationGeometry(spec.zone)?.baseline || 0;
+      const container = this.add.container(spec.x, spec.y).setDepth(spec.key === 'anim_ops_screens' ? DEPTH.anim : DEPTH.props + baseline + .1);
       const object = {
         spec,
         container,
@@ -566,6 +597,7 @@ export class CommandCenterScene extends Phaser.Scene {
         operationalTweens: [],
         operational: false
       };
+      if (spec.key !== 'anim_ops_screens') this.fallbackGroups?.get(spec.zone)?.add(container);
       this.buildComponentParts(object);
       this.componentObjects.set(spec.key, object);
     });
@@ -951,7 +983,8 @@ export class CommandCenterScene extends Phaser.Scene {
     const home = COMMAND_CENTER_CANVAS.homePoint;
     this.ensureCamperAnimations();
 
-    const idleSheet = camperSheetFor('idle');
+    const idleSheet = CAMPER_SHEETS.find(sheet => sheet.anim === 'idle' && this.textures.exists(sheet.key))
+      || CAMPER_SHEETS.find(sheet => this.textures.exists(sheet.key));
     if (idleSheet && this.textures.exists(idleSheet.key)) {
       // Origin sits on the character's ground contact, so the walk graph and the
       // station anchors keep addressing the same point they always did.
@@ -972,7 +1005,7 @@ export class CommandCenterScene extends Phaser.Scene {
       this.camperBody = sprite;
       this.camperShadow = shadow;
       this.camperRig = this.add
-        .container(home.x, home.y, shadow ? [shadow, sprite] : [sprite])
+        .container(home.x, home.y, [sprite])
         .setDepth(DEPTH.camper);
       this.camperIsSprite = true;
     } else {
@@ -1013,42 +1046,14 @@ export class CommandCenterScene extends Phaser.Scene {
 
     this.camperAnim = '';
     this.camperRigAnim = '';
-    // Which animation should be showing is decided in camperSheets.mjs; this
-    // scene only paints what it is handed.
-    this.camperVisuals = createCamperVisuals();
-    this.playCamperAnimation('idle');
-  }
-
-  /**
-   * The logical telemetry mode. This is what `inspectCamper` reports, so it stays
-   * OPERATE / INSPECT / REACT / HOVER_TRAVEL_* — an animation name never
-   * replaces it. Choosing what is on screen is `applyCamperVisual`'s job.
-   *
-   * While a route is in flight the visual belongs to the segment being walked,
-   * so the mode is recorded but not painted; `moveCamperTo` applies the
-   * stationary visual on arrival.
-   */
-  playCamperAnimation(name) {
-    this.camperAnim = name;
-    // The primitive rig has per-mode tweens (inspect tilts, react jitters) with
-    // no sheet equivalent, so it stays keyed to the logical mode.
-    if (!this.camperIsSprite) this.applyWhiteboxRig(name);
-    this.applyCamperVisual(this.camperVisuals.setMode(name));
-  }
-
-  /** The visual animation for the segment currently being traversed. */
-  setCamperTravelDirection(dx, dy) {
-    const visual = this.camperVisuals.travel(dx, dy);
-    if (!this.camperIsSprite && visual) {
-      // The rig has one travel pose, not four.
-      this.applyWhiteboxRig(visual === 'walk_back' ? 'hover_travel_back' : 'hover_travel_front');
-    }
-    this.applyCamperVisual(visual);
+    this.camperAnim = 'idle';
+    this.applyCamperVisual('idle');
+    this.locomotion = createLocomotion({ position: home });
   }
 
   /**
    * The only place that touches the sprite, and it paints exactly what
-   * `camperVisuals` hands it. A null means the request resolved to the animation
+   * the locomotion controller hands it. A null means the request resolved to the animation
    * already playing, so a walk cycle keeps looping across several same-direction
    * legs instead of restarting at frame 0; a genuine change (walk_right ->
    * walk_back at a turn, walk_back -> operate_back on arrival) arrives as a real
@@ -1060,7 +1065,9 @@ export class CommandCenterScene extends Phaser.Scene {
     if (this.camperIsSprite) {
       // Visuals without their own sheet yet fall back to the idle art rather
       // than reverting to the primitive rig.
-      const sheet = camperSheetFor(visual);
+      const requested = camperSheetFor(visual);
+      const sheet = this.textures.exists(requested?.key) ? requested
+        : CAMPER_SHEETS.find(entry => this.textures.exists(entry.key));
       if (!sheet) return;
       this.camperSheet = sheet;
       if (this.camperBody.texture?.key !== sheet.key) {
@@ -1138,94 +1145,25 @@ export class CommandCenterScene extends Phaser.Scene {
     }
   }
 
+  renderLocomotion(state) {
+    const { x, y } = state.position;
+    if (this.camperIsSprite && this.camperShadow) this.camperShadow.setPosition(Math.round(x), Math.round(y) - 2).setDepth(DEPTH.props - 1);
+    this.camperRig.setPosition(Math.round(x), Math.round(y)).setDepth(DEPTH.props + y + .5);
+    this.camperBadge.setPosition(Math.round(x) - 50, Math.round(y) + 6).setDepth(DEPTH.hud);
+    this.camperAnim = state.mode;
+    if (this.renderedCamperVisual !== state.visual) {
+      this.renderedCamperVisual = state.visual;
+      this.applyCamperVisual(state.visual);
+      if (!this.camperIsSprite) this.applyWhiteboxRig(state.moving ? 'hover_travel_front' : state.mode);
+    }
+    this.setCamperStation(state.attendance);
+  }
+
   moveCamperTo(point, { immediate = false, label = '' } = {}) {
-    const target = { x: clamp(point.x, 24, COMMAND_CENTER_CANVAS.width - 24), y: clamp(point.y, 132, COMMAND_CENTER_CANVAS.height - 24) };
-    this.tweens.killTweensOf(this.camperRig);
-    this.tweens.killTweensOf(this.camperBadge);
-    if (label) this.camperBadge.setText(label);
-
-    const place = (x, y) => {
-      this.camperRig.setPosition(x, y);
-      this.camperBadge.setPosition(x - 50, y + 6);
-    };
-
-    if (immediate || this.reducedMotion) {
-      // Section 11 restoration: on refresh the camper snaps to the newest live
-      // workflow's anchor with no travel animation. Reduced motion lands here
-      // too: he still relocates and the state still updates, he just does not
-      // walk there.
-      place(target.x, target.y);
-      this.applyCamperVisual(this.camperVisuals.endRoute());
-      this.setCamperStation(this.pendingCamperZoneId);
-      this.focusCamera(target, true);
-      return;
-    }
-
-    // Already standing there. Ending the route matters when a new destination
-    // lands mid-walk: the old step chain died with its tween, so without this he
-    // would hold the last walk frame forever instead of settling.
-    if (Math.abs(this.camperRig.x - target.x) < 2 && Math.abs(this.camperRig.y - target.y) < 2) {
-      this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
-      this.setCamperStation(this.pendingCamperZoneId);
-      return;
-    }
-
-    const waypoints = routeThroughWalkGraph({ x: this.camperRig.x, y: this.camperRig.y }, target);
-    const timeline = [];
-    let cursor = { x: this.camperRig.x, y: this.camperRig.y };
-    waypoints.forEach((waypoint) => {
-      const distance = Math.abs(waypoint.x - cursor.x) + Math.abs(waypoint.y - cursor.y);
-      if (distance < 1) return;
-      timeline.push({ ...waypoint, duration: clamp(distance * 3.4, 160, 1400) });
-      cursor = waypoint;
-    });
-    if (!timeline.length) {
-      place(target.x, target.y);
-      this.applyCamperVisual(this.camperVisuals.endRoute(this.pendingCamperAnim || this.camperAnim));
-      this.setCamperStation(this.pendingCamperZoneId);
-      return;
-    }
-
-    // A walk is actually happening, so he stops working: the machine he was at
-    // goes still for the whole flight, and nothing he passes on the way wakes up.
-    // Released here rather than at the top of the function on purpose — the
-    // early returns above are the cases where he does not move, and releasing
-    // before them would restart his machine on every telemetry tick.
-    this.setCamperStation('');
-
-    // For the whole flight the visual belongs to the segment being walked, not
-    // to the telemetry mode. `playCamperAnimation` keeps recording the logical
-    // mode meanwhile; it just does not paint until the route ends.
-    this.camperVisuals.beginRoute();
-
-    const step = (index) => {
-      if (index >= timeline.length) {
-        // Arrival: the pending mode is the state he came here to work in, so a
-        // workstation job resolves to operate_back and home resolves to idle.
-        this.camperVisuals.endRoute();
-        this.playCamperAnimation(this.pendingCamperAnim || 'idle');
-        // And the machine he walked over to starts running, on this frame and
-        // not before. Walking home stations nowhere, so the room goes still.
-        this.setCamperStation(this.pendingCamperZoneId);
-        return;
-      }
-      const leg = timeline[index];
-      // Direction comes from the leg actually being traversed, recomputed as
-      // each leg starts, so a route that goes right then up switches
-      // walk_right -> walk_back at the turn rather than on arrival.
-      this.setCamperTravelDirection(leg.x - this.camperRig.x, leg.y - this.camperRig.y);
-      this.tweens.add({
-        targets: this.camperRig,
-        x: leg.x,
-        y: leg.y,
-        duration: leg.duration,
-        ease: 'Sine.easeInOut',
-        onUpdate: () => this.camperBadge.setPosition(this.camperRig.x - 50, this.camperRig.y + 6),
-        onComplete: () => step(index + 1)
-      });
-    };
-    step(0);
-    this.focusCamera(target);
+    if (label && this.camperBadge.text !== label) this.camperBadge.setText(label);
+    this.renderLocomotion(this.locomotion.command({ destination: point,
+      mode: this.pendingCamperAnim || 'idle', station: this.pendingCamperZoneId,
+      immediate: immediate || this.reducedMotion }));
   }
 
   // -------------------------------------------------------------------------
@@ -1377,7 +1315,12 @@ export class CommandCenterScene extends Phaser.Scene {
   // -------------------------------------------------------------------------
 
   buildInteraction() {
-    COMMAND_CENTER_AREAS.forEach((area) => {
+    COMMAND_CENTER_AREAS.forEach((configuredArea) => {
+      const geometry = stationGeometry(configuredArea.id);
+      const loadedParts = geometry.parts.filter(part => this.propObjects.has(part.id));
+      const hasAllArt = loadedParts.length === geometry.parts.length;
+      const area = { ...configuredArea, bounds: hasAllArt ? geometry.bounds : configuredArea.bounds,
+        hitRects: hasAllArt ? geometry.inspection : configuredArea.hitRects };
       const outline = this.add.graphics().setDepth(DEPTH.fx + 1).setVisible(false);
       outline.lineStyle(1, area.color, 0.9);
       area.hitRects.forEach((rect) => outline.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.width - 1, rect.height - 1));
@@ -1407,6 +1350,7 @@ export class CommandCenterScene extends Phaser.Scene {
         const height = Math.max(rect.height, 24);
         const zone = this.add
           .zone(rect.x + rect.width / 2, rect.y + rect.height / 2, width, height)
+          .setDepth(DEPTH.props + (geometry.baseline || area.bounds.y + area.bounds.height))
           .setInteractive({ useHandCursor: false });
         zone.input.cursor = 'crosshair';
         zone.on('pointerover', () => {
@@ -1438,13 +1382,18 @@ export class CommandCenterScene extends Phaser.Scene {
     camperZone.input.cursor = 'crosshair';
     camperZone.on('pointerdown', () => this.inspectCamper());
     this.camperZone = camperZone;
+    this.input.on('pointerdown', (_pointer, objects) => {
+      if (objects.length) return;
+      this.clearInspection(); this.options.onInspectDismiss?.();
+    });
     this.events.on('update', () => {
       // The origin is on his feet, so the box hangs one half-height above the anchor.
-      camperZone.setPosition(this.camperRig.x, this.camperRig.y - hitHeight / 2);
+      camperZone.setPosition(this.camperRig.x, this.camperRig.y - hitHeight / 2).setDepth(this.camperRig.depth + .1);
     });
   }
 
   inspectArea(areaId) {
+    this.camperInspected = false;
     this.selectedZoneId = areaId;
     this.zoneObjects.forEach((object, id) => {
       const selected = id === areaId;
@@ -1465,6 +1414,7 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   inspectCamper() {
+    this.camperInspected = true;
     this.selectedZoneId = '';
     this.zoneObjects.forEach((object) => {
       object.outline.setVisible(false);
@@ -1472,13 +1422,15 @@ export class CommandCenterScene extends Phaser.Scene {
     });
     this.options.onCamperInspect?.({
       position: { x: Math.round(this.camperRig.x), y: Math.round(this.camperRig.y) },
-      anim: this.camperAnim,
+      anim: this.locomotion?.state.moving ? this.renderedCamperVisual : this.camperAnim,
+      attended: this.camperStationZoneId,
       workflow: this.latestState?.primaryWorkflow || null,
       activeCount: this.latestState?.activeWorkflows?.length || 0
     });
   }
 
   clearInspection() {
+    this.camperInspected = false;
     this.selectedZoneId = '';
     this.zoneObjects.forEach((object) => {
       object.outline.setVisible(false);
@@ -1500,7 +1452,7 @@ export class CommandCenterScene extends Phaser.Scene {
 
     this.applyAreaGroups(areaGroups);
     this.setOpsReadout({
-      status: state.overallStatus,
+      status: this.connectionHealth === 'offline' ? 'offline' : state.overallStatus,
       active: state.activeWorkflows.length,
       stale: state.staleCount
     });
@@ -1510,16 +1462,16 @@ export class CommandCenterScene extends Phaser.Scene {
     if (primary) {
       const area = areaById(primary.areaId);
       const visual = visualForState(primary.displayState);
-      const machineLabel = primary.machineName || area.shortLabel;
+      const machineLabel = area.shortLabel;
       this.pendingCamperAnim = visual.camperAnim;
       // Standing somewhere idle is not working there: a machine wakes only for a
       // pose he actually operates it in.
-      this.pendingCamperZoneId = visual.camperAnim === 'idle' ? '' : primary.areaId;
+      this.pendingCamperZoneId = primary.isActive && primary.displayState !== 'waiting' ? primary.areaId : '';
+      if (!this.pendingCamperZoneId) this.pendingCamperAnim = 'idle';
       this.moveCamperTo(area.destination, {
         immediate: firstPaint,
         label: `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
       });
-      if (firstPaint || this.reducedMotion) this.playCamperAnimation(visual.camperAnim);
       this.focusZone(primary.areaId);
     } else {
       this.pendingCamperAnim = 'idle';
@@ -1529,7 +1481,6 @@ export class CommandCenterScene extends Phaser.Scene {
         immediate: firstPaint,
         label: offline ? 'UPLINK · OFFLINE' : 'IDLE · OPS'
       });
-      this.playCamperAnimation('idle');
     }
   }
 
@@ -1560,7 +1511,7 @@ export class CommandCenterScene extends Phaser.Scene {
     object.workflows = group.workflows || [];
     object.displayWorkflow = group.displayWorkflow || null;
     object.displayState = group.displayState;
-    object.nameTag.setText((group.displayMachine?.name || object.displayWorkflow?.machineName || object.area.label).toUpperCase());
+    object.nameTag.setText(object.area.label.toUpperCase());
 
     // A whitebox machine follows the same rule its finished-art siblings do: it
     // runs while SpawnCamper is working at it and holds still otherwise, however
@@ -1592,9 +1543,16 @@ export class CommandCenterScene extends Phaser.Scene {
       this.setConduitActive('SP', this.hasOperationalTraffic);
     }
 
-    this.setLocalGlow(object, visual, group.displayState !== 'idle');
-    this.setWarningLamp(object, visual.severity === 'warning' || stale, stale);
-    this.setGlitch(object, visual.severity === 'error');
+    const effectMode = `${group.displayState}:${stale}`;
+    if (object.effectMode !== effectMode) {
+      object.effectMode = effectMode;
+      this.setLocalGlow(object, visual, group.displayState !== 'idle');
+      this.setWarningLamp(object, visual.severity === 'warning' || stale, stale);
+      this.setGlitch(object, visual.severity === 'error');
+      if (object.completeFlash) {
+        this.tweens.killTweensOf(object.completeFlash); object.completeFlash.destroy(); object.completeFlash = null;
+      }
+    }
 
     if (group.displayState === 'complete' && previousState !== 'complete') {
       this.emitCompleteFlash(object);
@@ -1740,6 +1698,8 @@ export class CommandCenterScene extends Phaser.Scene {
         .setDepth(DEPTH.fx - 1)
         .setVisible(false);
     }
+    object.glowBase ||= { x: object.glow.scaleX, y: object.glow.scaleY };
+    object.glow.setScale(object.glowBase.x, object.glowBase.y);
     object.glow.setTint(visual.areaTint);
     object.glow.setAlpha(visual.severity === 'error' ? 0.4 : 0.3);
     object.glow.setVisible(active);
@@ -1748,8 +1708,8 @@ export class CommandCenterScene extends Phaser.Scene {
     this.tweens.add({
       targets: object.glow,
       alpha: visual.severity === 'error' ? 0.6 : 0.48,
-      scaleX: 1.06,
-      scaleY: 1.1,
+      scaleX: object.glowBase.x * 1.06,
+      scaleY: object.glowBase.y * 1.1,
       duration: (visual.severity === 'error' ? 300 : 900) / (visual.rate || 1),
       yoyo: true,
       repeat: -1,
@@ -1780,17 +1740,23 @@ export class CommandCenterScene extends Phaser.Scene {
   }
 
   setGlitch(object, active) {
+    if (!object.glitchBand && !active) return;
     if (!object.glitchBand) {
-      const rect = object.area.hitRects[0];
+      const rect = stationGeometry(object.area.id).screen;
       const band = this.add.graphics().setDepth(DEPTH.fx + 1).setVisible(false);
       for (let y = 0; y < rect.height; y += 5) {
         band.fillStyle(P.warn, 0.2);
         band.fillRect(rect.x, rect.y + y, rect.width, 2);
       }
+      const surface = this.make.graphics({ x: 0, y: 0, add: false });
+      surface.fillStyle(0xffffff).fillRect(rect.x, rect.y, rect.width, rect.height);
+      if (this.renderer.type === Phaser.WEBGL) band.enableFilters().filters.external.addMask(surface);
+      else band.setMask(surface.createGeometryMask());
+      this.events.once('shutdown', () => surface.destroy());
       object.glitchBand = band;
     }
     this.tweens.killTweensOf(object.glitchBand);
-    object.glitchBand.setVisible(active).setX(0);
+    object.glitchBand.setVisible(active).setX(0).setAlpha(1);
     if (!active || this.reducedMotion) return;
     // Local malfunction only: static band + 3px jitter + one spark. No overlay.
     this.tweens.add({
@@ -1807,11 +1773,14 @@ export class CommandCenterScene extends Phaser.Scene {
 
   emitSpark(area) {
     if (this.reducedMotion) return;
-    const rect = area.hitRects[0];
+    if (this.transientEffects.size >= COMMAND_CENTER_BUDGET.maxFxSprites) return;
+    const rect = stationGeometry(area.id).screen;
     const spark = this.add
       .rectangle(rect.x + rect.width / 2, rect.y + rect.height / 2, 6, 6, P.warn, 1)
       .setDepth(DEPTH.fx + 2)
       .setBlendMode(Phaser.BlendModes.ADD);
+    this.transientEffects.add(spark);
+    spark.once('destroy', () => this.transientEffects.delete(spark));
     this.tweens.add({
       targets: spark,
       y: rect.y - 10,
@@ -1828,14 +1797,20 @@ export class CommandCenterScene extends Phaser.Scene {
     const key = latestWorkflowKey(object.displayWorkflow);
     if (!key || this.completeKeys.has(key)) return;
     this.completeKeys.add(key);
+    if (this.completeKeys.size > 128) this.completeKeys.delete(this.completeKeys.values().next().value);
     if (this.reducedMotion) return;
 
+    if (this.transientEffects.size >= COMMAND_CENTER_BUDGET.maxFxSprites) return;
     // Section 04: 2-frame phosphor flash + lamp, 600ms, then ease back over 1.2s.
-    const rect = object.area.hitRects[0];
+    const rect = stationGeometry(object.area.id).screen;
     const flash = this.add
       .rectangle(rect.x + rect.width / 2, rect.y + rect.height / 2, rect.width, rect.height, P.phosphor, 0.5)
       .setDepth(DEPTH.fx + 2)
       .setBlendMode(Phaser.BlendModes.ADD);
+    if (object.completeFlash) { this.tweens.killTweensOf(object.completeFlash); object.completeFlash.destroy(); }
+    object.completeFlash = flash;
+    this.transientEffects.add(flash);
+    flash.once('destroy', () => this.transientEffects.delete(flash));
     this.tweens.add({
       targets: flash,
       alpha: 0.16,
@@ -1849,7 +1824,7 @@ export class CommandCenterScene extends Phaser.Scene {
           alpha: 0,
           duration: COMMAND_CENTER_TIMINGS.completeSettleMs,
           ease: 'Sine.easeOut',
-          onComplete: () => flash.destroy()
+          onComplete: () => { flash.destroy(); if (object.completeFlash === flash) object.completeFlash = null; }
         });
       }
     });

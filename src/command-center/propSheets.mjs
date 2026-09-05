@@ -358,23 +358,23 @@ export const PROP_SHEETS = Object.freeze([
   // unrelated machines shared, onto a floor console of its own during the
   // geometry pass, and now shipping as one full-object sheet: cabinet, the
   // three-cell editorial CRT row and its signal traffic all move in frame, so
-  // the whitebox screens retire with the body. The 165x151 cell keeps 22 empty
+  // the whitebox screens retire with the body. The 200x200 cell keeps 32 empty
   // rows under the plinth. 6fps is one 1.333s ambient cycle.
   Object.freeze({
     id: 'creator_console',
     type: PROP_ANIMATED,
     art: `${ART_ROOT}/anim_creator_console_sheet.png`,
     textureKey: 'anim_creator_console',
-    sheetWidth: 1320,
-    sheetHeight: 151,
-    frameWidth: 165,
-    frameHeight: 151,
+    sheetWidth: 1600,
+    sheetHeight: 200,
+    frameWidth: 200,
+    frameHeight: 200,
     frames: 8,
     fps: 6,
     repeat: -1,
-    offsetY: 22,
+    offsetY: 32,
     flipX: true,
-    shadowWidth: 123,
+    shadowWidth: 136,
     covers: Object.freeze(['prop_creator_console']),
     coversComponents: Object.freeze(['anim_creator_screens'])
   }),

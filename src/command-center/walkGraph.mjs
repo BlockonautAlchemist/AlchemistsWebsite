@@ -1,11 +1,10 @@
 import { COMMAND_CENTER_WALK_GRAPH } from './sceneConfig.mjs';
 
-// Section 01 walk graph: 4 lanes + 6 spurs, every segment axis-aligned. Nodes are
-// segment endpoints plus every lane crossing, so a route can turn at an
-// intersection but never travels diagonally — the hover rig has no diagonal cel.
+// Rectilinear corridors: nodes are segment endpoints, crossings and the actual
+// current foot position. The character uses four directional walking sheets.
 
 function nodeKey(point) {
-  return `${Math.round(point.x)},${Math.round(point.y)}`;
+  return `${point.x},${point.y}`;
 }
 
 export function isHorizontal(segment) {
@@ -63,60 +62,38 @@ export function walkNodes() {
   return WALK_NODES;
 }
 
-function nearestNode(point) {
-  let best = null;
-  let bestDistance = Infinity;
-  WALK_NODES.forEach((node) => {
-    const distance = Math.abs(node.x - point.x) + Math.abs(node.y - point.y);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = node;
-    }
-  });
-  return best;
-}
-
-/** Axis-aligned waypoint list from `from` to `to`, routed along lanes only. */
-export function routeThroughWalkGraph(from, to) {
-  const start = nearestNode(from);
-  const goal = nearestNode(to);
-  if (!start || !goal) return [to];
-
-  // Dijkstra on Manhattan distance: hop count alone would happily pick a
-  // physically longer lane just because it has fewer intersections.
-  const previous = new Map([[start.key, null]]);
-  const cost = new Map([[start.key, 0]]);
+/** Insert the actual foot positions into their segments before pathfinding. */
+export function routeThroughWalkGraph(from, to, segments = COMMAND_CENTER_WALK_GRAPH.segments) {
+  if (![from, to].every((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y)
+    && segments.some((segment) => pointOnSegment(p, segment)))) return null;
+  const augmented = [...segments, { from, to: from }, { from: to, to }];
+  const nodes = buildWalkGraph(augmented);
+  const start = nodes.get(nodeKey(from)), goal = nodes.get(nodeKey(to));
+  if (!start || !goal) return null;
+  const previous = new Map([[start.key, null]]), cost = new Map([[start.key, 0]]);
   const queue = [start.key];
   while (queue.length) {
     queue.sort((a, b) => cost.get(a) - cost.get(b));
     const key = queue.shift();
     if (key === goal.key) break;
-    const node = WALK_NODES.get(key);
-    node.edges.forEach((edgeKey) => {
-      const edge = WALK_NODES.get(edgeKey);
+    const node = nodes.get(key);
+    for (const edgeKey of node.edges) {
+      const edge = nodes.get(edgeKey);
       const next = cost.get(key) + Math.abs(edge.x - node.x) + Math.abs(edge.y - node.y);
-      if (cost.has(edgeKey) && cost.get(edgeKey) <= next) return;
-      cost.set(edgeKey, next);
-      previous.set(edgeKey, key);
-      queue.push(edgeKey);
-    });
+      if (cost.has(edgeKey) && cost.get(edgeKey) <= next) continue;
+      cost.set(edgeKey, next); previous.set(edgeKey, key); queue.push(edgeKey);
+    }
   }
-
-  if (!previous.has(goal.key)) return [to];
-
+  if (!previous.has(goal.key)) return null;
   const path = [];
-  let cursor = goal.key;
-  while (cursor) {
-    const node = WALK_NODES.get(cursor);
-    path.unshift({ x: node.x, y: node.y });
-    cursor = previous.get(cursor);
+  for (let cursor = goal.key; cursor; cursor = previous.get(cursor)) {
+    const node = nodes.get(cursor); path.unshift({ x: node.x, y: node.y });
   }
-
-  // Reaching the anchor itself may need one final axis-aligned step.
-  const last = path[path.length - 1];
-  if (last.x !== to.x || last.y !== to.y) {
-    if (last.x !== to.x && last.y !== to.y) path.push({ x: to.x, y: last.y });
-    path.push({ x: to.x, y: to.y });
+  const merged = [path[0]];
+  for (let i = 1; i < path.length; i++) {
+    const a = merged.at(-2), b = merged.at(-1), c = path[i];
+    if (a && ((a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y))) merged.pop();
+    merged.push(c);
   }
-  return path;
+  return merged.length === 1 ? [{ ...to }] : merged.slice(1);
 }

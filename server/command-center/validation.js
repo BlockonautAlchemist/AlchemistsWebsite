@@ -285,7 +285,11 @@ function validateStateQuery(query = {}) {
     }
   }
 
-  return { historyLimit };
+  const agent = firstQueryValue(query.agent) || null;
+  if (agent !== null && (typeof agent !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,79}$/.test(agent))) {
+    throw new ApiError(400, 'agent must be a valid agent identifier.');
+  }
+  return { historyLimit, agent };
 }
 
 module.exports = {

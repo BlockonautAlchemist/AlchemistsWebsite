@@ -135,16 +135,17 @@
 }
 
 .cc-canvas {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 0;
 }
 
 .cc-canvas canvas {
   display: block;
-  width: 100% !important;
-  height: auto !important;
-  /* The scene renders at its locked world size; the browser only ever scales the
-     finished frame, so the in-world camera zoom stays an integer (section 01). */
+  width: var(--canvas-width, 100%) !important;
+  height: var(--canvas-height, auto) !important;
+  margin: 0 !important;
   image-rendering: pixelated;
   touch-action: manipulation;
 }
@@ -153,8 +154,10 @@
 
 .cc-hud {
   position: absolute;
-  top: 24px;
+  top: 12px;
   bottom: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   width: 320px;
   max-width: calc(100% - 48px);
   background: rgba(13, 2, 20, 0.92);
@@ -310,13 +313,6 @@
     max-height: max(300px, 60vh);
   }
 
-  .cc-canvas canvas {
-    max-height: max(300px, 60vh);
-    width: auto !important;
-    max-width: 100%;
-    margin: 0 auto;
-  }
-
   .cc-strip {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -414,19 +410,5 @@
   justify-content: center;
 }
 
-/* The element box has to equal the painted box — Phaser maps pointer input
-   through getBoundingClientRect(), so object-fit would break zone hit-testing.
-   height:100% scales the world up, max-width:100% letterboxes it back down at
-   ratios narrower than 960:528; the replaced-element sizing rules keep the
-   aspect ratio in both directions. Unused space falls back to the frame's
-   --cc-bg-1, which is also Phaser's clear colour. The base rule's crisp pixel
-   rendering is inherited here and deliberately not restated. */
-#cc-world[data-fullscreen='true'] .cc-canvas canvas {
-  width: auto !important;
-  height: 100% !important;
-  max-width: 100%;
-  max-height: 100%;
-  /* Phaser's CENTER_BOTH writes inline centring margins, which beat a plain
-     author rule; the flex container above already does the centring. */
-  margin: 0 !important;
-}
+
+.cc-world__live[data-state='offline'] { color: var(--cc-gold); }

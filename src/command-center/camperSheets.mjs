@@ -64,9 +64,7 @@ export const CAMPER_SHEETS = Object.freeze([
     frameWidth: 108,
     frameHeight: 108,
     frames: 8,
-    // 0.667s per cycle against the existing ~294px/s route speed
-    // (`distance * 3.4ms` in moveCamperTo), which keeps foot-slide low without
-    // touching route timing or walk graph coordinates.
+    // Preserve the authored 0.667s walking cycle; locomotion runs at 180px/s.
     fps: 12,
     repeat: -1,
     originX: 0.5,

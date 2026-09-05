@@ -26,6 +26,7 @@ module.exports = async function handler(req, res) {
     const fetchedAt = new Date().toISOString();
     const state = await listPublicCommandCenterState({
       historyLimit: filters.historyLimit,
+      agent: filters.agent,
       now: Date.parse(fetchedAt)
     });
 

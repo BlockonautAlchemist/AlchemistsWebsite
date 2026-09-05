@@ -1,113 +1,48 @@
 # SpawnCamper9000 Command Center
 
-## Architecture
+The public `/command-center` Vite page renders sanitized workflow telemetry in the existing Phaser facility. Live telemetry is available on production; local verification uses intercepted browser fixtures and disposable PostgreSQL. Test events must not be sent to the production ingest endpoint. This implementation does not deploy.
 
-`/command-center` is a public read-only Vite page backed by two Vercel API endpoints:
+## Scene and movement
 
-- `POST /api/command-center/telemetry`: private authenticated ingest for SpawnCamper9000 and future agents.
-- `GET /api/command-center/state`: sanitized public workflow state plus recent public history.
+The shipped character walks using four directional sheets and works facing north with `operate_back`. The legacy telemetry mode names remain compatible. `locomotion.mjs` owns destination, route progress, visual pose, attendance, arrival count, and cancellation generation. The scene paints one coherent controller snapshot each frame. Travel is a constant 180 world pixels/second, with no per-leg easing or duration clamps. Duplicate destinations preserve progress and animation phase; state changes at the same station update the pose and attendance. Immediate restoration and reduced motion use the same arrival path.
 
-The frontend uses Phaser for a pixel facility floor. Its geometry, palette, layer
-decomposition, animation language and asset specification come from the Claude Design
-"SpawnCamper Command Center" bible (REV 01), authored by the site owner; section numbers
-referenced throughout this document and in the source refer to that document.
+`walkGraph.mjs` inserts the actual current foot position into its containing segment before shortest-path routing. It merges collinear legs and refuses disconnected/off-graph destinations. The home point remains **480,228**. The room is **960×528**. Rendered coordinates are rounded to world pixels, textures use nearest-neighbor sampling, and the canvas presentation preserves its aspect ratio.
 
-Star Office UI concepts adapted here are scene/state separation, a fixed-size scene,
-config-driven areas, a moving agent, state-driven animation modes, simultaneous workflow
-activity, packet effects, polling/backoff, stale TTL fallback, and responsive canvas
-framing. No Star Office UI artwork or third-party game art is included.
+## Geometry and depth
 
-The scene began as the design's **scale-true whitebox**: exact rectangles, exact palette,
-exact animation timings, drawn procedurally. Every prop and animated component is registered
-under the section 08 filename it is waiting for, so generated pixel art drops into the same
-rectangle with no re-layout. Fourteen pieces have taken delivery — twelve animated machine
-sheets, the Ops Console and the wall sigil — and exactly one whitebox is left: the
-`prop_wall_crt_bank` housing that carries the live GA//OPS readout. See
-`public/assets/command-center/README.md`.
+`sceneConfig.mjs` owns placements, zone identities, and corridor segments. `assetMeasurements.json` records visual and bottom-eight-row contact bounds for every frame of all shipped character and machine assets. Regenerate it with `npm run command-center:measure` after replacing artwork. The tests independently decode each PNG and compare every opaque pixel against the recorded frame bounds.
 
-The implementation is deliberately config-driven:
+`stationGeometry.mjs` combines those measurements with placements into visual bounds, inspection rectangles, ground footprints, depth baselines, north-facing working positions, interaction points, and authored screen/effect surfaces. Floor-machine footprints occupy their lower 24 world pixels; upper artwork can occlude the character without becoming a floor obstacle. All-direction foot clearance uses the measured union **[-41,+41] horizontally and [-8,0] vertically**. Individual directional envelopes are asymmetric.
 
-- Room geometry, zones, props, animated components, foreground pieces, conduits, the walk
-  graph, aliases and asset paths live in `src/command-center/sceneConfig.mjs`.
-- Axis-aligned route finding over the walk graph lives in `src/command-center/walkGraph.mjs`.
-- State-to-visual behavior lives in `src/command-center/visualMappings.mjs`.
-- Public payload normalization, area grouping, deterministic focus selection, complete acknowledgement expiry, and stale handling live in `src/command-center/stateModel.mjs`.
-- Polling/backoff/hidden-tab throttling lives in `src/command-center/telemetryClient.mjs`.
-- Phaser rendering lives in `src/command-center/CommandCenterScene.mjs`.
-- Star Office attribution and design provenance live in `THIRD_PARTY_NOTICES.md`.
+The shipped environment has back-wall bases reaching approximately Y=166, side architecture ending around X=58 and X=902, and a front curb beginning at Y=504. Navigation uses the conservative floor rectangle X=60…900, Y=170…502. Zone 2 stands at **164,180**, below the wall base. Corridors avoid the narrow side-wall passages. The Creator Console PNG supplied during implementation is 1600×200; its frame slicing and bottom slack were updated while preserving its ground contact. The west corridor moved to X=241 to clear its wider silhouette; no artwork placements changed.
 
-### Geometry (section 01)
+Floor objects sort by ground-contact baseline, with character depth updated during travel. Finished artwork and fallback bodies/components use the same baseline rule. Wall fixtures and floor shadows remain behind floor objects; effects, foreground decoration and interface elements have explicit layers. Machine inspection bounds come from rendered art, with fallback geometry when textures fail.
 
-Scene `960x528`, grid `40x22` at `24px`, 3/4 top-down with no skew. Wall band rows 0-4
-(`y 0-120`), floor rows 5-21, front walkway rows 20-21. Depth is `sprite.y + height`; all
-origins are bottom-centre. Camera zoom is always an integer - a fractional world zoom kills
-the pixel grid. Presentation scale is handled by CSS on the canvas element instead.
+## Attendance and effects
 
-### Layers (section 02)
+Only arrival for active hands-on work grants a machine its normal animation loop. Departure releases it immediately. Waiting, completion, warnings and errors do not run the working loop. Real unattended activity can retain restrained status lighting and data-flow indicators.
 
-| layer | depth | contents | moves |
-| --- | --- | --- | --- |
-| L1 env | 0 | floor, wall, trim, stencils, conduit channels | no |
-| L2 props | 10 | desks, drums, benches, racks, still body, console shells | no |
-| L3 anim | 20 | screen content, LEDs, fans, radar, gauges, chamber fill, furnace heat | yes |
-| L4 camper | 25 | SpawnCamper9000 | yes |
-| L5 fx | 30 | packets, pulses, beam, spark, glitch, success flash, warning lamp | yes |
-| L6 fore | 40 | floor vignette, scanline overlay | no |
+Effects change only when their resolved mode changes. Heartbeats preserve pulse phase. Glow scaling is relative to the intended size and resets when cancelled. Warning, glitch and completion effects use finished-machine geometry; screen glitches are masked to authored surfaces. Superseded completion flashes are cancelled. Transients are capped at 12, packet sprites at 6, and completion acknowledgements at 128.
 
-Three rules hold the system together:
+## Polling and recovery
 
-1. A machine is never one sprite *while it is a whitebox*. It is an L2 body plus L3 component(s),
-   and shipped art collapses both into one L2 object. L6 is reserved for **structural** foreground
-   that ships a real PNG, and no such piece currently exists - the registry is empty. Machine
-   lips are all retired, and so are the two wall pilasters and the wall port, which never had art
-   either: L6 outranks L2 and L1 unconditionally, so an untextured occluder over finished art is a
-   block, not an occluder.
-2. If a pixel changes with telemetry it lives in L3 or L5. Never in L1 or L2.
-3. Lighting that responds to state is an additive L5 overlay, not a repaint of L1.
+Each request has its own AbortController, 10-second timeout and generation. Superseded requests cannot publish, change backoff or schedule more polling. Malformed successful envelopes and older snapshots are rejected. Invalid workflow entries are ignored rather than turned into warning activity. The last valid state survives connection failures until its TTL or completion deadline expires.
 
-### The telemetry seam (section 11)
+A separate 250ms clock recalculates TTL and the 30-second completion acknowledgement using server-aligned time. Cached responses never rewind this clock. Visibility restoration recalculates immediately and refreshes telemetry. Stop/destroy remove timers and visibility listeners. Connection health is separate from workflow activity and is shown in the facility bar, the Ops readout and accessible content.
 
-Exactly one function in the scene reads telemetry:
+Focus is stable through heartbeat-only changes. Higher-priority activity preempts immediately; meaningful equal-priority activity changes can change focus. Ties are deterministic. Stationless waiting/completion/warning/error states retain the workflow's last activity station, with `startedAt` and completed-job boundaries preventing reuse across jobs. Workflow ownership stays separate from the physical station label. Workflow aliases and Hermes job identities use the canonical machine mapping.
 
-```js
-applyZoneState(zoneId, group)  // sets that zone's L3 anim keys, fx emitters and local glow
-```
+## Persistence
 
-Ambient loops - fans, feed cycle, idle CRTs, camper idle, and one slow cyan spine packet
-every ~9s - run always, seeded with random phase offsets, and never consult state. (The core
-pulse and its sigil were the Power Core's, and retired with it; the wall sigil that remains is
-a finished static prop and does not animate.) Operational loops - radar, scan bar, chamber, X CRT, transmitter charge,
-packets, beam, success, warning, glitch - only run on real telemetry. **Never fake an
-operational animation to fill silence. Idle is the design.**
+Event persistence and latest-state advancement are one PostgreSQL statement. Event-ID conflicts return the original stored event and attempt latest-state repair, so retries can recover rows left partially persisted by older versions. Concurrent duplicates serialize on the unique event index. Latest state compares `(event_timestamp, event_id-or-UUID)` with C collation, yielding deterministic equal-timestamp ordering. Existing tables and indexes are reused; there is no schema migration.
 
-`n` live workflows means `n` independent machine loops, because `applyZoneState` is
-zone-scoped and `groupWorkflowsByArea` emits one group per zone. `selectFocusWorkflow`
-picks the single zone the camper attends (attention, then transmission, then active, then
-fresh complete); every other zone keeps running unattended.
+## Viewport and lifecycle
 
-The scene pauses on `document.visibilitychange`, so a tab left open overnight costs nothing.
+One host-size calculation sets canvas dimensions and centered letterboxing in ordinary, portrait and fullscreen modes. Phaser pointer bounds refresh after the canvas layout settles. Resize/fullscreen does not replace movement state. Portrait camera focus passes through one hold policy and cancels obsolete pans when viewport mode changes.
 
-### SpawnCamper9000 (section 03)
+Machine clicks open an inspector beside projected object bounds, with bounded scrolling when space is limited. Empty-floor clicks, outside clicks and Escape dismiss it. The character inspector updates while open. Physical station names remain fixed when another workflow uses them. The activity strip is an activity indicator, not a progress estimate.
 
-He never walks. The torso holds a fixed vertical bob and the tentacles trail behind the
-direction of travel. Six modes, named for the sheet rows so `spawncamper_9000.png` swaps in
-without remapping: `idle`, `hover_travel_front`, `hover_travel_back`, `operate`, `inspect`,
-`react`. `visualMappings.mjs` maps every telemetry state onto one of them via `camperAnim`.
-
-Movement follows the walk graph (4 lanes + 11 spurs and stubs, every segment axis-aligned), so no route
-is ever diagonal and no diagonal cel is needed. On refresh he snaps to the newest live
-workflow's anchor with no travel animation and machines resume mid-loop - no replayed history.
-
-### Read-only inspection (section 06)
-
-Clicking a machine or the character opens a 320px panel docked to the world edge nearest the
-object, 24px inset, never centred, never modal, dismissed by any click outside or Escape. At
-most six mono label/value rows, accent border in that zone's channel colour. The world never
-pauses. There are **no controls of any kind**, no manual refresh, and no draft or unpublished
-post content - only sanitized public fields.
-
-Because a canvas is opaque to assistive technology, the same sanitized state is mirrored in a
-visually hidden `aria-live` region (`#cc-area-body`, `#cc-recent-list`).
+Manifest requests time out after five seconds; individual assets have bounded loading and loaded-texture/procedural fallbacks. Page exit removes polling, resize/fullscreen/visibility handlers, observers, animation frames, tweens and timers. Persisted pagehide suspends the existing game; pageshow wakes it and refreshes without destroying or duplicating the canvas.
 
 ## Data Model
 
@@ -166,13 +101,17 @@ Security controls:
 
 ## Public State API
 
-`GET /api/command-center/state?historyLimit=30`
+`GET /api/command-center/state?historyLimit=30&agent=spawncamper9000`
+
+The optional `agent` filter applies to both workflows and history. The Command Center always requests `spawncamper9000`.
 
 Returns:
 
 - `workflows`: latest public-safe state per workflow.
 - `recentHistory`: latest public-safe events.
 - `fetchedAt`: server timestamp.
+- Workflow `id`, `eventId`, `eventOrder`: public event identity and deterministic ordering.
+- Workflow `lastActivity`: sanitized workflow/state/timestamp/station reference from indexed history, even when `historyLimit=0`.
 
 The frontend applies TTL fallback. When `expiresAt` has passed, a workflow is marked stale and visually falls back to idle so active states do not stay active forever. Heartbeat updates should arrive before `ttlSeconds` expires.
 
@@ -180,276 +119,31 @@ The frontend applies TTL fallback. When `expiresAt` has passed, a workflow is ma
 
 SpawnCamper9000 focuses on one workflow using this deterministic priority:
 
-1. Latest `error` or `warning`.
-2. Latest transmission/publishing state: `terminal_publish`, `posting_to_x`, `newsletter`, or `publishing`.
-3. Latest other active state.
+1. `error` or `warning`.
+2. Transmission/publishing state: `terminal_publish`, `posting_to_x`, `newsletter`, or `publishing`.
+3. Other active state.
 4. Fresh `complete` acknowledgement.
 5. Central Operations idle/home.
 
-## Zone Register (design section "Zone Register")
 
-| # | zone id | machine | anim | anchor |
-| --- | --- | --- | --- | --- |
-| 01 | `central-operations` | ops console (static art) + wall CRT array | GA//OPS wall readout | 480,228 |
-| 02 | `intelligence-research` | wall feed bank | 4 feeds | 164,132 |
-| 03 | `scanner-bench` | Tool Scanner bench | full-object sheet | 316,276 |
-| 04 | `github-code` | green phosphor + disk tower | code scroll, 3 LEDs, reel | 132,468 |
-| 05 | `newsletter` | distillation column + tray | chamber fill, coil, sheet | 316,468 |
-| 06 | `x-communications` | console + mast + dish | CRT, 4 lamps, beam | 528,468 |
-| 07 | `terminal-transmitter` | publish transmitter cabinet | full-object sheet | 828,468 |
-| 08 | `model-infrastructure` | 2 racks + processing chamber | LED banks, 2 fans, heat | 828,348 |
-| 09 | `experiment-bench` | wooden alchemist bench | full-object sheet | 480,372 |
-| 10 | `creator-console` | creator-facing console | full-object sheet | 132,276 |
-| 11 | `profit-analyzer` | monetization console | full-object sheet | 660,468 |
-| 12 | `agent-lab` | wall-mounted lab cabinet | full-object sheet | 832,192 |
-| 13 | `opportunity-radar` | opportunity scouting drum | radar sweep | 660,276 |
-
-Every anchor sits **south** of its machine, so one `operate` animation serves every working
-station - there is no per-station interaction art. The anchor is derived, not authored:
-
-    destination.x = box.x + box.w / 2
-    destination.y = max(box.y + box.h + 12, 132)
-
-Art anchors bottom-centre, so a machine's rendered centre column is `x + w/2` and its floor
-contact line is `y + h`; he stands on that column 12px in front of that line. The `132` floor
-is the camper's own clamp in `moveCamperTo` and the top of `west-lane` - the northernmost
-floor line he can stand on - and it binds on **zone 02 alone**, whose display hangs entirely
-inside the 120px wall band and cannot be approached to 12px. Moving a machine is therefore
-still one box edit, but the anchor has to be recomputed with it: the layout normalization
-pass moved four machines and left their anchors behind, which is what put him 24px out at
-zones 05, 06 and 07 and 198px out at zone 02. `test/command-center.test.js` asserts the rule
-for all thirteen zones now. Zone 09 was the Power Core, an ambient-only
-recessed well; the Power Core was retired and the Experiment Bench took that pocket, so zone
-09 is a working station like the rest. Zones 10, 11 and 12 exist for the same reason in
-reverse: a walk destination is per zone, so Creator Console, Profit Analyzer and Agent Lab
-each needed one when they stopped sharing another machine's box. Zone 12 is wall-mounted -
-the cabinet hangs at 786,20 92x160 on the upper-right wall, where a cosmetic vent bank
-used to be (that bank has since been deleted outright), and the anchor is the floor 12px
-below it.
-
-Zones 02, 03, 05, 07, 08, 10 and 11 moved in the **floor-layout normalization pass**, which
-re-laid the room on the machines' *rendered* art bounds rather than on their whitebox boxes.
-Nothing about what a zone means changed - no workflow key, Hermes job, telemetry state,
-alias or machine identity - only where the machine physically stands and therefore where the
-anchor south of it sits. The layout is five columns at art-centre x 132 / 316 / 480 / 660 /
-828 and three foot lines at art-bottom y 264 / 360 / 456; see the art README for the measured
-table, the three documented off-grid exceptions and the resulting clearances.
-
-Zone 13 was then carved out of zone 02 when the **Opportunity Radar and Creator Console swapped
-columns** (radar x132 -> x660, console x660 -> x132). Zone 02 owned two machines - the
-wall-mounted News Array and the radar drum standing below it - under one bounds box, one hit
-area and one anchor, which only worked while both stood in the same corner. With the drum
-across the room the zone had to split, exactly as zones 10, 11 and 12 were split off before it.
-Zone 02 keeps its id, label, aliases and conduit, and the `ai-news` workflow plus the
-`researching` / `browsing` states still resolve to it; the radar took its Hermes job
-(`254525fa846f`, Opportunity Scout) and its empty workflow list to zone 13 unchanged. Because
-that machine drives no workflow lane, zone 13 is idle unless that Hermes job fires.
-
-### Where SpawnCamper stands
-
-Three steps, first hit wins (`areaIdForWorkflow` in `sceneConfig.mjs`):
-
-1. **`context.station`** - an optional explicit override on the event. It outranks everything,
-   because a sender that names a station knows something the state cannot say.
-2. **the activity `state`** - the normal production path. The work moved, so he moves.
-3. **the workflow's own machine** - the fallback, and the answer for every state that names no
-   activity.
-
-State-to-workstation mappings (`COMMAND_CENTER_STATE_AREAS` in `machineConfig.mjs`):
-
-- `researching`, `browsing` -> `intelligence-research`
-- `scanning` -> `scanner-bench`
-- `evaluating` -> `profit-analyzer`
-- `thinking` -> `central-operations`
-- `writing` -> `creator-console`
-- `coding` -> `github-code`
-- `processing`, `executing` -> `model-infrastructure`
-- `newsletter` -> `newsletter`
-- `publishing`, `terminal_publish` -> `terminal-transmitter`
-- `posting_to_x` -> `x-communications`
-
-`idle`, `waiting`, `complete`, `warning` and `error` are deliberately unmapped: none of them
-names an activity, so none of them names a workstation. They fall through to step 3, which is
-what makes a job finish at the machine that owns it and a fault stay put instead of teleporting
-him mid-error. A `complete` is held for 30s (`COMMAND_CENTER_COMPLETE_ACK_MS`) and then reads as
-idle; with nothing else live he walks home to `central-operations`.
-
-Staleness is resolved before the zone is: an expired entry displays as `idle`, so it stops
-pinning him to a bench whose work ended hours ago.
-
-Workflow-to-zone mappings (step 3):
-
-- `ai-news` -> `intelligence-research`
-- `creator-content` -> `creator-console`
-- `monetization` -> `profit-analyzer`
-- `new-tools` -> `scanner-bench`
-- `agents` -> `agent-lab`
-- `playbooks` -> `experiment-bench`
-- `github` -> `github-code`
-- `models-infra` -> `model-infrastructure`
-- `newsletter` -> `newsletter`
-- `social-x` -> `x-communications`
-- `terminal-publisher` -> `terminal-transmitter`
-
-Unknown workflow IDs fall back to `central-operations`. `context.station` resolves through
-aliases such as `scanner`, `intel`, `creator`, `models`, `furnace`, `social-x`,
-`terminal-publisher`, `experiment`, and `lab`; an unrecognised station is not an override, so
-the activity still decides.
-
-## Conduit Map (section 05)
-
-One 8x8 packet sprite, five tints, at most 6 on screen. Beyond that they queue - never one
-spawn per event.
-
-| id | route | geometry | tint | trigger |
-| --- | --- | --- | --- | --- |
-| SP | spine (all zones) | H 132,246 -> 900,246 | cyan | any active workflow |
-| D1 | intel bench -> spine | V 129,252 h60 up | cyan | researching / browsing / scanning |
-| D2 | spine -> newsletter still | V 297,252 h60 down | purple | newsletter compiling |
-| D3 | ops console -> experiment bench | V 477,216 h48 down | gold | evaluating / thinking |
-| D4 | spine -> X console | V 525,252 h132 down | magenta | writing -> posting_to_x |
-| D5 | X mast -> outside | V 596,0 h276 up, beam | magenta | posting_to_x |
-| D6 | spine -> terminal transmitter | V 777,252 h108 down | gold | terminal_publish |
-| D7 | furnace -> spine | V 825,252 h36 up | gold | processing / executing |
-| D8 | transmitter -> wall port | H 864,390 w72 right | gold | terminal_publish |
-| D9 | spine -> code station | V 153,252 h132 down | phosphor | coding |
-
-Idle traffic is one slow cyan packet on SP every ~9s - it reads as "powered", not "busy".
-On the research->newsletter and research->terminal handoffs the packet scales 8->12px for
-400ms at the junction; that is the only time flow is loud.
-
-## State Animation Language (section 04)
-
-Every telemetry state maps to a local event on one machine. The room never changes globally
-- that is what keeps concurrent workflows legible and one error pleasant to watch.
-
-- **idle** - ambient only. Nothing telemetry-driven.
-- **researching / browsing** - radar sweep starts, feed bank cycles, inbound packets on the spine.
-- **scanning** - bench sweep bar traverses, ready lamp goes solid.
-- **evaluating / thinking** - core breathes faster, packets loop the chamber.
-- **writing / coding** - caret and progress glyphs only. **Never real draft text.**
-- **processing / newsletter** - chamber fills, coil rotates, tray ejects a sheet.
-- **posting_to_x** - console CRT, then lamps, then the mast dish charges and a magenta beam exits the top edge.
-- **terminal_publish** - packet down the spine to the transmitter, then out along `D8` and through the right wall port.
-- **complete** - 2-frame phosphor flash, 600ms, then ease back to ambient over 1.2s.
-- **warning / stale** - amber lamp on that machine, its loop slows to 60%. Room untouched.
-- **error** - local malfunction only: static band, 3px jitter, one spark, red pilot; camper plays `react` once. **No full-screen overlay.**
-
-Only three screens carry text, and only real strings: the ops CRT (`ACTIVE`/`STALE` counts
-and uplink health), the code CRT (workflow token and state), and the X and transmitter CRTs
-(transport state glyphs). No screen ever shows a draft or an unpublished post.
-
-## Responsive (section 10)
-
-Desktop shows the full 40x22 room. On phone portrait the scene reframes to a 384x336 world
-window (16x14 tiles) - the same world, closer camera, never a shrunken room and never a
-dashboard. The camera centres the zone that changed most recently, 600ms ease-out, then
-holds at least 8s; idle focus frames zones 01 and 09 together. It never snap-cuts and never
-follows the camper while he is only drifting between anchors. Landscape is treated as a small
-desktop. Below the world sits one in-world strip - not cards: the focused workflow, its state
-and concurrent count, a progress hairline in that zone's colour, and up to two unattended
-workflows, dimmed.
-
-## Replay Simulation
-
-Fixture: `fixtures/command-center/replay.json`.
-
-Run against local Vercel/Vite dev with:
+## Verification
 
 ```bash
-COMMAND_CENTER_INGEST_SECRET=... npm run command-center:replay
+npm test
+npm run build
+npm run command-center:measure
+
+# Start the local Vite page in another terminal.
+npm run dev
+# Install the test browser once if needed: npx playwright install chromium
+npm run command-center:verify:browser
+
+# Disposable local PostgreSQL only. Never use production credentials here.
+CC_TEST_DATABASE_URL=postgresql://postgres:LOCAL_TEST_PASSWORD@127.0.0.1:55432/postgres npm run command-center:verify:db
 ```
 
-Optional flags:
+The browser runner intercepts local state requests and instruments the served module only in its isolated browser context. It never calls ingest. `CC_CHROMIUM_PATH` can select an existing Chromium installation, `CC_TEST_ORIGIN` selects a local server, and `CC_EVIDENCE_DIR` selects screenshot/results output (default `/tmp/cc-hardening-evidence`). The database runner creates and removes a unique test schema and rejects non-local database hosts.
 
-```bash
-npm run command-center:replay -- --endpoint=http://127.0.0.1:3000/api/command-center/telemetry --delay-ms=1000 --run-id=demo
-```
+Regression coverage includes request races, stop/start, malformed responses, timeout/outage expiry, visibility restoration, stable focus, station retention, movement interruption, every ordered station pair and sampled intermediate route positions. PostgreSQL checks cover concurrent retries, equal-timestamp ordering, atomic rollback, repair, agent isolation and job boundaries. Browser checks inspect actual rendered animations, attendance, positions, hit targets, pulse phase, resize/fullscreen and bounded transition counts. The repository has no lint or type-check script; changed JavaScript is checked with `node --check`.
 
-The replay posts only through authenticated ingest. No simulation controls ship in the public page.
-
-## Asset Production
-
-The full file-by-file contract - names, sizes, frame counts, fps, and how the manifest swap
-works - lives in `public/assets/command-center/README.md`. Nothing is shipped from Star
-Office or LimeZu.
-
-The character reference render is at
-`assets/command-center/reference/spawncamper9000-character-reference.png`. It is **not** a
-production asset and must never be loaded by the scene; it is the visual authority for
-generating the sprite sheet.
-
-### Palette block (paste into every generation prompt)
-
-```
-16-colour ramp. bg #0d0214 #160420 #1e0729 #240a31 #2b0d3c #3a1450
-brand #ad19d1 #ff2e97 #fed66d #5cfbf7  phosphor #39ff88  warm #ff7a2f
-ink #f8edff #b89aca  line #c78ef5  warn #ffd98a
-```
-
-### Constraint block (paste into every generation prompt)
-
-```
-24px tile grid, 3/4 top-down game view, hard pixel edges, no anti-aliasing,
-no outline glow baked in, no cast light baked in, transparent background,
-single object centred, bottom-centre origin, flat readable silhouette
-```
-
-### Sheet prompts
-
-Generation order: **02 -> 07 -> 01 -> 03 -> 04 -> 06 -> 05**. Bodies first: they set the
-palette and the rivet language everything else copies.
-
-1. **Environment** - "Dark alchemical AI facility floor and back wall, 24px pixel tiles, riveted purple-black metal panels, faint gold floor stencils, recessed cable channels, overhead pipe run along the wall top, 3/4 top-down, no furniture, no machines, no characters, no glow. 960x528."
-2. **Workstation bodies** - "Set of retro-alchemy laboratory machine bodies, unlit and powered down: wide operator console, ribbed radar drum, long scanner bench, code bench with disk tower, tall copper distillation column with input tubes, communications console with antenna mast, heavy transmitter cabinet, two compute racks, industrial processing chamber. Purple-black metal, gold trim, dark screen holes left EMPTY. [CONSTRAINT BLOCK]"
-3. **Screen content** (one row per machine) - "Pixel CRT screen contents only, no bezel, no shell: green phosphor terminal readout, cyan radar grid, cyan scanning bar, ASCII box-drawing status frame, magenta transmission meter, gold charge gauge. Flat, 6px pixel font, no curvature, transparent outside the screen rectangle. [CONSTRAINT BLOCK]"
-4. **Small animated components** - "Sprite sheet of tiny industrial animated parts on transparent background: 4-frame fan blade rotation, 6-frame LED bank blink, 8-frame radar sweep wedge, 10-frame liquid-light chamber fill purple to magenta, 6-frame rotating coil, 8-frame gold charge orb. Uniform 24px-scale chunk. [CONSTRAINT BLOCK]"
-5. **SpawnCamper9000** - "Pixel art robot mascot, 48x64 frames, 6-row sprite sheet: hovering gold ovoid torso with purple riveted collar, glass dome head containing a magenta brain, two dark segmented tentacle arms trailing, small hot orange chest core. Rows: idle 6f, hover travel front 8f, hover travel back 8f, operating console 6f, leaning to inspect 4f, glitch recoil 5f. Never walking, never legs. Baked soft ellipse shadow. [CONSTRAINT BLOCK]"
-6. **Effects** - "Transparent pixel FX sheet: 8x8 glowing data packet 4f, 32x32 soft pulse 6f, 64x16 scan sweep 8f, 8x64 vertical transmission beam 6f, 48x32 success flash 3f, 128x40 CRT static glitch band 4f, 16x16 spark 5f. Single hue each, white core, additive-friendly. [CONSTRAINT BLOCK]"
-
-### Atlases and budget
-
-Three atlases at most - env (L1+L2), anim (L3+L5), char (L4) - each at or under 2048 square.
-Every file is transparent except `env_floor_wall.png`. No semi-transparent anti-aliasing on
-L2 edges or the 3/4 overlap seams show. Runtime budget: at most 22 ambient plus 8 operational
-animations at once, one pooled emitter capped at 6 packets, at most 4 additive blends on
-screen, and no full-screen effects ever - the vignette and scanline are baked into L1 and L6,
-which are the only things L6 draws.
-
-## Integration Example
-
-SpawnCamper9000 or Hermes DGX can send heartbeats. One POST per activity change is all the
-movement needs - the state names the workstation:
-
-```bash
-curl -X POST "$BASE_URL/api/command-center/telemetry" \
-  -H "Authorization: Bearer $COMMAND_CENTER_INGEST_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workflow": "new-tools",
-    "workflowLabel": "New Tools",
-    "state": "researching",
-    "activity": "Scanning AI gaming tools",
-    "ttlSeconds": 900,
-    "context": {
-      "target": "AI gaming tools",
-      "count": 12
-    }
-  }'
-```
-
-`context.station` is optional and only needed to override the workstation the state would pick:
-
-```bash
-  -d '{ "workflow": "new-tools", "state": "writing", "activity": "Drafting",
-        "context": { "station": "scanner" } }'   # writes at the scanner bench instead
-```
-
-Replay the whole thing locally against a running dev server:
-
-```bash
-COMMAND_CENTER_INGEST_SECRET=... npm run command-center:replay -- --delay-ms=5000
-```
-
-The fixture's last six events are a single `ai-news` job with no `context.station`, walking
-research bench -> analyzer -> creator console -> still -> transmitter -> complete.
+See `command-center-readiness.md` for the executed checks, evidence and remaining verification limits.

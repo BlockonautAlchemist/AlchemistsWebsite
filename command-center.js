@@ -31,14 +31,16 @@ if (typeof document !== 'undefined') {
 // whitebox build makes zero failed requests. Adding a filename here is the whole
 // migration step for a generated asset.
 async function loadArtManifest() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(ART_MANIFEST_URL, { headers: { accept: 'application/json' } });
+    const response = await fetch(ART_MANIFEST_URL, { headers: { accept: 'application/json' }, signal: controller.signal });
     if (!response.ok) return [];
     const payload = await response.json();
     return Array.isArray(payload?.files) ? payload.files : [];
   } catch (error) {
     return [];
-  }
+  } finally { clearTimeout(timeout); }
 }
 
 async function initCommandCenter() {
@@ -88,6 +90,13 @@ async function initCommandCenter() {
   let scene = null;
   let latestState = null;
   let selectedAreaId = '';
+  let connectionStatus = 'connecting';
+  const lifecycle = new AbortController();
+  const listen = (target, event, handler) => target.addEventListener(event, handler, { signal: lifecycle.signal });
+  let layoutFrame = 0, boundsFrame = 0;
+  let destroyed = false;
+  let accessibleSignature = '';
+  let networkSignature = '';
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -98,8 +107,8 @@ async function initCommandCenter() {
     pixelArt: true,
     roundPixels: true,
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      mode: Phaser.Scale.NONE,
+      autoCenter: Phaser.Scale.NO_CENTER,
       width: COMMAND_CENTER_CANVAS.width,
       height: COMMAND_CENTER_CANVAS.height
     },
@@ -108,12 +117,14 @@ async function initCommandCenter() {
       artManifest,
       onReady(readyScene) {
         scene = readyScene;
+        scheduleLayout();
         if (latestState) scene.updatePublicState(latestState);
       },
       onZoneInspect({ area, workflows }) {
         selectedAreaId = area.id;
         openZonePanel(area, workflows);
       },
+      onInspectDismiss: closePanel,
       onCamperInspect(details) {
         selectedAreaId = '';
         openCamperPanel(details);
@@ -165,14 +176,26 @@ async function initCommandCenter() {
   }
 
   function displayNameForArea(area) {
-    const group = latestState?.areaGroups?.find((entry) => entry.id === area.id);
-    return group?.displayMachine?.name || area.label;
+    return area.label;
   }
 
   function setNetworkStatus(value, copy) {
+    const signature = `${value}:${copy}`;
+    if (signature === networkSignature) return;
+    networkSignature = signature;
     status.textContent = statusText(value);
     status.dataset.state = value;
     statusCopy.textContent = copy;
+    const visibleConnection = document.getElementById('cc-connection');
+    if (visibleConnection) {
+      visibleConnection.textContent = `● ${statusText(value)} telemetry`;
+      visibleConnection.dataset.state = value;
+    }
+    if (scene) {
+      scene.connectionHealth = value;
+      scene.setOpsReadout({ status: value === 'offline' ? 'offline' : latestState?.overallStatus || 'idle',
+        active: latestState?.activeWorkflows.length || 0, stale: latestState?.staleCount || 0 });
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -189,8 +212,18 @@ async function initCommandCenter() {
     }));
   }
 
-  function dockPanel(worldX, accent) {
-    hud.dataset.edge = worldX < COMMAND_CENTER_CANVAS.width / 2 ? 'left' : 'right';
+  function dockPanel(worldX, accent, bounds) {
+    const canvas = game.canvas.getBoundingClientRect(), frameBox = frame.getBoundingClientRect();
+    const camera = scene?.cameras.main;
+    const ratio = canvas.width / (scene?.scale.width || COMMAND_CENTER_CANVAS.width);
+    const right = canvas.left - frameBox.left + ((bounds ? bounds.x + bounds.width : worldX) - (camera?.scrollX || 0)) * ratio;
+    const left = canvas.left - frameBox.left + ((bounds?.x || worldX) - (camera?.scrollX || 0)) * ratio;
+    const panelWidth = Math.min(320, frameBox.width - 24);
+    const preferred = frameBox.width - right >= panelWidth + 24 ? right + 12 : left - panelWidth - 12;
+    hud.style.left = `${Math.max(12, Math.min(frameBox.width - panelWidth - 12, preferred))}px`;
+    hud.style.right = 'auto';
+    hud.style.maxHeight = `${Math.max(80, frameBox.height - 24)}px`;
+    hud.dataset.edge = preferred >= right ? 'left' : 'right';
     hud.style.setProperty('--cc-hud-accent', accent);
     hud.hidden = false;
   }
@@ -212,20 +245,20 @@ async function initCommandCenter() {
       ['LAST EVENT', focus ? relativeTime(focus.timestamp) : '—'],
       ['LIVE HERE', `${live} of ${workflows.length || 0}`]
     ]);
-    dockPanel(area.x, hexColor(area.color));
+    dockPanel(area.x, hexColor(area.color), scene?.zoneObjects.get(area.id)?.area.bounds);
   }
 
-  function openCamperPanel({ workflow, activeCount: liveCount, position, anim }) {
+  function openCamperPanel({ workflow, activeCount: liveCount, position, anim, attended }) {
     const visual = visualForState(workflow?.displayState || 'idle');
     hudEyebrow.textContent = 'OPERATOR · INSPECT';
     hudTitle.textContent = 'SPAWNCAMPER9000';
     renderRows([
       ['STATUS', visual.label.toUpperCase()],
-      ['MACHINE', workflow ? workflowDisplayName(workflow) : 'None'],
+      ['MACHINE', attended ? areaById(attended).label : 'In transit / standing by'],
       ['ACTIVITY', workflow?.activity || 'Standing by'],
       ['MODE', anim.replace(/_/g, ' ').toUpperCase()],
       ['POSITION', `${position.x},${position.y}`],
-      ['ATTENDING', `${workflow ? 1 : 0} of ${liveCount} live workflow${liveCount === 1 ? '' : 's'}`]
+      ['ATTENDING', `${attended ? 1 : 0} of ${liveCount} live workflow${liveCount === 1 ? '' : 's'}`]
     ]);
     dockPanel(position.x, hexColor(visual.tint));
   }
@@ -237,13 +270,13 @@ async function initCommandCenter() {
   }
 
   // Panel dismisses on any click outside. The world never pauses.
-  document.addEventListener('pointerdown', (event) => {
+  listen(document, 'pointerdown', (event) => {
     if (hud.hidden) return;
     if (hud.contains(event.target)) return;
     if (canvasHost.contains(event.target)) return;
     closePanel();
   });
-  document.addEventListener('keydown', (event) => {
+  listen(document, 'keydown', (event) => {
     if (event.key === 'Escape' && !hud.hidden) closePanel();
   });
 
@@ -264,7 +297,8 @@ async function initCommandCenter() {
         : 'NO WORKFLOWS · ROOM ALIVE, NOTHING OPERATIONAL';
 
     stripProgress.style.background = hexColor(visual.tint);
-    stripProgress.style.width = `${Math.min(100, active * 25)}%`;
+    stripProgress.style.width = focus ? '100%' : '0%';
+    stripProgress.parentElement.setAttribute('aria-hidden', 'true');
 
     // Up to 2 unattended workflows, dimmed.
     const unattended = state.workflows
@@ -342,34 +376,36 @@ async function initCommandCenter() {
     staleCount.textContent = String(state.staleCount);
     updatedAt.textContent = formatTime(state.fetchedAt);
 
-    renderRecentSignals(state);
-    renderStrip(state);
+    const signature = JSON.stringify([state.overallStatus, state.workflows.map(w => [w.agent,w.workflow,w.displayState,w.activity,w.areaId,w.isStale]),
+      state.primaryWorkflow?.workflow, selectedAreaId, state.recentHistory.slice(0,6).map(e=>[e.workflow,e.state,e.activity])]);
+    const accessibleChanged = signature !== accessibleSignature;
+    accessibleSignature = signature;
+    if (accessibleChanged) { renderRecentSignals(state); renderStrip(state); }
 
     if (scene) scene.updatePublicState(state);
 
     const nextAreaId = selectedAreaId || state.primaryWorkflow?.areaId || 'central-operations';
     const selectedArea = areaById(nextAreaId);
-    renderSelectedArea(selectedArea, workflowsForArea(state, selectedArea.id));
+    if (accessibleChanged) renderSelectedArea(selectedArea, workflowsForArea(state, selectedArea.id));
     if (!hud.hidden && selectedAreaId) {
       openZonePanel(selectedArea, workflowsForArea(state, selectedArea.id));
     }
 
-    if (state.overallStatus !== 'offline') {
-      setNetworkStatus(state.overallStatus, state.activeWorkflows.length
-        ? `${state.activeWorkflows.length} active workflow${state.activeWorkflows.length === 1 ? '' : 's'}`
-        : state.staleCount ? `${state.staleCount} stale workflow${state.staleCount === 1 ? '' : 's'}` : 'standing by');
-    }
+
   }
 
   const client = createTelemetryClient({
     onState: renderState,
     onStatus({ status: networkStatus, error, lastGoodState }) {
+      if (networkStatus === 'syncing' && lastGoodState) return;
+      connectionStatus = networkStatus;
+      canvasHost.setAttribute('aria-label', `SpawnCamper9000 facility. Connection ${networkStatus}. ${latestState?.activeWorkflows.length || 0} active workflows.`);
       if (networkStatus === 'offline') {
         setNetworkStatus('offline', lastGoodState ? 'using last good state' : (error?.message || 'telemetry unavailable'));
         return;
       }
       if (networkStatus === 'syncing' && lastGoodState) {
-        setNetworkStatus('syncing', 'refreshing telemetry');
+        // Keep the established connection indication during routine polling.
         return;
       }
       setNetworkStatus(networkStatus, networkStatus === 'connecting' ? 'opening uplink' : 'telemetry live');
@@ -401,26 +437,60 @@ async function initCommandCenter() {
       fullscreenButton.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
       // The canvas element box just changed size; refresh Phaser's cached bounds
       // on the next frame so zone and camper hit-testing stays aligned.
-      window.requestAnimationFrame(() => game.scale.refresh());
+      scheduleLayout();
     };
 
-    fullscreenButton.addEventListener('click', () => {
+    listen(fullscreenButton, 'click', () => {
       const active = fullscreenElement() === world;
       const result = active ? exitFullscreen.call(document) : requestFullscreen.call(world);
       // Safari returns undefined; a denied request must never reject unhandled.
       Promise.resolve(result).catch(syncFullscreen);
     });
 
-    document.addEventListener('fullscreenchange', syncFullscreen);
-    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    listen(document, 'fullscreenchange', syncFullscreen);
+    listen(document, 'webkitfullscreenchange', syncFullscreen);
     fullscreenButton.hidden = false;
     syncFullscreen();
   }
 
-  window.addEventListener('pagehide', () => {
+  // One calculation owns the visible canvas box in every viewport mode.
+  function scheduleLayout() {
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      if (destroyed || !scene) return;
+      scene.configureViewport();
+      const width = scene.scale.width, height = scene.scale.height;
+      const fullscreen = world?.dataset.fullscreen === 'true';
+      const availableWidth = frame.clientWidth;
+      const availableHeight = fullscreen ? frame.clientHeight
+        : Math.min(availableWidth * height / width, scene.phoneViewport ? Math.max(300, innerHeight * .6) : Infinity);
+      if (!fullscreen) canvasHost.style.height = `${availableHeight}px`;
+      else canvasHost.style.height = '100%';
+      const scale = Math.min(availableWidth / width, availableHeight / height);
+      canvasHost.style.setProperty('--canvas-width', `${width * scale}px`);
+      canvasHost.style.setProperty('--canvas-height', `${height * scale}px`);
+      cancelAnimationFrame(boundsFrame);
+      boundsFrame = requestAnimationFrame(() => {
+        if (destroyed) return;
+        game.scale.refresh();
+        if (selectedAreaId && !hud.hidden) openZonePanel(areaById(selectedAreaId), workflowsForArea(latestState, selectedAreaId));
+      });
+    });
+  }
+  const observer = new ResizeObserver(scheduleLayout);
+  observer.observe(frame);
+  listen(window, 'resize', scheduleLayout);
+  listen(window, 'pagehide', (event) => {
     client.stop();
-    game.destroy(true);
-  }, { once: true });
-
+    cancelAnimationFrame(layoutFrame); cancelAnimationFrame(boundsFrame);
+    if (event.persisted) { game.loop.sleep(); return; }
+    destroyed = true;
+    observer.disconnect(); lifecycle.abort(); client.destroy(); game.destroy(true);
+  });
+  listen(window, 'pageshow', (event) => {
+    if (!event.persisted || destroyed) return;
+    game.loop.wake(); client.start(); scheduleLayout();
+  });
+  scheduleLayout();
   client.start();
 }

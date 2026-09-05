@@ -2,7 +2,7 @@ import {
   COMMAND_CENTER_AREAS,
   COMMAND_CENTER_COMPLETE_ACK_MS,
   COMMAND_CENTER_FALLBACK_AREA_ID,
-  areaIdForWorkflow
+  areaIdForWorkflow, canonicalAreaId
 } from './sceneConfig.mjs';
 import {
   machineDisplay,
@@ -117,7 +117,7 @@ function normalizeUrl(value) {
 
 function normalizeState(value) {
   const state = cleanText(value, 40).toLowerCase();
-  return STATE_SET.has(state) ? state : 'warning';
+  return STATE_SET.has(state) ? state : 'idle';
 }
 
 function computedExpiresAt(timestamp, ttlSeconds) {
@@ -143,13 +143,18 @@ function displayStateFor({ state, stale, history, sortTime, now }) {
 function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {}) {
   const state = normalizeState(entry.state);
   const timestamp = isoDate(entry.timestamp || entry.eventTimestamp || entry.updatedAt || entry.receivedAt);
-  const ttlSeconds = Number.isInteger(entry.ttlSeconds) ? entry.ttlSeconds : 0;
+  const ttlSeconds = Number.isInteger(entry.ttlSeconds) && entry.ttlSeconds > 0 && entry.ttlSeconds <= 3600 ? entry.ttlSeconds : 900;
   const expiresAt = isoDate(entry.expiresAt) || computedExpiresAt(timestamp, ttlSeconds);
   const expired = Boolean(expiresAt && timestampMs(expiresAt) <= now);
   const sortTime = timestampMs(timestamp) || timestampMs(entry.updatedAt) || timestampMs(entry.receivedAt);
   const stale = expired || Boolean(entry.isStale);
   const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
+  const lastActivity = entry.lastActivity;
+  if (!canonicalAreaId(context.station) && ['waiting', 'complete', 'warning', 'error'].includes(displayState)
+      && lastActivity && (!entry.startedAt || timestampMs(lastActivity.timestamp) >= timestampMs(entry.startedAt))) {
+    context.station = areaIdForWorkflow(lastActivity);
+  }
   const displayMachine = machineDisplay(machineForWorkflow(entry.workflow));
   // `displayState`, not `state`: a stale or long-finished entry reads as idle, and
   // an idle entry names no activity, so it resolves back to its own machine rather
@@ -163,6 +168,9 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   const workflow = {
     id: cleanText(entry.id, 96) || null,
     eventId: cleanText(entry.eventId, 180) || null,
+    eventOrder: cleanText(entry.eventOrder || entry.id, 180),
+    lastActivity: lastActivity ? { workflow: cleanToken(lastActivity.workflow), state: normalizeState(lastActivity.state),
+      timestamp: isoDate(lastActivity.timestamp), context: normalizeContext(lastActivity.context) } : null,
     agent: cleanToken(entry.agent, 'spawncamper9000'),
     workflow: cleanToken(entry.workflow, 'unknown'),
     workflowLabel: cleanText(entry.workflowLabel, 96) || cleanText(entry.workflow, 80) || 'Unknown',
@@ -198,6 +206,12 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   return workflow;
 }
 
+const eventOrder = (entry) => String(entry.eventOrder || entry.eventId || entry.id || '');
+const compareText = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+function compareEvents(a, b) {
+  return timestampMs(a.timestamp) - timestampMs(b.timestamp) || compareText(eventOrder(a), eventOrder(b));
+}
+
 function compareLatest(a, b) {
   const timeDelta = b.sortTime - a.sortTime;
   if (timeDelta) return timeDelta;
@@ -205,7 +219,7 @@ function compareLatest(a, b) {
   const workflowDelta = a.workflowLabel.localeCompare(b.workflowLabel);
   if (workflowDelta) return workflowDelta;
 
-  return String(a.eventId || a.id || '').localeCompare(String(b.eventId || b.id || ''));
+  return compareText(eventOrder(b), eventOrder(a)) || compareText(a.agent, b.agent);
 }
 
 function compareWorkflow(a, b) {
@@ -265,18 +279,59 @@ export function deriveOverallStatus(workflows) {
   return 'idle';
 }
 
-export function normalizePublicState(payload = {}, now = Date.now()) {
+export function validPublicPayload(payload) {
+  return Boolean(payload && payload.success === true && Number.isFinite(Date.parse(payload.fetchedAt))
+    && Array.isArray(payload.workflows) && Array.isArray(payload.recentHistory)
+    && payload.workflows.every(validEntry) && payload.recentHistory.every(validEntry));
+}
+
+function validEntry(entry) {
+  return entry && typeof entry === 'object' && !Array.isArray(entry)
+    && cleanToken(entry.workflow) && STATE_SET.has(entry.state)
+    && Number.isFinite(Date.parse(entry.timestamp || entry.eventTimestamp || entry.updatedAt));
+}
+
+export function activityKey(workflow) {
+  return workflow ? JSON.stringify([workflow.agent, workflow.workflow, workflow.startedAt,
+    workflow.displayState, workflow.areaId, workflow.activity, workflow.context?.target]) : '';
+}
+const priority = (w) => !w?.isVisible ? 0 : w.isAttention ? 4 : w.isTransmission ? 3 : w.isActive ? 2 : 1;
+
+export function normalizePublicState(payload = {}, now = Date.now(), { previousState = null, agent = null } = {}) {
   const rawWorkflows = Array.isArray(payload.workflows) ? payload.workflows : [];
   const rawHistory = Array.isArray(payload.recentHistory) ? payload.recentHistory : [];
   const workflows = rawWorkflows
-    .map((workflow) => normalizeWorkflow(workflow, now))
+    .filter((entry) => validEntry(entry) && (!agent || (entry.agent || 'spawncamper9000') === agent))
+    .map((entry) => {
+      const prior = previousState?.workflows.find((w) => w.agent === (entry.agent || 'spawncamper9000') && w.workflow === entry.workflow);
+      const candidates = rawHistory.filter((e) => validEntry(e) && e.workflow === entry.workflow
+        && (e.agent || 'spawncamper9000') === (entry.agent || 'spawncamper9000')
+        && compareEvents(e, entry) <= 0
+        && (!entry.startedAt || timestampMs(e.timestamp) >= timestampMs(entry.startedAt)))
+        .sort((a, b) => compareEvents(b, a));
+      const boundary = candidates.findIndex((e) => e.state === 'complete' && compareEvents(e, entry) < 0);
+      const historyActivity = (boundary < 0 ? candidates : candidates.slice(0, boundary)).find((e) =>
+        !['idle', 'waiting', 'complete', 'warning', 'error'].includes(e.state));
+      const sameJob = prior && prior.startedAt === isoDate(entry.startedAt) && prior.state !== 'complete';
+      const lastActivity = Object.hasOwn(entry, 'lastActivity') ? entry.lastActivity : historyActivity || (sameJob
+        ? (!['idle', 'waiting', 'complete', 'warning', 'error'].includes(prior.state) ? prior : prior.lastActivity) : null);
+      return normalizeWorkflow({ ...entry, lastActivity }, now);
+    })
     .sort(compareWorkflow);
   const recentHistory = rawHistory
+    .filter((entry) => validEntry(entry) && (!agent || (entry.agent || 'spawncamper9000') === agent))
     .map((event) => normalizeWorkflow(event, now, { history: true }))
-    .sort((a, b) => b.sortTime - a.sortTime);
+    .sort(compareLatest);
   const activeWorkflows = workflows.filter((workflow) => workflow.isActive);
   const visibleWorkflows = workflows.filter((workflow) => workflow.isVisible);
-  const primaryWorkflow = selectFocusWorkflow(workflows);
+  let primaryWorkflow = selectFocusWorkflow(workflows);
+  const priorFocus = previousState?.primaryWorkflow;
+  const retained = workflows.find((w) => w.agent === priorFocus?.agent && w.workflow === priorFocus?.workflow);
+  if (retained?.isVisible && priority(retained) === priority(primaryWorkflow)) {
+    const changed = workflows.filter((w) => priority(w) === priority(retained) && activityKey(w) !== activityKey(
+      previousState?.workflows.find((old) => old.agent === w.agent && old.workflow === w.workflow)));
+    primaryWorkflow = selectFocusWorkflow(changed) || retained;
+  }
   const areaGroups = groupWorkflowsByArea(workflows);
 
   return {
