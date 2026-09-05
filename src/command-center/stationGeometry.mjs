@@ -16,7 +16,7 @@ const union = (rects) => {
 const SCREEN_SURFACES = {
   'central-operations': { x: 410, y: 171, width: 35, height: 15 },
   'intelligence-research': { x: 92, y: 29, width: 135, height: 27 },
-  'scanner-bench': { x: 300, y: 242, width: 27, height: 11 },
+  'scanner-bench': { x: 302, y: 173, width: 28, height: 18 },
   'github-code': { x: 118, y: 344, width: 43, height: 29 },
   newsletter: { x: 301, y: 343, width: 32, height: 56 },
   'x-communications': { x: 513, y: 411, width: 23, height: 20 },

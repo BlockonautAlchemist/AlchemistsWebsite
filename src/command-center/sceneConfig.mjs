@@ -135,7 +135,7 @@ export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
 // east block cannot hold 133px and 165px of art side by side with a lane.
 //
 // The whitebox boxes are floor plans and are deliberately NOT the art's outline:
-// the Tool Scanner's 68px art sits in a 168px box, the Publish Transmitter's 85px
+// the Tool Scanner's 104px art sits in a 168px box, the Publish Transmitter's 85px
 // cabinet in a 168px box. Hit rects follow the box, so bare floor inside a zone
 // still selects it. See the README for the full measured table.
 // ---------------------------------------------------------------------------
@@ -590,11 +590,16 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
 // union of every directional foot envelope. Side-wall pockets are not aisles.
 export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
   segments: Object.freeze([
-    Object.freeze({ id: 'west-lane', from: Object.freeze({ x: 241, y: 180 }), to: Object.freeze({ x: 241, y: 384 }) }),
+    // The replacement scanner and Creator Console leave no 82px-wide foot
+    // corridor between their lower footprints. Route around that shared band
+    // through centre-spur/north-spur instead of cutting through their art.
+    Object.freeze({ id: 'west-lane', from: Object.freeze({ x: 241, y: 180 }), to: Object.freeze({ x: 241, y: 228 }) }),
+    Object.freeze({ id: 'west-lane-lower', from: Object.freeze({ x: 241, y: 272 }), to: Object.freeze({ x: 241, y: 384 }) }),
     Object.freeze({ id: 'south-lane', from: Object.freeze({ x: 132, y: 490 }), to: Object.freeze({ x: 828, y: 490 }) }),
     Object.freeze({ id: 'centre-spur', from: Object.freeze({ x: 588, y: 228 }), to: Object.freeze({ x: 588, y: 384 }) }),
     Object.freeze({ id: 'ops-spur', from: Object.freeze({ x: 241, y: 228 }), to: Object.freeze({ x: 588, y: 228 }) }),
-    Object.freeze({ id: 'north-spur', from: Object.freeze({ x: 132, y: 276 }), to: Object.freeze({ x: 316, y: 276 }) }),
+    Object.freeze({ id: 'scanner-clearance', from: Object.freeze({ x: 409, y: 228 }), to: Object.freeze({ x: 409, y: 276 }) }),
+    Object.freeze({ id: 'north-spur', from: Object.freeze({ x: 132, y: 276 }), to: Object.freeze({ x: 588, y: 276 }) }),
     Object.freeze({ id: 'code-spur', from: Object.freeze({ x: 132, y: 468 }), to: Object.freeze({ x: 132, y: 490 }) }),
     Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 700, y: 348 }), to: Object.freeze({ x: 828, y: 348 }) }),
     Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 588, y: 372 }) }),
@@ -606,7 +611,7 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 740, y: 192 }), to: Object.freeze({ x: 832, y: 192 }) }),
     Object.freeze({ id: 'intel-stub', from: Object.freeze({ x: 164, y: 180 }), to: Object.freeze({ x: 241, y: 180 }) }),
     Object.freeze({ id: 'cross-aisle', from: Object.freeze({ x: 241, y: 384 }), to: Object.freeze({ x: 700, y: 384 }) }),
-    Object.freeze({ id: 'south-access', from: Object.freeze({ x: 420, y: 384 }), to: Object.freeze({ x: 420, y: 490 }) }),
+    Object.freeze({ id: 'south-access', from: Object.freeze({ x: 410, y: 384 }), to: Object.freeze({ x: 410, y: 490 }) }),
     Object.freeze({ id: 'east-access', from: Object.freeze({ x: 700, y: 300 }), to: Object.freeze({ x: 700, y: 384 }) }),
     Object.freeze({ id: 'east-crossing', from: Object.freeze({ x: 588, y: 300 }), to: Object.freeze({ x: 740, y: 300 }) }),
     Object.freeze({ id: 'agent-access', from: Object.freeze({ x: 740, y: 192 }), to: Object.freeze({ x: 740, y: 300 }) }),
@@ -711,9 +716,9 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     label: 'X Comms Uplink', shortLabel: 'X Comms',
     description: 'Console + mast + dish',
     x: 528, y: 396,
-    // Box foot 456 + 12. The console's cell carries 2px of slack under the art, so
-    // this is 14px off the drawn pixels and 12px off the floor contact line every
-    // other machine is measured from.
+    // Box foot 456 + 12. The replacement cell carries 36px of slack under the art,
+    // so its drawn pixels still meet the box floor at y456 while the camper works
+    // from the unchanged destination y468.
     destination: Object.freeze({ x: 528, y: 468 }),
     bounds: Object.freeze({ x: 456, y: 276, width: 168, height: 180 }),
     hitRects: Object.freeze([

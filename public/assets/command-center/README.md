@@ -5,7 +5,7 @@ swaps to art **per file**, so this directory can fill up one asset at a time.
 
 ## Current runtime geometry
 
-The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The measured west corridor is X=241; Zone 2 stands at (164,180).
+The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The Tool Scanner replacement is also **1600×200**, eight **200×200** frames, with a 104px opaque width and 20px bottom slack; it renders approximately x264-368, y102-264 and keeps its floor contact at (316,264) and operating point at (316,276). The X Uplink replacement is likewise **1600×200** with 200×200 frames, 148px art width and 36px bottom slack. The measured west corridor is X=241; Zone 2 stands at (164,180).
 
 ## Machine → Hermes workflow mapping
 
@@ -266,7 +266,7 @@ The invariant that actually holds is `frameHeight == sheetHeight`, **not** squar
 Repo Forge cell is 203x202, the Model Furnace cell 202x203 and the Publish Transmitter cell
 149x144. Do not assume square cells; measure.
 
-Nine carry a vertical offset, and it is always the same measurement — the empty rows the
+Eleven carry a vertical offset, and it is always the same measurement — the empty rows the
 Sprite Fusion cell leaves **under the machine's contact edge**, identical in all 8 frames.
 `offsetY` equals that slack exactly, which puts the last opaque row back on the bottom edge
 of the whitebox box. Without it the machine floats that far above its station.
@@ -275,8 +275,10 @@ of the whitebox box. Without it the machine floats that far above its station.
 | --- | --- | --- |
 | Profit Analyzer | 19 rows of a 197px cell | 19 |
 | Agent Lab | 20 rows of a 202px cell | 20 |
+| Tool Scanner | 20 rows of a 200px cell | 20 |
+| X Uplink | 36 rows of a 200px cell | 36 |
 | Newsletter Still | 21 rows of a 203px cell | 21 |
-| Creator Console | 22 rows of a 151px cell | 22 |
+| Creator Console | 32 rows of a 200px cell | 32 |
 | Repo Forge | 29 rows of a 202px cell | 29 |
 | Publish Transmitter | 32 rows of a 144px cell | 32 |
 | Model Furnace | 41 rows of a 203px cell | 41 |
@@ -295,9 +297,9 @@ stands 12px below its base. These two are the only shipped sheets carrying
 | file | machine | zone | sheet | frames | frame | fps | loop | anchors on |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `anim_opportunity_radar_sheet.png` | Opportunity Radar | 02 | 544x68 | 8 | 68x68 | 8 | 1.000s | `prop_radar_drum` |
-| `anim_tool_scanner_sheet.png` | Tool Scanner | 03 | 576x72 | 8 | 72x72 | 6 | 1.333s | `prop_scanner_bench` |
+| `anim_tool_scanner_sheet.png` | Tool Scanner | 03 | 1600x200 | 8 | 200x200 | 6 | 1.333s | `prop_scanner_bench` |
 | `anim_newsletter_still_sheet.png` | Newsletter Still | 05 | 1624x203 | 8 | 203x203 | 6 | 1.333s | `prop_still_column` |
-| `anim_x_uplink_sheet.png` | X Uplink | 06 | 512x64 | 8 | 64x64 | 6 | 1.333s | `prop_x_console` |
+| `anim_x_uplink_sheet.png` | X Uplink | 06 | 1600x200 | 8 | 200x200 | 6 | 1.333s | `prop_x_console` |
 | `anim_creator_console_sheet.png` | Creator Console | 10 | 1320x151 | 8 | 165x151 | 6 | 1.333s | `prop_creator_console` |
 | `anim_repo_forge_sheet.png` | Repo Forge | 04 | 1624x202 | 8 | 203x202 | 6 | 1.333s | `prop_code_bench` |
 | `anim_model_furnace_sheet.png` | Model Furnace | 08 | 1616x203 | 8 | 202x203 | 6 | 1.333s | `prop_furnace_chamber` |
@@ -334,9 +336,9 @@ Two numbers shape it, both derived, neither authored:
   edge.
 - **how wide** — `shadowWidth`, the measured art width, falling back to the whitebox
   footprint when nothing is recorded. The box is a floor plan, not an outline, and the two
-  routinely disagree: the Tool Scanner's 68px bench sits in a 168px box, the Model Furnace's
+  routinely disagree: the Tool Scanner's 104px bench sits in a 168px box, the Model Furnace's
   165px assembly anchors on a 120px chamber. Sizing off the box would have put a 168px pool
-  under a 68px machine.
+  under a 104px machine.
 
 The generated radial fades to nothing at its own edge, so the drawn pool is 1.4x the art
 width — that puts the machine's outline at roughly the gradient's 0.72 stop, where it is
@@ -346,8 +348,8 @@ get a pool thin enough to read as a line.
 | machine | measured art width | pool |
 | --- | --- | --- |
 | Opportunity Radar | 54 | 75.6 x 18 (height clamped) |
-| Tool Scanner | 68 | 95.2 x 20.9 |
-| X Uplink | 60 | 84 x 18.5 |
+| Tool Scanner | 104 | 145.6 x 32 |
+| X Uplink | 148 | 207.2 x 45.6 |
 | Newsletter Still | 98 | 137.2 x 30.2 |
 | Creator Console | 123 | 172.2 x 37.9 |
 | Repo Forge | 163 | 228.2 x 50.2 |
@@ -531,8 +533,8 @@ Everything above describes machines one sheet at a time. This section is the roo
 
 Art anchors **bottom-centre** on its box, so for every shipped machine the rendered centre is
 `box.x + box.w/2` and the rendered **foot** is `box.y + box.h`. That is the whole control
-surface: the room is laid out by moving boxes, and no PNG, frame size, `offsetY`,
-`shadowWidth` or `flipX` value was touched to do it.
+surface: the room is laid out by moving boxes and validated routes, while replacement art
+uses its measured bounds and does not move the station boxes or destinations.
 
 The layout pass was run against **measured opaque bounds** — every frame of every sheet
 decoded and unioned, with `offsetY` and `flipX` applied — not against the whitebox boxes,
@@ -543,8 +545,8 @@ exactly 0px, none of which the box numbers showed:
 | was | measured |
 | --- | --- |
 | Profit Analyzer vs Model Furnace | **11.5 x 75px of shared pixels** |
-| Opportunity Radar vs Tool Scanner | **0px** — radar foot 240 = scanner top 240 |
-| Tool Scanner vs Repo Forge | **-2px** — scanner foot 312, forge top 310 |
+| Opportunity Radar vs Tool Scanner | historical **0px** contact before the current Tool Scanner replacement |
+| Tool Scanner vs Repo Forge | historical **-2px** contact before the current Tool Scanner replacement |
 
 ### The grid
 
@@ -572,10 +574,10 @@ Ops as the room's centre, the Experiment Bench as the central alchemist desk, an
 | Repo Forge | `48,384 168x72` | 163x146 | x 50.5-213.5, y 310-456 | 132 / 456 |
 | News Array | `48,40 232x38` | 184x65 | x 71.5-255.5, y 13-78 | 163.5 / 78 |
 | Newsletter Still | `280,312 72x144` | 98x154 | x 266.5-364.5, y 302-456 | 315.5 / 456 |
-| Tool Scanner | `232,216 168x48` | 68x72 | x 282-350, y 192-264 | 316 / 264 |
+| Tool Scanner | `232,216 168x48` | 104x162 | x 264-368, y 102-264 | 316 / 264 |
 | Central Ops | `384,144 192x72` | 168x104 | x 395.5-563.5, y 112-216 | 479.5 / 216 |
 | Experiment Bench | `408,264 144x96` | 127x90 | x 416.5-543.5, y 270-360 | 480 / 360 |
-| X Uplink | `456,384 144x72` | 60x62 | x 498-558, y 392-454 | 528 / 454 |
+| X Uplink | `456,384 144x72` | 148x128 | x 454-602, y 328-456 | 528 / 456 |
 | Alchemists sigil | `612,34 52x52` | 47x62 | x 614-661, y 24-86 | 637.5 / 86 |
 | Opportunity Radar | `612,192 96x72` | 54x68 | x 633-687, y 196-264 | 660 / 264 |
 | Profit Analyzer | `606,384 108x72` | 133x161 | x 593.5-726.5, y 295-456 | 660 / 456 |
@@ -647,16 +649,15 @@ entirely in the wall band and clears that reserve by 24px.
 
 Nothing overlaps. The tightest pair is 18.5px, against -11.5px and 0px before the pass.
 
-### Growth reserve — Opportunity Radar and Tool Scanner
+### Growth reserve — Opportunity Radar
 
-Both are placeholders at 54x68 and 68x72, and both are expected to be regenerated larger.
-Each holds a reserved **120x132 envelope** on its column centre and foot line — roughly the
-Profit Analyzer's and Model Furnace's size class. The reserve travelled with the Opportunity
-Radar when it swapped columns, and at x600-720 / y132-264 it clears the Model Furnace by 25px,
-the Profit Analyzer by 31px, the GA//OPS bank by 24px and the trimmed `D5` beam by 24px. The
-Tool Scanner's reserve at x256-376 / y132-264 is untouched and clears the GA//OPS bank by 24px
-and Central Ops by 19.5px. **Either machine can be regenerated at Large with no further layout
-change.**
+The Opportunity Radar remains a 54x68 placeholder and retains its reserved **120x132 envelope**
+on its column centre and foot line — roughly the Profit Analyzer's and Model Furnace's size
+class. The reserve travelled with the radar when it swapped columns, and at x600-720 / y132-264
+it clears the Model Furnace by 25px, the Profit Analyzer by 31px, the GA//OPS bank by 24px and
+the trimmed `D5` beam by 24px. The Tool Scanner now uses its 1600x200 replacement sheet in the
+same 168x48 box; its measured art occupies x264-368 / y102-264 and no longer relies on the
+growth reserve.
 
 ### The three off-grid exceptions
 
@@ -689,7 +690,7 @@ rule that has applied since the first sheet shipped.
 
 | box | size | art it carries | consequence |
 | --- | --- | --- | --- |
-| `prop_scanner_bench` 232,216 | 168x48 | 68x72 at x 282-350 | the box straddles the west walk lane at x240; the **art** clears it by 42px |
+| `prop_scanner_bench` 232,216 | 168x48 | 104x162 at x 264-368 | the art is 32px inset from the box on each side; the foot route detours through `scanner-clearance` around its lower footprint |
 | `prop_tx_body` 744,360 | 168x96 | 85x80 at x 785.5-870.5 | ~41px of bare floor each side |
 | `prop_still_column` 280,312 | 72x144 | 98x154 at x 266.5-364.5 | art overhangs ~13px each side, rises 10px above the box |
 | `prop_profit_analyzer` 606,384 | 108x72 | 133x161 at x 593.5-726.5 | art overhangs ~12.5px each side, rises 89px above the box |
@@ -710,7 +711,8 @@ only geometry moved, and every segment is still axis-aligned.
 | `south-lane` | extended to x930 so `east-lane` still lands on it |
 | `centre-spur` | x 622 → **578** — x622 is inside the Profit Analyzer's new footprint |
 | `ops-spur`, `bench-spur` | far ends follow `centre-spur` to x578; the (480,228) and (480,372) anchors do not move |
-| `res-spur` → `north-spur` | (132,276)→(316,276); one segment ending on **both** the Radar and Tool Scanner anchors, crossing `west-lane` at a derived node |
+| `west-lane`, `scanner-clearance` | the larger Tool Scanner footprint splits west-lane at y228-272; X=409 provides a clear approach to its unchanged (316,276) destination |
+| `res-spur` → `north-spur` | (132,276)→(588,276); one aisle serves the Creator Console and Tool Scanner anchors, with `scanner-clearance` approaching the scanner from the east |
 | `profit-spur` → `profit-stub` | (660,468)→(660,490); the Profit Analyzer is a front-rank machine now, so it is reached from the south lane |
 | `creator-spur` → `radar-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane`. Renamed when the Opportunity Radar took that slot from the Creator Console — same geometry, no new segment |
 | `newsletter-stub`, `tx-stub` | x 300 → 316, x 780 → 828 |
@@ -745,7 +747,7 @@ one zone.
 | --- | --- | --- | --- |
 | 02 News Array | (216, 276) | **(164, 132)** | 54 — see below |
 | 05 Newsletter Still | (316, 480) | **(316, 468)** | 12 |
-| 06 X Uplink | (528, 480) | **(528, 468)** | 14 — its cell carries 2px of slack, so the art foot is 454 against a box foot of 456 |
+| 06 X Uplink | (528, 480) | **(528, 468)** | 12 — its replacement cell carries 36px of slack, so the art foot is 456 against a box foot of 456 |
 | 07 Publish Transmitter | (828, 480) | **(828, 468)** | 12 |
 
 The other nine were already right and did not move: Central Ops stays centred at (480, 228)
@@ -902,7 +904,7 @@ axis-aligned throughout, and zone 12's anchor is still untouched. Workflow keys,
 ids, telemetry state names and the API are unchanged — only which zone the machine physically
 occupies moved.
 
-Tool Scanner was untouched by all of this — same 168x48 bench, same sheet, same components,
+Tool Scanner was untouched by all of this — same 168x48 bench, same replacement sheet, same components,
 same zone 03 — and it is the only owner. The layout normalization pass later slid that bench
 to 232,216 and its anchor to (316, 276), because at 48,264 its art touched the Opportunity
 Radar's at exactly 0px and overlapped the Repo Forge's by 2px. Sheet, components, workflow key,

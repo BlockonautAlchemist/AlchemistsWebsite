@@ -83,7 +83,7 @@ export const PROP_ANIMATED = 'animated';
 //              the art's real opaque width, measured off the PNG, used to size
 //              the generated contact shadow. Needed because the whitebox box a
 //              machine anchors on is a floor-plan footprint, not the art's:
-//              the Tool Scanner's 68px bench sits in a 168px box, and the Model
+//              the Tool Scanner's 104px bench sits in a 168px box, and the Model
 //              Furnace's 165px assembly anchors on a 120px chamber.
 // `groundShadow`
 //              `false` for wall-mounted art, which stands on nothing and must
@@ -186,21 +186,24 @@ export const PROP_SHEETS = Object.freeze([
     coversComponents: Object.freeze(['anim_radar_sweep'])
   }),
   // Tool Scanner (zone 03). Bench, dish and status lamps are one object, so the
-  // whitebox scan bar and ready lamp retire with the body. 6fps is one 1.333s
-  // dish rotation — ambient reads as powered, not busy.
+  // whitebox scan bar and ready lamp retire with the body. The replacement is a
+  // native-scale 1600x200 sheet with 200x200 cells. Its 20 empty rows under
+  // the feet put the art back on the box's floor line, and the 104px opaque
+  // width sizes the generated contact shadow. 6fps is one 1.333s dish rotation.
   Object.freeze({
     id: 'scanner_bench',
     type: PROP_ANIMATED,
     art: `${ART_ROOT}/anim_tool_scanner_sheet.png`,
     textureKey: 'anim_tool_scanner',
-    sheetWidth: 576,
-    sheetHeight: 72,
-    frameWidth: 72,
-    frameHeight: 72,
+    sheetWidth: 1600,
+    sheetHeight: 200,
+    frameWidth: 200,
+    frameHeight: 200,
     frames: 8,
     fps: 6,
     repeat: -1,
-    shadowWidth: 68,
+    offsetY: 20,
+    shadowWidth: 104,
     covers: Object.freeze(['prop_scanner_bench']),
     coversComponents: Object.freeze(['anim_scan_bar', 'anim_scan_lamp'])
   }),
@@ -261,20 +264,23 @@ export const PROP_SHEETS = Object.freeze([
   // one entry owns both whitebox bodies — `prop_x_console` (the anchor) and
   // `prop_x_mast` — plus all three of their components. There is deliberately no
   // separate `x_mast` entry any more: a prop claimed by two entries would break
-  // the one-machine-one-owner invariant. 6fps is one 1.333s CRT cycle.
+  // the one-machine-one-owner invariant. The native-scale replacement is an
+  // 8x200x200 sheet with 36px bottom slack and 148px of opaque art. 6fps is one
+  // 1.333s CRT cycle.
   Object.freeze({
     id: 'x_console',
     type: PROP_ANIMATED,
     art: `${ART_ROOT}/anim_x_uplink_sheet.png`,
     textureKey: 'anim_x_uplink',
-    sheetWidth: 512,
-    sheetHeight: 64,
-    frameWidth: 64,
-    frameHeight: 64,
+    sheetWidth: 1600,
+    sheetHeight: 200,
+    frameWidth: 200,
+    frameHeight: 200,
     frames: 8,
     fps: 6,
     repeat: -1,
-    shadowWidth: 60,
+    offsetY: 36,
+    shadowWidth: 148,
     covers: Object.freeze(['prop_x_console', 'prop_x_mast']),
     coversComponents: Object.freeze(['anim_x_crt', 'anim_x_lamps', 'anim_x_dish'])
   }),

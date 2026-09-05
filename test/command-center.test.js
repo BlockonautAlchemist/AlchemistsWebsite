@@ -81,6 +81,7 @@ let ensurePropAnimation;
 let propPlaybackFor;
 let replacedWhiteboxKeys;
 let replacedComponentKeys;
+let stationGeometry;
 
 test.before(async () => {
   ({
@@ -116,6 +117,7 @@ test.before(async () => {
     visualForState
   } = await import('../src/command-center/visualMappings.mjs'));
   ({ routeThroughWalkGraph, pointOnSegment, walkNodes } = await import('../src/command-center/walkGraph.mjs'));
+  ({ stationGeometry } = await import('../src/command-center/stationGeometry.mjs'));
   ({
     CAMPER_SHEETS,
     camperSheetFor,
@@ -2255,9 +2257,10 @@ const SHIPPED_MACHINE_SHEETS = [
     machine: 'Tool Scanner',
     art: '/assets/command-center/anim_tool_scanner_sheet.png',
     textureKey: 'anim_tool_scanner',
-    sheetWidth: 576, sheetHeight: 72, frameWidth: 72, frameHeight: 72, frames: 8, fps: 6,
+    sheetWidth: 1600, sheetHeight: 200, frameWidth: 200, frameHeight: 200, frames: 8, fps: 6,
     anchorProp: 'prop_scanner_bench',
-    shadowWidth: 68
+    offsetY: 20,
+    shadowWidth: 104
   },
   {
     id: 'still_column',
@@ -2275,9 +2278,10 @@ const SHIPPED_MACHINE_SHEETS = [
     machine: 'X Uplink',
     art: '/assets/command-center/anim_x_uplink_sheet.png',
     textureKey: 'anim_x_uplink',
-    sheetWidth: 512, sheetHeight: 64, frameWidth: 64, frameHeight: 64, frames: 8, fps: 6,
+    sheetWidth: 1600, sheetHeight: 200, frameWidth: 200, frameHeight: 200, frames: 8, fps: 6,
     anchorProp: 'prop_x_console',
-    shadowWidth: 60
+    offsetY: 36,
+    shadowWidth: 148
   },
   {
     id: 'creator_console',
@@ -2760,6 +2764,34 @@ test('the twelve shipped sheets tile exactly at the dimensions their PNGs really
     const order = propFrameOrderFor(entry);
     assert.equal(order.length, entry.frames, `${expected.machine} frame order length`);
     assert.deepEqual([...order].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7], `${expected.machine} frame order`);
+  });
+});
+
+test('the replacement Tool Scanner keeps its station, screen mask, and floor contact', () => {
+  const entry = propSheetFor('scanner_bench');
+  const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_scanner_bench');
+  const area = COMMAND_CENTER_AREAS.find((candidate) => candidate.id === 'scanner-bench');
+  const geometry = stationGeometry('scanner-bench');
+  const measured = readPngOpaqueBounds(
+    `${__dirname}/../public${entry.art}`, entry.frameWidth, entry.frameHeight
+  );
+
+  assert.deepEqual(measured, {
+    width: 104,
+    height: 162,
+    centreX: 100,
+    bottomSlack: 20,
+    alpha: { opaque: 99556, semiTransparent: 0, transparent: 220444 }
+  });
+  assert.deepEqual(propAnchorFor(entry, box), {
+    x: 316, y: 284, originX: 0.5, originY: 1, scale: 1
+  });
+  assert.deepEqual(geometry.bounds, { x: 264, y: 102, width: 104, height: 162 });
+  assert.deepEqual(geometry.foot, { x: 316, y: 276 });
+  assert.deepEqual(geometry.screen, { x: 302, y: 173, width: 28, height: 18 });
+  assert.deepEqual(area.destination, { x: 316, y: 276 });
+  assert.deepEqual(propShadowFor(entry, box), {
+    x: 316, y: 264, width: 104 * 1.4, height: 104 * 1.4 * 0.22, alpha: 0.55
   });
 });
 
