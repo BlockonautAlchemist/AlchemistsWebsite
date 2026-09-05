@@ -5,7 +5,7 @@ swaps to art **per file**, so this directory can fill up one asset at a time.
 
 ## Current runtime geometry
 
-The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The Tool Scanner replacement is also **1600×200**, eight **200×200** frames, with a 104px opaque width and 20px bottom slack; it renders approximately x264-368, y102-264 and keeps its floor contact at (316,264) and operating point at (316,276). The X Uplink replacement is likewise **1600×200** with 200×200 frames, 148px art width and 36px bottom slack. The measured west corridor is X=241; Zone 2 stands at (164,180).
+The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The Tool Scanner replacement is also **1600×200**, eight **200×200** frames, with a 104px opaque width and 20px bottom slack; it renders approximately x264-368, y102-264 and keeps its floor contact at (316,264) and operating point at (316,276). The Opportunity Radar replacement is now **1600×200**, eight **200×200** frames, 88px wide with 32px bottom slack; it renders x616-704, y128-264 and keeps its station at (660,276). The relocated X Uplink replacement is likewise **1600×200** with 200×200 frames, 148px art width and 36px bottom slack; it renders x406-554, y365-494 and uses (480,502) as its clear front position. The measured west corridor is X=241; Zone 2 stands at (164,180).
 
 ## Machine → Hermes workflow mapping
 
@@ -266,13 +266,14 @@ The invariant that actually holds is `frameHeight == sheetHeight`, **not** squar
 Repo Forge cell is 203x202, the Model Furnace cell 202x203 and the Publish Transmitter cell
 149x144. Do not assume square cells; measure.
 
-Eleven carry a vertical offset, and it is always the same measurement — the empty rows the
+Twelve carry a vertical offset, and it is always the same measurement — the empty rows the
 Sprite Fusion cell leaves **under the machine's contact edge**, identical in all 8 frames.
 `offsetY` equals that slack exactly, which puts the last opaque row back on the bottom edge
 of the whitebox box. Without it the machine floats that far above its station.
 
 | entry | bottom slack | `offsetY` |
 | --- | --- | --- |
+| Opportunity Radar | 32 rows of a 200px cell | 32 |
 | Profit Analyzer | 19 rows of a 197px cell | 19 |
 | Agent Lab | 20 rows of a 202px cell | 20 |
 | Tool Scanner | 20 rows of a 200px cell | 20 |
@@ -296,11 +297,11 @@ stands 12px below its base. These two are the only shipped sheets carrying
 
 | file | machine | zone | sheet | frames | frame | fps | loop | anchors on |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `anim_opportunity_radar_sheet.png` | Opportunity Radar | 02 | 544x68 | 8 | 68x68 | 8 | 1.000s | `prop_radar_drum` |
+| `anim_opportunity_radar_sheet.png` | Opportunity Radar | 13 | 1600x200 | 8 | 200x200 | 8 | 1.000s | `prop_radar_drum` |
 | `anim_tool_scanner_sheet.png` | Tool Scanner | 03 | 1600x200 | 8 | 200x200 | 6 | 1.333s | `prop_scanner_bench` |
 | `anim_newsletter_still_sheet.png` | Newsletter Still | 05 | 1624x203 | 8 | 203x203 | 6 | 1.333s | `prop_still_column` |
 | `anim_x_uplink_sheet.png` | X Uplink | 06 | 1600x200 | 8 | 200x200 | 6 | 1.333s | `prop_x_console` |
-| `anim_creator_console_sheet.png` | Creator Console | 10 | 1320x151 | 8 | 165x151 | 6 | 1.333s | `prop_creator_console` |
+| `anim_creator_console_sheet.png` | Creator Console | 10 | 1600x200 | 8 | 200x200 | 6 | 1.333s | `prop_creator_console` |
 | `anim_repo_forge_sheet.png` | Repo Forge | 04 | 1624x202 | 8 | 203x202 | 6 | 1.333s | `prop_code_bench` |
 | `anim_model_furnace_sheet.png` | Model Furnace | 08 | 1616x203 | 8 | 202x203 | 6 | 1.333s | `prop_furnace_chamber` |
 | `anim_profit_analyzer_sheet.png` | Profit Analyzer | 11 | 1576x197 | 8 | 197x197 | 6 | 1.333s | `prop_profit_analyzer` |
@@ -347,7 +348,7 @@ get a pool thin enough to read as a line.
 
 | machine | measured art width | pool |
 | --- | --- | --- |
-| Opportunity Radar | 54 | 75.6 x 18 (height clamped) |
+| Opportunity Radar | 88 | 123.2 x 27.1 |
 | Tool Scanner | 104 | 145.6 x 32 |
 | X Uplink | 148 | 207.2 x 45.6 |
 | Newsletter Still | 98 | 137.2 x 30.2 |
@@ -474,9 +475,9 @@ Art pass 4 is one machine and one deletion:
 
 It is the only shipped sheet whose art fits entirely within its box in both axes. Clearances
 around it were checked against the real art of every neighbour: the Ops Console box's bottom
-edge at y216 is 54px above it, the X Mast box at x576 is 32.5px to its right, the Profit
-Analyzer's art starts at x623.5 (80px clear) and the Creator Console's ends at x385.5 (31px
-clear). Conduit `D4` (`spine → X console`, x525, y 252-384) crosses the bench's footprint —
+edge at y216 is 54px above it, the relocated X Uplink art begins at y365, five pixels below
+the bench, the Profit Analyzer's art starts at x623.5 (80px clear) and the Creator Console's
+ends at x385.5 (31px clear). Conduit `D4` (`spine → X console`, x477, y 294-431) crosses the bench's footprint —
 it crossed the core well's identically before the swap, so nothing about that changed. `D3`
 now stops 6px above the bench's top edge instead of on the well's rim; it kept its id,
 geometry and triggers and only changed which zone owns it.
@@ -560,7 +561,8 @@ exactly 0px, none of which the box numbers showed:
 | **foot 264** | Creator Console | Tool Scanner | — | Opportunity Radar | — |
 | **foot 336** | | | | | Model Furnace |
 | **foot 360** | | | **Experiment Bench** | | |
-| **foot 456** | Repo Forge | Newsletter Still | X Uplink *(528)* | Profit Analyzer | Publish Transmitter |
+| **foot 456** | Repo Forge | Newsletter Still | — | Profit Analyzer | Publish Transmitter |
+| **foot 494** | | | **X Uplink (480)** | | |
 
 Preserved outright, and the regression guard that the pass stayed in its lane: the News Array
 wall strip, the GA//OPS display, the Alchemists emblem, the Agent Lab wall cabinet, Central
@@ -577,9 +579,9 @@ Ops as the room's centre, the Experiment Bench as the central alchemist desk, an
 | Tool Scanner | `232,216 168x48` | 104x162 | x 264-368, y 102-264 | 316 / 264 |
 | Central Ops | `384,144 192x72` | 168x104 | x 395.5-563.5, y 112-216 | 479.5 / 216 |
 | Experiment Bench | `408,264 144x96` | 127x90 | x 416.5-543.5, y 270-360 | 480 / 360 |
-| X Uplink | `456,384 144x72` | 148x128 | x 454-602, y 328-456 | 528 / 456 |
+| X Uplink | `408,422 144x72` | 148x128 | x 406-554, y 365-494 | 480 / 494 |
 | Alchemists sigil | `612,34 52x52` | 47x62 | x 614-661, y 24-86 | 637.5 / 86 |
-| Opportunity Radar | `612,192 96x72` | 54x68 | x 633-687, y 196-264 | 660 / 264 |
+| Opportunity Radar | `612,192 96x72` | 88x136 | x 616-704, y 128-264 | 660 / 264 |
 | Profit Analyzer | `606,384 108x72` | 133x161 | x 593.5-726.5, y 295-456 | 660 / 456 |
 | Model Furnace | `768,264 120x72` | 165x123 | x 745-910, y 213-336 | 827.5 / 336 |
 | Publish Transmitter | `744,360 168x96` | 85x80 | x 785.5-870.5, y 376-456 | 828 / 456 |
@@ -651,13 +653,12 @@ Nothing overlaps. The tightest pair is 18.5px, against -11.5px and 0px before th
 
 ### Growth reserve — Opportunity Radar
 
-The Opportunity Radar remains a 54x68 placeholder and retains its reserved **120x132 envelope**
-on its column centre and foot line — roughly the Profit Analyzer's and Model Furnace's size
-class. The reserve travelled with the radar when it swapped columns, and at x600-720 / y132-264
-it clears the Model Furnace by 25px, the Profit Analyzer by 31px, the GA//OPS bank by 24px and
-the trimmed `D5` beam by 24px. The Tool Scanner now uses its 1600x200 replacement sheet in the
-same 168x48 box; its measured art occupies x264-368 / y102-264 and no longer relies on the
-growth reserve.
+The Opportunity Radar now uses its native 1600x200 replacement sheet rather than the old
+54x68 placeholder. Its measured x616-704 / y128-264 footprint remains on the same station
+and keeps the (660,276) operating point. The wider lower footprint is clear of the centre
+route through a short x575 detour; the agent approach likewise moves to x746. The Tool Scanner
+continues to use its 1600x200 replacement sheet in the same 168x48 box; its measured art
+occupies x264-368 / y102-264 and no longer relies on the growth reserve.
 
 ### The three off-grid exceptions
 
@@ -666,11 +667,11 @@ growth reserve.
    123px of art. Foot 336 centres it (33px above, 40px below). Foot 360 would align it with the
    Experiment Bench but leave **16px** to the transmitter, which would be the room's tightest
    gap.
-2. **X Uplink, x528.** Its `D5` beam must rise through bare wall, and the only bare bands are
-   x 255-372, 588-614 and 661-786. On the C3 column centre the beam would cross the Ops
-   console, the Experiment Bench and the GA//OPS bank. It did not move at all — same box, same
-   sheet, same zone 06 anchor — and its foot sits at 454 rather than 456 because its cell
-   carries 2px of slack under the art.
+2. **X Uplink, x480.** Its console moved beneath the Experiment Bench so the measured art
+   occupies x406-554 / y365-494. The mast box moved with it to x528-576 / y314-422, and the
+   screen/effect surface moved by the same (-48,+38) delta. The sheet remains native scale;
+   its 36px cell slack puts the opaque foot on y494, so SpawnCamper uses the lowest clear
+   front point at (480,502).
 3. **Profit Analyzer / Model Furnace at 18.5px.** The east block is ~348px between the centre
    lane and the east wall and has to hold 133px + 165px of art plus a walk lane. Side by side
    at 30px is arithmetically impossible; they are stacked on different foot lines instead, so
@@ -708,19 +709,19 @@ only geometry moved, and every segment is still axis-aligned.
 | lane / spur | change |
 | --- | --- |
 | `east-lane` | x 898 → **922** — x898 ran through the Model Furnace art, which reaches x910 |
-| `south-lane` | extended to x930 so `east-lane` still lands on it |
-| `centre-spur` | x 622 → **578** — x622 is inside the Profit Analyzer's new footprint |
-| `ops-spur`, `bench-spur` | far ends follow `centre-spur` to x578; the (480,228) and (480,372) anchors do not move |
+| `south-lane` | split around the relocated X footprint, with west/east legs ending at x365 and starting at x595 |
+| `centre-spur` | stays at x588 below the Radar band and detours through x575 from y240-276 for the wider native Radar footprint |
+| `ops-spur`, `bench-spur` | far ends remain on `centre-spur` at x588; the (480,228) and (480,372) anchors do not move |
 | `west-lane`, `scanner-clearance` | the larger Tool Scanner footprint splits west-lane at y228-272; X=409 provides a clear approach to its unchanged (316,276) destination |
 | `res-spur` → `north-spur` | (132,276)→(588,276); one aisle serves the Creator Console and Tool Scanner anchors, with `scanner-clearance` approaching the scanner from the east |
 | `profit-spur` → `profit-stub` | (660,468)→(660,490); the Profit Analyzer is a front-rank machine now, so it is reached from the south lane |
-| `creator-spur` → `radar-spur` | (578,276)→(660,276), off `centre-spur` instead of `west-lane`. Renamed when the Opportunity Radar took that slot from the Creator Console — same geometry, no new segment |
+| `creator-spur` → `radar-spur` | (588,276)→(660,276), off `centre-spur` instead of `west-lane`. Renamed when the Opportunity Radar took that slot from the Creator Console |
 | `newsletter-stub`, `tx-stub` | x 300 → 316, x 780 → 828 |
 | `furnace-spur` | (828,348)→(922,348) |
 | `agent-spur` | (832,192)→(832,348); zone 12's anchor is untouched, only the lane it lands on moved. **Superseded** — this is the geometry that put the spur through the Model Furnace; see *The operating-position pass* |
 | conduit `SP` spine | y 246 → **288**, x 108-900, so it runs along the front edge of the back rank instead of under it |
 | conduits `D1`,`D2`,`D4`,`D6`,`D7`,`D9` | re-pointed at their machines' new box edges; `D1` flips direction because its machines are now north of the spine, and later moved x132 → x216 in the swap |
-| conduit `D5` | y0-276 → **y0-144**. `D5` is the one conduit drawn at `DEPTH.fx`, i.e. *over* the machines, and at 276 it cut across the relocated Creator Console (y155-264). Shortened it now ends 11px above it, still clear of the GA//OPS bank and the emblem, and still leaves through the top of the frame under the "↑ X / EXTERNAL UPLINK" edge label |
+| conduit `D5` | translated with the X station to x502, y383-431; its id, beam flag, color and trigger remain unchanged |
 | conduits `D3`, `D8` | unchanged — `D8` now starts 6.5px off the transmitter cabinet instead of 41px |
 | edge label "→ GA TERMINAL" | x 806 → **884**; the transmitter moved out from under it |
 
@@ -747,13 +748,14 @@ one zone.
 | --- | --- | --- | --- |
 | 02 News Array | (216, 276) | **(164, 132)** | 54 — see below |
 | 05 Newsletter Still | (316, 480) | **(316, 468)** | 12 |
-| 06 X Uplink | (528, 480) | **(528, 468)** | 12 — its replacement cell carries 36px of slack, so the art foot is 456 against a box foot of 456 |
+| 06 X Uplink | (528, 480) | **(480, 502)** | 8 — its replacement cell carries 36px of slack, so the art foot is 494 and the front route stays clear |
 | 07 Publish Transmitter | (828, 480) | **(828, 468)** | 12 |
 
 The other nine were already right and did not move: Central Ops stays centred at (480, 228)
 in the throne opening, the Experiment Bench is still met from the front at (480, 372), and the
-Agent Lab keeps (832, 192). All five front-rank consoles — Repo Forge, Newsletter Still, X
-Uplink, Profit Analyzer, Publish Transmitter — now stand on one line at y468.
+Agent Lab keeps (832, 192). Repo Forge, Newsletter Still, Profit Analyzer and Publish
+Transmitter remain on the y468 front line; the relocated X Uplink uses its own y502 approach
+below the measured art footprint.
 
 **Zone 02 is the one zone the 12px gap cannot reach.** The News Array's foot is y78, inside
 the 120px wall band, and the camper clamps to y ≥ 132, so `max(90, 132)` puts him on the
@@ -770,7 +772,10 @@ spur and one new segment:
 | lane / spur | change |
 | --- | --- |
 | `newsletter-stub` | (316,480)–(316,490) → **(316,468)–(316,490)** |
-| `x-stub` | (528,480)–(528,490) → **(528,468)–(528,490)** |
+| `south-access` | (410,384)–(410,490) → **(410,384)–(410,468)** |
+| south lane | one segment through the X footprint → west/east segments at x365 and x595 |
+| X clearance | **(365,490)–(365,468)–(595,468)–(595,502)** |
+| `x-stub` | (528,468)–(528,490) → **(595,502)–(480,502)** |
 | `tx-stub` | (828,480)–(828,490) → **(828,468)–(828,490)** |
 | `east-lane` | y 300–492 → **y 192–492**, so `agent-spur` can leave it above the Model Furnace |
 | `agent-spur` | (832,192)–(832,348) vertical → **(922,192)–(832,192) horizontal** — see below |

@@ -1107,10 +1107,13 @@ test('every zone anchor stands one consistent gap in front of its own machine', 
       box.x + box.w / 2,
       `${area.id} does not stand on its machine's centre column`
     );
+    const expectedY = area.id === 'x-communications'
+      ? 502
+      : Math.max(box.y + box.h + STAND_GAP, STAND_MIN_Y);
     assert.equal(
       area.destination.y,
-      Math.max(box.y + box.h + STAND_GAP, STAND_MIN_Y),
-      `${area.id} does not stand ${STAND_GAP}px in front of its machine`
+      expectedY,
+      `${area.id} does not stand at its measured clear front position`
     );
   });
 
@@ -2248,9 +2251,10 @@ const SHIPPED_MACHINE_SHEETS = [
     machine: 'Opportunity Radar',
     art: '/assets/command-center/anim_opportunity_radar_sheet.png',
     textureKey: 'anim_opportunity_radar',
-    sheetWidth: 544, sheetHeight: 68, frameWidth: 68, frameHeight: 68, frames: 8, fps: 8,
+    sheetWidth: 1600, sheetHeight: 200, frameWidth: 200, frameHeight: 200, frames: 8, fps: 8,
     anchorProp: 'prop_radar_drum',
-    shadowWidth: 54
+    offsetY: 32,
+    shadowWidth: 88
   },
   {
     id: 'scanner_bench',
@@ -2704,7 +2708,7 @@ test('machine art casts a generated contact shadow on the floor line it stands o
 
   // Small machines stop squashing: below the floor the pool would read as a line.
   assert.deepEqual(propShadowFor(propSheetFor('radar_drum'), boxFor('prop_radar_drum')), {
-    x: 660, y: 264, width: 54 * 1.4, height: 18, alpha: 0.55
+    x: 660, y: 264, width: 88 * 1.4, height: 88 * 1.4 * 0.22, alpha: 0.55
   });
 
   // Unmeasured art falls back to the whitebox footprint rather than casting none.
@@ -2793,6 +2797,36 @@ test('the replacement Tool Scanner keeps its station, screen mask, and floor con
   assert.deepEqual(propShadowFor(entry, box), {
     x: 316, y: 264, width: 104 * 1.4, height: 104 * 1.4 * 0.22, alpha: 0.55
   });
+});
+
+test('the relocated X Comms station uses measured art bounds and its clear front route', () => {
+  const entry = propSheetFor('x_console');
+  const box = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_x_console');
+  const mast = COMMAND_CENTER_PROPS.find((prop) => prop.key === 'prop_x_mast');
+  const area = COMMAND_CENTER_AREAS.find((candidate) => candidate.id === 'x-communications');
+  const geometry = stationGeometry('x-communications');
+  const d4 = COMMAND_CENTER_CONDUITS.find((conduit) => conduit.id === 'D4');
+  const d5 = COMMAND_CENTER_CONDUITS.find((conduit) => conduit.id === 'D5');
+
+  assert.deepEqual({ x: box.x, y: box.y, w: box.w, h: box.h }, { x: 408, y: 422, w: 144, h: 72 });
+  assert.deepEqual({ x: mast.x, y: mast.y, w: mast.w, h: mast.h }, { x: 528, y: 314, w: 48, h: 108 });
+  assert.deepEqual(geometry.bounds, { x: 406, y: 365, width: 148, height: 129 });
+  assert.deepEqual(geometry.foot, { x: 480, y: 502 });
+  assert.deepEqual(geometry.screen, { x: 465, y: 449, width: 23, height: 20 });
+  assert.deepEqual(area.destination, { x: 480, y: 502 });
+  assert.deepEqual(
+    { x: d4.x, y: d4.y, length: d4.length, thickness: d4.thickness, zone: d4.zone, triggers: [...d4.triggers] },
+    { x: 477, y: 294, length: 137, thickness: 6, zone: 'x-communications', triggers: ['writing', 'posting_to_x', 'publishing'] }
+  );
+  assert.deepEqual(
+    { x: d5.x, y: d5.y, length: d5.length, thickness: d5.thickness, zone: d5.zone, beam: d5.beam, triggers: [...d5.triggers] },
+    { x: 502, y: 383, length: 48, thickness: 8, zone: 'x-communications', beam: true, triggers: ['posting_to_x'] }
+  );
+
+  const southAccess = COMMAND_CENTER_WALK_GRAPH.segments.find((segment) => segment.id === 'south-access');
+  const xStub = COMMAND_CENTER_WALK_GRAPH.segments.find((segment) => segment.id === 'x-stub');
+  assert.deepEqual(southAccess, { id: 'south-access', from: { x: 410, y: 384 }, to: { x: 410, y: 468 } });
+  assert.deepEqual(xStub, { id: 'x-stub', from: { x: 595, y: 502 }, to: { x: 480, y: 502 } });
 });
 
 test('the manifest ships the twelve machine sheets so they actually preload', () => {

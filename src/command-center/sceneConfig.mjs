@@ -130,7 +130,7 @@ export const COMMAND_CENTER_ENVIRONMENT = Object.freeze({
 // Central Ops keeps its own wall-backed line at 216. Three pieces deliberately
 // sit off the grid, each for a dimensional reason recorded where it stands: the
 // Model Furnace (foot 336 — the Agent Lab cabinet caps its column at y180), the
-// X Uplink (x528 — its D5 beam has to rise through bare wall), and the Profit
+// X Uplink (x480 — its D5 beam has to rise through bare wall), and the Profit
 // Analyzer / Model Furnace pair, which clear each other by 18.5px because the
 // east block cannot hold 133px and 165px of art side by side with a lane.
 //
@@ -219,13 +219,13 @@ export const COMMAND_CENTER_PROPS = Object.freeze([
   Object.freeze({
     key: 'prop_x_console',
     zone: 'x-communications',
-    x: 456, y: 384, w: 144, h: 72,
+    x: 408, y: 422, w: 144, h: 72,
     parts: Object.freeze(deskParts(144, 72, 22))
   }),
   Object.freeze({
     key: 'prop_x_mast',
     zone: 'x-communications',
-    x: 576, y: 276, w: 48, h: 108,
+    x: 528, y: 314, w: 48, h: 108,
     parts: Object.freeze([
       { x: 12, y: 12, w: 24, h: 96, fill: SHELL, stroke: SHELL_LINE, strokeAlpha: 0.28 },
       { x: 0, y: 0, w: 48, h: 14, fill: SHELL_TOP, stroke: SHELL_LINE, strokeAlpha: 0.28, radius: Object.freeze([24, 24, 0, 0]) }
@@ -431,18 +431,18 @@ export const COMMAND_CENTER_COMPONENTS = Object.freeze([
   }),
   Object.freeze({
     key: 'anim_x_crt', zone: 'x-communications', kind: 'x-crt',
-    x: 468, y: 392, w: 64, h: 38,
+    x: 420, y: 430, w: 64, h: 38,
     color: COMMAND_CENTER_PALETTE.magenta, screen: 0x1b0a24, bezel: COMMAND_CENTER_PALETTE.magenta,
     ambient: 'standby', operational: 'formatting'
   }),
   Object.freeze({
     key: 'anim_x_lamps', zone: 'x-communications', kind: 'lamp-grid',
-    x: 544, y: 392, w: 44, h: 38, cells: 4,
+    x: 496, y: 430, w: 44, h: 38, cells: 4,
     color: COMMAND_CENTER_PALETTE.magenta, ambient: 'blink', operational: 'chase'
   }),
   Object.freeze({
     key: 'anim_x_dish', zone: 'x-communications', kind: 'dish',
-    x: 596, y: 270, w: 8, h: 8,
+    x: 548, y: 308, w: 8, h: 8,
     color: COMMAND_CENTER_PALETTE.magenta, operational: 'charge'
   }),
   Object.freeze({
@@ -550,12 +550,12 @@ export const COMMAND_CENTER_CONDUITS = Object.freeze([
     triggers: Object.freeze(['evaluating', 'thinking'])
   }),
   Object.freeze({
-    id: 'D4', label: 'spine → X console', axis: 'v', x: 525, y: 294, length: 99, thickness: 6,
+    id: 'D4', label: 'spine → X console', axis: 'v', x: 477, y: 294, length: 137, thickness: 6,
     direction: 1, color: COMMAND_CENTER_PALETTE.magenta, zone: 'x-communications',
     triggers: Object.freeze(['writing', 'posting_to_x', 'publishing'])
   }),
   Object.freeze({
-    id: 'D5', label: 'X uplink emission', axis: 'v', x: 550, y: 345, length: 48, thickness: 8,
+    id: 'D5', label: 'X uplink emission', axis: 'v', x: 502, y: 383, length: 48, thickness: 8,
     direction: -1, color: COMMAND_CENTER_PALETTE.magenta, zone: 'x-communications', beam: true,
     triggers: Object.freeze(['posting_to_x'])
   }),
@@ -595,8 +595,16 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     // through centre-spur/north-spur instead of cutting through their art.
     Object.freeze({ id: 'west-lane', from: Object.freeze({ x: 241, y: 180 }), to: Object.freeze({ x: 241, y: 228 }) }),
     Object.freeze({ id: 'west-lane-lower', from: Object.freeze({ x: 241, y: 272 }), to: Object.freeze({ x: 241, y: 384 }) }),
-    Object.freeze({ id: 'south-lane', from: Object.freeze({ x: 132, y: 490 }), to: Object.freeze({ x: 828, y: 490 }) }),
-    Object.freeze({ id: 'centre-spur', from: Object.freeze({ x: 588, y: 228 }), to: Object.freeze({ x: 588, y: 384 }) }),
+    Object.freeze({ id: 'south-lane-west', from: Object.freeze({ x: 132, y: 490 }), to: Object.freeze({ x: 365, y: 490 }) }),
+    Object.freeze({ id: 'south-lane-east', from: Object.freeze({ x: 595, y: 490 }), to: Object.freeze({ x: 828, y: 490 }) }),
+    // The wider native Radar sheet reaches x616 at its floor footprint. The
+    // centre spur detours left through x575 only for that footprint band, then
+    // returns to x588 so it also clears the Experiment Bench footprint below.
+    Object.freeze({ id: 'centre-spur', from: Object.freeze({ x: 588, y: 276 }), to: Object.freeze({ x: 588, y: 384 }) }),
+    Object.freeze({ id: 'centre-spur-north', from: Object.freeze({ x: 588, y: 228 }), to: Object.freeze({ x: 588, y: 240 }) }),
+    Object.freeze({ id: 'radar-clearance-west', from: Object.freeze({ x: 588, y: 240 }), to: Object.freeze({ x: 575, y: 240 }) }),
+    Object.freeze({ id: 'radar-clearance', from: Object.freeze({ x: 575, y: 240 }), to: Object.freeze({ x: 575, y: 276 }) }),
+    Object.freeze({ id: 'radar-clearance-east', from: Object.freeze({ x: 575, y: 276 }), to: Object.freeze({ x: 588, y: 276 }) }),
     Object.freeze({ id: 'ops-spur', from: Object.freeze({ x: 241, y: 228 }), to: Object.freeze({ x: 588, y: 228 }) }),
     Object.freeze({ id: 'scanner-clearance', from: Object.freeze({ x: 409, y: 228 }), to: Object.freeze({ x: 409, y: 276 }) }),
     Object.freeze({ id: 'north-spur', from: Object.freeze({ x: 132, y: 276 }), to: Object.freeze({ x: 588, y: 276 }) }),
@@ -604,17 +612,21 @@ export const COMMAND_CENTER_WALK_GRAPH = Object.freeze({
     Object.freeze({ id: 'furnace-spur', from: Object.freeze({ x: 700, y: 348 }), to: Object.freeze({ x: 828, y: 348 }) }),
     Object.freeze({ id: 'bench-spur', from: Object.freeze({ x: 480, y: 372 }), to: Object.freeze({ x: 588, y: 372 }) }),
     Object.freeze({ id: 'newsletter-stub', from: Object.freeze({ x: 316, y: 468 }), to: Object.freeze({ x: 316, y: 490 }) }),
-    Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 528, y: 468 }), to: Object.freeze({ x: 528, y: 490 }) }),
+    Object.freeze({ id: 'x-clearance-west', from: Object.freeze({ x: 365, y: 490 }), to: Object.freeze({ x: 365, y: 468 }) }),
+    Object.freeze({ id: 'x-clearance-top', from: Object.freeze({ x: 365, y: 468 }), to: Object.freeze({ x: 595, y: 468 }) }),
+    Object.freeze({ id: 'x-clearance-east', from: Object.freeze({ x: 595, y: 468 }), to: Object.freeze({ x: 595, y: 502 }) }),
+    Object.freeze({ id: 'x-stub', from: Object.freeze({ x: 595, y: 502 }), to: Object.freeze({ x: 480, y: 502 }) }),
     Object.freeze({ id: 'tx-stub', from: Object.freeze({ x: 828, y: 468 }), to: Object.freeze({ x: 828, y: 490 }) }),
     Object.freeze({ id: 'radar-spur', from: Object.freeze({ x: 588, y: 276 }), to: Object.freeze({ x: 660, y: 276 }) }),
     Object.freeze({ id: 'profit-stub', from: Object.freeze({ x: 660, y: 468 }), to: Object.freeze({ x: 660, y: 490 }) }),
     Object.freeze({ id: 'agent-spur', from: Object.freeze({ x: 740, y: 192 }), to: Object.freeze({ x: 832, y: 192 }) }),
     Object.freeze({ id: 'intel-stub', from: Object.freeze({ x: 164, y: 180 }), to: Object.freeze({ x: 241, y: 180 }) }),
     Object.freeze({ id: 'cross-aisle', from: Object.freeze({ x: 241, y: 384 }), to: Object.freeze({ x: 700, y: 384 }) }),
-    Object.freeze({ id: 'south-access', from: Object.freeze({ x: 410, y: 384 }), to: Object.freeze({ x: 410, y: 490 }) }),
+    Object.freeze({ id: 'south-access', from: Object.freeze({ x: 410, y: 384 }), to: Object.freeze({ x: 410, y: 468 }) }),
     Object.freeze({ id: 'east-access', from: Object.freeze({ x: 700, y: 300 }), to: Object.freeze({ x: 700, y: 384 }) }),
-    Object.freeze({ id: 'east-crossing', from: Object.freeze({ x: 588, y: 300 }), to: Object.freeze({ x: 740, y: 300 }) }),
-    Object.freeze({ id: 'agent-access', from: Object.freeze({ x: 740, y: 192 }), to: Object.freeze({ x: 740, y: 300 }) }),
+    Object.freeze({ id: 'east-crossing', from: Object.freeze({ x: 588, y: 300 }), to: Object.freeze({ x: 746, y: 300 }) }),
+    Object.freeze({ id: 'agent-clearance', from: Object.freeze({ x: 740, y: 192 }), to: Object.freeze({ x: 746, y: 192 }) }),
+    Object.freeze({ id: 'agent-access', from: Object.freeze({ x: 746, y: 192 }), to: Object.freeze({ x: 746, y: 300 }) }),
     Object.freeze({ id: 'back-aisle', from: Object.freeze({ x: 241, y: 180 }), to: Object.freeze({ x: 740, y: 180 }) }),
     Object.freeze({ id: 'agent-north', from: Object.freeze({ x: 740, y: 180 }), to: Object.freeze({ x: 740, y: 192 }) })
   ])
@@ -715,15 +727,15 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
     id: 'x-communications', zoneNumber: '06',
     label: 'X Comms Uplink', shortLabel: 'X Comms',
     description: 'Console + mast + dish',
-    x: 528, y: 396,
-    // Box foot 456 + 12. The replacement cell carries 36px of slack under the art,
-    // so its drawn pixels still meet the box floor at y456 while the camper works
-    // from the unchanged destination y468.
-    destination: Object.freeze({ x: 528, y: 468 }),
-    bounds: Object.freeze({ x: 456, y: 276, width: 168, height: 180 }),
+    x: 480, y: 458,
+    // The relocated console box ends at y494. The replacement cell carries 36px
+    // of slack under the art, so its drawn pixels land at y494 and the camper's
+    // lowest clear front position is y502.
+    destination: Object.freeze({ x: 480, y: 502 }),
+    bounds: Object.freeze({ x: 408, y: 314, width: 168, height: 180 }),
     hitRects: Object.freeze([
-      Object.freeze({ x: 456, y: 384, width: 144, height: 72 }),
-      Object.freeze({ x: 576, y: 276, width: 48, height: 108 })
+      Object.freeze({ x: 408, y: 422, width: 144, height: 72 }),
+      Object.freeze({ x: 528, y: 314, width: 48, height: 108 })
     ]),
     color: COMMAND_CENTER_PALETTE.magenta,
     accent: COMMAND_CENTER_PALETTE.cyan,

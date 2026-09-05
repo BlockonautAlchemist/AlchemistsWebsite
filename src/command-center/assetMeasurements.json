@@ -964,119 +964,119 @@
     ]
   },
   "anim_opportunity_radar": {
-    "width": 68,
-    "height": 68,
+    "width": 200,
+    "height": 200,
     "frames": [
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 32,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 32,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 32,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 30,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 30,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 30,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 32,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       },
       {
         "visual": {
-          "left": 7,
-          "right": 61,
-          "top": 0,
-          "bottom": 68
+          "left": 56,
+          "right": 144,
+          "top": 32,
+          "bottom": 168
         },
         "contact": {
-          "left": 9,
-          "right": 59,
-          "top": 60,
-          "bottom": 68
+          "left": 58,
+          "right": 142,
+          "top": 160,
+          "bottom": 168
         }
       }
     ]

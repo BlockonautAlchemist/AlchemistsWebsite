@@ -19,7 +19,7 @@ const SCREEN_SURFACES = {
   'scanner-bench': { x: 302, y: 173, width: 28, height: 18 },
   'github-code': { x: 118, y: 344, width: 43, height: 29 },
   newsletter: { x: 301, y: 343, width: 32, height: 56 },
-  'x-communications': { x: 513, y: 411, width: 23, height: 20 },
+  'x-communications': { x: 465, y: 449, width: 23, height: 20 },
   'terminal-transmitter': { x: 816, y: 404, width: 20, height: 13 },
   'model-infrastructure': { x: 805, y: 252, width: 43, height: 41 },
   'experiment-bench': { x: 472, y: 289, width: 25, height: 24 },

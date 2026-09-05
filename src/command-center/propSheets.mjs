@@ -166,22 +166,26 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_wall_agent_lab']),
     coversComponents: Object.freeze([])
   }),
-  // Opportunity Radar (zone 02). The sheet is the whole terminal — cabinet, bezel
+  // Opportunity Radar (zone 13). The sheet is the whole terminal — cabinet, bezel
   // and the sweep that used to be `anim_radar_sweep` — so no static body loads
-  // underneath it. 8 frames at 8fps is one 1.000s revolution.
+  // underneath it. This replacement is a native 1600x200 sheet with 200x200
+  // frames; 32 empty rows under the drum put its real contact back on the box
+  // floor, and its measured 88px width sizes the generated shadow. 8 frames at
+  // 8fps is one 1.000s revolution.
   Object.freeze({
     id: 'radar_drum',
     type: PROP_ANIMATED,
     art: `${ART_ROOT}/anim_opportunity_radar_sheet.png`,
     textureKey: 'anim_opportunity_radar',
-    sheetWidth: 544,
-    sheetHeight: 68,
-    frameWidth: 68,
-    frameHeight: 68,
+    sheetWidth: 1600,
+    sheetHeight: 200,
+    frameWidth: 200,
+    frameHeight: 200,
     frames: 8,
     fps: 8,
     repeat: -1,
-    shadowWidth: 54,
+    offsetY: 32,
+    shadowWidth: 88,
     covers: Object.freeze(['prop_radar_drum']),
     coversComponents: Object.freeze(['anim_radar_sweep'])
   }),
