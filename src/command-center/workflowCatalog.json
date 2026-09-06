@@ -1,0 +1,14 @@
+[
+  { "slug": "ai-news", "label": "AI News", "machineId": "news-array", "stationId": "intelligence-research" },
+  { "slug": "github", "label": "GitHub", "machineId": "repo-forge", "stationId": "github-code" },
+  { "slug": "new-tools", "label": "New Tools", "machineId": "tool-scanner", "stationId": "scanner-bench" },
+  { "slug": "agents", "label": "Agents", "machineId": "agent-lab", "stationId": "agent-lab" },
+  { "slug": "models-infra", "label": "Models Infra", "machineId": "model-furnace", "stationId": "model-infrastructure" },
+  { "slug": "creator-content", "label": "Creator Content", "machineId": "creator-console", "stationId": "creator-console" },
+  { "slug": "monetization", "label": "Monetization", "machineId": "profit-analyzer", "stationId": "profit-analyzer" },
+  { "slug": "playbooks", "label": "Playbooks", "machineId": "experiment-bench", "stationId": "experiment-bench" },
+  { "slug": "newsletter", "label": "Newsletter", "machineId": "newsletter-still", "stationId": "newsletter" },
+  { "slug": "social-x", "label": "X / Social", "machineId": "x-uplink", "stationId": "x-communications" },
+  { "slug": "terminal-publisher", "label": "Terminal Publisher", "machineId": "publish-transmitter", "stationId": "terminal-transmitter" },
+  { "slug": "opportunity-scout", "label": "Opportunity Scout", "machineId": "opportunity-radar", "stationId": "opportunity-radar" }
+]

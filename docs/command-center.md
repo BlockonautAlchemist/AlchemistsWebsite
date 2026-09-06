@@ -30,7 +30,7 @@ Each request has its own AbortController, 10-second timeout and generation. Supe
 
 A separate 250ms clock recalculates TTL and the 30-second completion acknowledgement using server-aligned time. Cached responses never rewind this clock. Visibility restoration recalculates immediately and refreshes telemetry. Stop/destroy remove timers and visibility listeners. Connection health is separate from workflow activity and is shown in the facility bar, the Ops readout and accessible content.
 
-Focus is stable through heartbeat-only changes. Higher-priority activity preempts immediately; meaningful equal-priority activity changes can change focus. Ties are deterministic. Stationless waiting/completion/warning/error states retain the workflow's last activity station, with `startedAt` and completed-job boundaries preventing reuse across jobs. Workflow ownership stays separate from the physical station label. Workflow aliases and Hermes job identities use the canonical machine mapping.
+Focus is stable through heartbeat-only changes. Higher-priority activity preempts immediately; meaningful equal-priority activity changes can change focus. Ties are deterministic. Station resolution is a valid explicit `context.station`, then the canonical workflow's owning station, then Central Operations. Lifecycle states control truthful status and animation but never redirect canonical workflow ownership.
 
 ## Persistence
 
@@ -54,6 +54,25 @@ Tables:
 - `command_center_workflow_state`: latest state per `agent + workflow`.
 
 The storage layer uses `DATABASE_URL` with the existing Neon serverless pattern. `/api/terminal/signals` is unchanged and independent.
+
+`src/command-center/workflowCatalog.json` is the shared server/browser source of truth:
+
+| workflow | canonical label | machine | station |
+| --- | --- | --- | --- |
+| `ai-news` | AI News | News Array | `intelligence-research` |
+| `github` | GitHub | Repo Forge | `github-code` |
+| `new-tools` | New Tools | Tool Scanner | `scanner-bench` |
+| `agents` | Agents | Agent Lab | `agent-lab` |
+| `models-infra` | Models Infra | Model Furnace | `model-infrastructure` |
+| `creator-content` | Creator Content | Creator Console | `creator-console` |
+| `monetization` | Monetization | Profit Analyzer | `profit-analyzer` |
+| `playbooks` | Playbooks | Experiment Bench | `experiment-bench` |
+| `newsletter` | Newsletter | Newsletter Still | `newsletter` |
+| `social-x` | X / Social | X Uplink | `x-communications` |
+| `terminal-publisher` | Terminal Publisher | Publish Transmitter | `terminal-transmitter` |
+| `opportunity-scout` | Opportunity Scout | Opportunity Radar | `opportunity-radar` |
+
+Known workflows always use the catalog label in storage projections and the UI, even if a producer supplies a different label. Unknown sanitized workflow slugs remain accepted: they use a sanitized supplied label or a title-cased slug and appear at Central Operations unless a valid explicit station is supplied.
 
 ## Private Ingest API
 
@@ -89,7 +108,7 @@ Accepted payload:
 }
 ```
 
-Required fields are `workflow`, `state`, and `activity`. `runId`, `taskTitle`, `outcome`, and `visibility` are optional; omitted visibility defaults to `public`. Visibility is `public` or `diagnostic`. The default agent is `spawncamper9000`. Unknown top-level fields and unknown `context` fields are rejected. Public text is control-character sanitized and length-limited. `publicUrl` must be `http` or `https` and cannot include credentials.
+Required fields are `workflow`, `state`, and `activity`. `runId`, `taskTitle`, `outcome`, and `visibility` are optional; omitted visibility defaults to `public`. Visibility is `public` or `diagnostic`. The default agent is `spawncamper9000`. Unknown workflow slugs are allowed, while unknown top-level fields and unknown `context` fields are rejected. Public text is control-character sanitized and length-limited. `publicUrl` must be `http` or `https` and cannot include credentials.
 
 Valid states: `idle`, `researching`, `browsing`, `scanning`, `evaluating`, `thinking`, `writing`, `coding`, `processing`, `executing`, `publishing`, `posting_to_x`, `newsletter`, `terminal_publish`, `waiting`, `complete`, `warning`, `error`.
 
@@ -115,7 +134,7 @@ Returns:
 - `recentHistory`: latest public-safe events.
 - `fetchedAt`: server timestamp.
 - Workflow `id`, `eventId`, `eventOrder`: public event identity and deterministic ordering.
-- Workflow `lastActivity`: sanitized workflow/state/timestamp/station reference from indexed history, even when `historyLimit=0`.
+- Workflow `lastActivity`: sanitized workflow/state/timestamp/station reference from indexed history, even when `historyLimit=0`; retained for response compatibility, not station ownership.
 
 The endpoint filters diagnostic rows. `isStale` means an expired heartbeat only for nonterminal activity, and `freshness` is `fresh`, `expired`, or `not_applicable`. The presentation layer reports expired running/waiting/warning activity as unknown while preserving its last-known state and timestamp. `complete`, `error`, and `idle` stay terminal regardless of age.
 
@@ -154,6 +173,6 @@ CC_TEST_DATABASE_URL=postgresql://postgres:LOCAL_TEST_PASSWORD@127.0.0.1:55432/p
 
 The browser runner intercepts local state requests and instruments the served module only in its isolated browser context. It never calls ingest. `CC_CHROMIUM_PATH` can select an existing Chromium installation, `CC_TEST_ORIGIN` selects a local server, and `CC_EVIDENCE_DIR` selects screenshot/results output (default `/tmp/cc-hardening-evidence`). The database runner creates and removes a unique test schema and rejects non-local database hosts.
 
-Regression coverage includes request races, stop/start, malformed responses, timeout/outage expiry, visibility restoration, stable focus, station retention, movement interruption, every ordered station pair and sampled intermediate route positions. PostgreSQL checks cover concurrent retries, equal-timestamp ordering, atomic rollback, repair, agent isolation and job boundaries. Browser checks inspect actual rendered animations, attendance, positions, hit targets, pulse phase, resize/fullscreen and bounded transition counts. The repository has no lint or type-check script; changed JavaScript is checked with `node --check`.
+Regression coverage includes request races, stop/start, malformed responses, timeout/outage expiry, visibility restoration, stable focus, canonical ownership, movement interruption, every ordered station pair and sampled intermediate route positions. PostgreSQL checks cover concurrent retries, equal-timestamp ordering, atomic rollback, repair, agent isolation and job boundaries. Browser checks inspect actual rendered animations, attendance, positions, hit targets, pulse phase, resize/fullscreen and bounded transition counts. The repository has no lint or type-check script; changed JavaScript is checked with `node --check`.
 
 See `command-center-readiness.md` for the executed checks, evidence and remaining verification limits.

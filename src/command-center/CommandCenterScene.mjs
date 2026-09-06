@@ -1865,7 +1865,7 @@ export class CommandCenterScene extends Phaser.Scene {
     if (code?.parts?.lines) {
       const workflow = codeGroup?.displayWorkflow;
       code.parts.lines.setText(workflow
-        ? [`$ ${workflow.workflow} ──┐`, `  ${codeGroup.displayState} ▓▓▒`, '  ▊'].join('\n')
+        ? [`$ ${workflow.workflowLabel} ──┐`, `  ${codeGroup.displayState} ▓▓▒`, '  ▊'].join('\n')
         : ['$ idle ─ awaiting', '  branch: main', '  ▊'].join('\n'));
     }
 

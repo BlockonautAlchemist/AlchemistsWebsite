@@ -2,11 +2,12 @@ import {
   COMMAND_CENTER_AREAS,
   COMMAND_CENTER_COMPLETE_ACK_MS,
   COMMAND_CENTER_FALLBACK_AREA_ID,
-  areaIdForWorkflow, canonicalAreaId
+  areaIdForWorkflow
 } from './sceneConfig.mjs';
 import {
   machineDisplay,
-  machineForWorkflow
+  machineForWorkflow,
+  workflowLabelFor
 } from './machineConfig.mjs';
 
 export const COMMAND_CENTER_STATES = Object.freeze([
@@ -152,10 +153,6 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
   const lastActivity = entry.lastActivity;
-  if (!canonicalAreaId(context.station) && ['waiting', 'complete', 'warning', 'error'].includes(displayState)
-      && lastActivity && (!entry.startedAt || timestampMs(lastActivity.timestamp) >= timestampMs(entry.startedAt))) {
-    context.station = areaIdForWorkflow(lastActivity);
-  }
   const displayMachine = machineDisplay(machineForWorkflow(entry.workflow));
   const agent = cleanToken(entry.agent, 'spawncamper9000');
   const runId = /^[a-z0-9][a-z0-9._:-]*$/i.test(cleanText(entry.runId, 180)) ? cleanText(entry.runId, 180) : '';
@@ -167,12 +164,10 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     : state === 'error' ? 'failed' : state === 'idle' ? 'idle'
       : state === 'waiting' ? 'waiting' : state === 'warning' ? 'needs_attention'
         : ACTIVE_STATE_SET.has(state) ? 'running' : 'unknown';
-  // `displayState`, not `state`: a stale or long-finished entry reads as idle, and
-  // an idle entry names no activity, so it resolves back to its own machine rather
-  // than pinning him to a workstation whose work ended hours ago.
+  // Lifecycle state affects visibility and animation only. Station ownership is
+  // the producer's valid explicit override, then the canonical workflow catalog.
   const areaId = areaIdForWorkflow({
     workflow: entry.workflow,
-    state: displayState,
     context
   }) || COMMAND_CENTER_FALLBACK_AREA_ID;
   const completeAcknowledged = displayState === 'complete';
@@ -186,7 +181,7 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     runId: runId || null,
     runKey,
     workflow: cleanToken(entry.workflow, 'unknown'),
-    workflowLabel: cleanText(entry.workflowLabel, 96) || cleanText(entry.workflow, 80) || 'Unknown',
+    workflowLabel: workflowLabelFor(entry.workflow, cleanText(entry.workflowLabel, 96)),
     taskTitle: cleanText(entry.taskTitle, 140) || null,
     state,
     displayState,

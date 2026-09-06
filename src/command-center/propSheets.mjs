@@ -166,7 +166,7 @@ export const PROP_SHEETS = Object.freeze([
     covers: Object.freeze(['prop_wall_agent_lab']),
     coversComponents: Object.freeze([])
   }),
-  // Opportunity Radar (zone 13). The sheet is the whole terminal — cabinet, bezel
+  // Opportunity Radar (canonical zone 13). The sheet is the whole terminal — cabinet, bezel
   // and the sweep that used to be `anim_radar_sweep` — so no static body loads
   // underneath it. This replacement is a native 1600x200 sheet with 200x200
   // frames; 32 empty rows under the drum put its real contact back on the box

@@ -66,7 +66,7 @@ try {
   await createTelemetry(event('complete',{state:'complete',timestamp:finishTime}));
   state=await listPublicCommandCenterState({agent:'spawncamper9000',historyLimit:0,now:now+100});
   assert.equal(state.recentHistory.length,0);assert.equal(state.workflows[0].lastActivity.state,'coding');
-  assert.equal(normalizePublicState({...state,success:true,fetchedAt:finishTime},now+100).primaryWorkflow.areaId,'github-code');checks++;
+  assert.equal(normalizePublicState({...state,success:true,fetchedAt:finishTime},now+100).primaryWorkflow.areaId,'intelligence-research');checks++;
   await createTelemetry(event('new-job-wait',{state:'waiting',timestamp:new Date(now+200).toISOString(),startedAt:new Date(now+150).toISOString()}));
   state=await listPublicCommandCenterState({agent:'spawncamper9000',historyLimit:0,now:now+200});
   assert.equal(state.workflows[0].lastActivity,null);checks++;

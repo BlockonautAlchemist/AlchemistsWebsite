@@ -130,7 +130,17 @@ test('machine catalog carries verified purpose and input-work-output copy for ev
     for (const field of ['purpose', 'input', 'work', 'output']) assert.ok(machine[field], `${machine.id}.${field}`);
   });
   assert.deepEqual(COMMAND_CENTER_MACHINES.find((machine) => machine.id === 'news-array').workflows, ['ai-news']);
-  assert.equal(COMMAND_CENTER_MACHINES.find((machine) => machine.id === 'opportunity-radar').workflows.length, 0);
+  assert.deepEqual(COMMAND_CENTER_MACHINES.find((machine) => machine.id === 'opportunity-radar').workflows, ['opportunity-scout']);
+});
+
+test('canonical workflow labels override producer display copy in current state and run history', () => {
+  const normalized = state([entry({ workflow: 'social-x', workflowLabel: 'X Highlights' })]);
+  assert.equal(normalized.workflows[0].workflowLabel, 'X / Social');
+
+  const [run] = groupPublicEventsIntoRuns([
+    entry({ workflow: 'github', workflowLabel: 'GitHub Watch', state: 'complete' })
+  ], { now });
+  assert.equal(run.workflowLabel, 'GitHub');
 });
 
 test('additive migration classifies diagnostics and rebuilds public latest state without deleting events', () => {

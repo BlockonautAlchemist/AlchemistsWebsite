@@ -7,7 +7,9 @@ const {
   COMMAND_CENTER_STATES,
   COMMAND_CENTER_VISIBILITIES,
   DEFAULT_COMMAND_CENTER_AGENT,
-  DEFAULT_COMMAND_CENTER_TTL_SECONDS
+  DEFAULT_COMMAND_CENTER_TTL_SECONDS,
+  commandCenterWorkflowLabel,
+  labelizeWorkflow
 } = require('./constants');
 
 const STATE_SET = new Set(COMMAND_CENTER_STATES);
@@ -93,14 +95,6 @@ function rejectUnknownFields(body) {
       fields: unknown
     });
   }
-}
-
-function labelizeWorkflow(workflow) {
-  return workflow
-    .split(/[-_.]+/g)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ');
 }
 
 function validateTokenLike(value, field, maxLength, { required = true, defaultValue = null } = {}) {
@@ -261,9 +255,10 @@ function validateTelemetryPayload(body, { now = Date.now() } = {}) {
     defaultValue: DEFAULT_COMMAND_CENTER_AGENT
   });
   const workflow = validateTokenLike(body.workflow, 'workflow', LIMITS.workflow);
-  const workflowLabel = cleanText(body.workflowLabel, 'workflowLabel', LIMITS.workflowLabel, {
+  const suppliedWorkflowLabel = cleanText(body.workflowLabel, 'workflowLabel', LIMITS.workflowLabel, {
     required: false
-  }) || labelizeWorkflow(workflow);
+  });
+  const workflowLabel = commandCenterWorkflowLabel(workflow, suppliedWorkflowLabel);
   const state = validateState(body.state);
   const timestamp = validateDateTime(body.timestamp, 'timestamp', {
     now,

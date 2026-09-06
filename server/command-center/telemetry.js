@@ -1,7 +1,8 @@
 const { getSql } = require('./db');
 const crypto = require('node:crypto');
 const {
-  COMMAND_CENTER_HISTORY_LIMIT_DEFAULT
+  COMMAND_CENTER_HISTORY_LIMIT_DEFAULT,
+  commandCenterWorkflowLabel
 } = require('./constants');
 
 function parseJsonObject(value) {
@@ -62,7 +63,7 @@ function toApiWorkflow(row, now = Date.now()) {
     lastActivity: sanitizedActivity(row.last_activity),
     agent: row.agent,
     workflow: row.workflow,
-    workflowLabel: row.workflow_label,
+    workflowLabel: commandCenterWorkflowLabel(row.workflow, row.workflow_label),
     taskTitle: row.task_title || null,
     state: row.state,
     activity: row.activity,
@@ -90,7 +91,7 @@ function toApiEvent(row, now = Date.now()) {
     runId: row.run_id || null,
     agent: row.agent,
     workflow: row.workflow,
-    workflowLabel: row.workflow_label,
+    workflowLabel: commandCenterWorkflowLabel(row.workflow, row.workflow_label),
     taskTitle: row.task_title || null,
     state: row.state,
     activity: row.activity,
@@ -292,7 +293,7 @@ function groupPublicEventsIntoRuns(events, { now = Date.now(), includeInternal =
       runId: latest.runId || null,
       agent: latest.agent || 'spawncamper9000',
       workflow: latest.workflow,
-      workflowLabel: latest.workflowLabel,
+      workflowLabel: commandCenterWorkflowLabel(latest.workflow, latest.workflowLabel),
       taskTitle: recentWith('taskTitle'),
       outcome: recentWith('outcome'),
       state: latest.state,

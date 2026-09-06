@@ -10,8 +10,11 @@ const { _setSqlForTests } = require('../server/command-center/db');
 const { commandCenterStorageError } = require('../server/command-center/errors');
 const {
   createTelemetry,
-  listPublicCommandCenterState
+  listPublicCommandCenterState,
+  toApiEvent,
+  toApiWorkflow
 } = require('../server/command-center/telemetry');
+const { COMMAND_CENTER_WORKFLOWS } = require('../server/command-center/constants');
 const { validateTelemetryPayload } = require('../server/command-center/validation');
 
 const originalIngestSecret = process.env.COMMAND_CENTER_INGEST_SECRET;
@@ -36,8 +39,8 @@ let areaIdForWorkflow;
 let canonicalAreaId;
 let machineAreaIdForWorkflow;
 let machineForWorkflow;
-let machineForHermesJobId;
 let machineById;
+let workflowLabelFor;
 let STATE_VISUALS;
 let CAMPER_ANIMATIONS;
 let visualForState;
@@ -54,8 +57,6 @@ let routeThroughWalkGraph;
 let pointOnSegment;
 let walkNodes;
 let COMMAND_CENTER_WORKFLOW_AREAS;
-let COMMAND_CENTER_STATE_AREAS;
-let areaIdForState;
 let COMMAND_CENTER_MACHINES;
 let CAMPER_SHEETS;
 let camperSheetFor;
@@ -101,16 +102,14 @@ test.before(async () => {
     COMMAND_CENTER_FOREGROUND,
     COMMAND_CENTER_PROPS,
     COMMAND_CENTER_WALK_GRAPH,
-    COMMAND_CENTER_STATE_AREAS,
     COMMAND_CENTER_WORKFLOW_AREAS
   } = await import('../src/command-center/sceneConfig.mjs'));
   ({
     COMMAND_CENTER_MACHINES,
-    areaIdForState,
     areaIdForWorkflow: machineAreaIdForWorkflow,
     machineForWorkflow,
-    machineForHermesJobId,
-    machineById
+    machineById,
+    workflowLabelFor
   } = await import('../src/command-center/machineConfig.mjs'));
   ({
     STATE_VISUALS,
@@ -397,6 +396,77 @@ test('validates command center telemetry and computes TTL expiry', () => {
   });
 });
 
+test('all canonical workflows keep catalog labels and owning stations across ingest, API, and frontend normalization', () => {
+  const now = Date.parse('2026-08-20T20:04:00.000Z');
+  const timestamp = '2026-08-20T20:03:00.000Z';
+
+  COMMAND_CENTER_WORKFLOWS.forEach(({ slug, label, machineId, stationId }) => {
+    const telemetry = validateTelemetryPayload(sampleTelemetry({
+      workflow: slug,
+      workflowLabel: 'Producer Override',
+      state: 'scanning',
+      timestamp,
+      startedAt: timestamp,
+      context: {}
+    }, now), { now });
+    assert.equal(telemetry.workflowLabel, label, `${slug} ingest label`);
+
+    const row = {
+      id: `${slug}-event`,
+      latest_event_id: `${slug}-event`,
+      event_id: `${slug}-event`,
+      agent: 'spawncamper9000',
+      workflow: slug,
+      workflow_label: 'Stored Override',
+      state: 'scanning',
+      activity: 'Scanning',
+      event_timestamp: timestamp,
+      started_at: timestamp,
+      ttl_seconds: 900,
+      expires_at: '2026-08-20T20:18:00.000Z',
+      context: {},
+      updated_at: timestamp,
+      received_at: timestamp,
+      visibility: 'public'
+    };
+    assert.equal(toApiWorkflow(row, now).workflowLabel, label, `${slug} state API label`);
+    assert.equal(toApiEvent(row, now).workflowLabel, label, `${slug} history API label`);
+
+    const normalized = normalizePublicState({
+      success: true,
+      fetchedAt: new Date(now).toISOString(),
+      workflows: [{
+        agent: 'spawncamper9000', workflow: slug, workflowLabel: 'Browser Override',
+        state: 'scanning', activity: 'Scanning', timestamp, ttlSeconds: 900, context: {}
+      }]
+    }, now).workflows[0];
+    assert.equal(normalized.workflowLabel, label, `${slug} frontend label`);
+    assert.equal(normalized.machineId, machineId, `${slug} frontend machine`);
+    assert.equal(normalized.areaId, stationId, `${slug} frontend station`);
+  });
+});
+
+test('unknown future workflows stay accepted, safely labeled, and routed to Central Operations', () => {
+  const now = Date.parse('2026-08-20T20:04:00.000Z');
+  const telemetry = validateTelemetryPayload(sampleTelemetry({
+    workflow: 'future-radar_v2',
+    workflowLabel: '  Future\u0007 Radar   V2  ',
+    timestamp: '2026-08-20T20:03:00.000Z',
+    context: {}
+  }, now), { now });
+  assert.equal(telemetry.workflowLabel, 'Future Radar V2');
+
+  const normalized = normalizePublicState({
+    success: true,
+    fetchedAt: new Date(now).toISOString(),
+    workflows: [{ ...telemetry, workflowLabel: '', expiresAt: telemetry.expiresAt }]
+  }, now).workflows[0];
+  assert.equal(normalized.workflowLabel, 'Future Radar V2');
+  assert.equal(normalized.machineId, null);
+  assert.equal(normalized.areaId, 'central-operations');
+  assert.equal(areaIdForWorkflow({ workflow: telemetry.workflow, context: { station: 'not-real' } }), 'central-operations');
+});
+
 test('rejects unsupported command center telemetry fields and unsafe values', () => {
   const now = Date.parse('2026-08-20T20:04:00.000Z');
 
@@ -407,6 +477,10 @@ test('rejects unsupported command center telemetry fields and unsafe values', ()
   assert.throws(
     () => validateTelemetryPayload(sampleTelemetry({ state: 'drafting' }, now), { now }),
     /state is not allowed/
+  );
+  assert.throws(
+    () => validateTelemetryPayload(sampleTelemetry({ workflow: 'unsafe workflow' }, now), { now }),
+    /workflow may only contain/
   );
   assert.throws(
     () => validateTelemetryPayload(sampleTelemetry({ publicUrl: 'https://token@example.com/post' }, now), { now }),
@@ -542,6 +616,7 @@ test('maps workflows and context aliases to command center room areas', () => {
     ['newsletter', 'newsletter'],
     ['social-x', 'x-communications'],
     ['terminal-publisher', 'terminal-transmitter'],
+    ['opportunity-scout', 'opportunity-radar'],
     ['unknown-workflow', 'central-operations']
   ];
 
@@ -557,19 +632,12 @@ test('maps workflows and context aliases to command center room areas', () => {
   assert.equal(canonicalAreaId('central-operations'), 'central-operations');
 });
 
-test('every activity state maps to a real workstation with a reachable anchor', () => {
+test('every canonical workflow maps to one real workstation with a reachable anchor', () => {
   const zonesById = new Map(COMMAND_CENTER_AREAS.map((area) => [area.id, area]));
 
-  Object.entries(COMMAND_CENTER_STATE_AREAS).forEach(([state, areaId]) => {
-    assert.equal(
-      COMMAND_CENTER_STATES.includes(state),
-      true,
-      `${state} is mapped to a workstation but is not a telemetry state`
-    );
-
-    const zone = zonesById.get(areaId);
-    assert.notEqual(zone, undefined, `${state} maps to unknown zone ${areaId}`);
-    assert.equal(areaIdForState(state), areaId, `${state} lookup`);
+  COMMAND_CENTER_WORKFLOWS.forEach(({ slug, stationId }) => {
+    const zone = zonesById.get(stationId);
+    assert.notEqual(zone, undefined, `${slug} maps to unknown zone ${stationId}`);
 
     // He has to be able to walk there, on lanes, without a diagonal leg.
     const path = routeThroughWalkGraph(COMMAND_CENTER_CANVAS.homePoint, zone.destination);
@@ -578,42 +646,26 @@ test('every activity state maps to a real workstation with a reachable anchor', 
       assert.equal(
         point.x !== previous.x && point.y !== previous.y,
         false,
-        `route to ${areaId} for ${state} turned diagonally`
+        `route to ${stationId} for ${slug} turned diagonally`
       );
     });
     assert.deepEqual(
       path[path.length - 1],
       zone.destination,
-      `route to ${areaId} for ${state} does not end on its anchor`
+      `route to ${stationId} for ${slug} does not end on its anchor`
+    );
+  });
+});
+
+test('workflow ownership outranks lifecycle state, and a valid context.station outranks ownership', () => {
+  COMMAND_CENTER_STATES.forEach((state) => {
+    assert.equal(
+      areaIdForWorkflow({ workflow: 'opportunity-scout', state }),
+      'opportunity-radar',
+      `opportunity-scout moved during ${state}`
     );
   });
 
-  // The five states that name no activity name no workstation either, which is what
-  // sends a finishing or faulting job back to its own machine instead of a bench.
-  ['idle', 'waiting', 'complete', 'warning', 'error'].forEach((state) => {
-    assert.equal(areaIdForState(state), '', `${state} must not claim a workstation`);
-  });
-  assert.equal(areaIdForState('not-a-state'), '');
-  assert.equal(areaIdForState(undefined), '');
-});
-
-test('activity state outranks the owning machine, and context.station outranks both', () => {
-  // The production path: one Hermes job, no context.station, walking the room.
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'researching' }), 'intelligence-research');
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'evaluating' }), 'profit-analyzer');
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'writing' }), 'creator-console');
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'newsletter' }), 'newsletter');
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'terminal_publish' }), 'terminal-transmitter');
-
-  // States with no workstation of their own fall through to the owning machine, so
-  // the job finishes and faults where it belongs.
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'complete' }), 'intelligence-research');
-  assert.equal(areaIdForWorkflow({ workflow: 'ai-news', state: 'waiting' }), 'intelligence-research');
-  assert.equal(areaIdForWorkflow({ workflow: 'github', state: 'error' }), 'github-code');
-  assert.equal(areaIdForWorkflow({ workflow: 'github', state: 'idle' }), 'github-code');
-  assert.equal(areaIdForWorkflow({ workflow: 'unknown-workflow', state: 'complete' }), 'central-operations');
-
-  // The optional explicit override still wins over both.
   assert.equal(
     areaIdForWorkflow({ workflow: 'ai-news', state: 'writing', context: { station: 'scanner' } }),
     'scanner-bench'
@@ -622,14 +674,15 @@ test('activity state outranks the owning machine, and context.station outranks b
     areaIdForWorkflow({ workflow: 'ai-news', state: 'researching', context: { station: 'terminal-publisher' } }),
     'terminal-transmitter'
   );
-  // An unrecognised station is not an override, so the activity still decides.
+  // An unrecognised station is ignored, so the canonical owner decides.
   assert.equal(
     areaIdForWorkflow({ workflow: 'ai-news', state: 'coding', context: { station: 'nowhere' } }),
-    'github-code'
+    'intelligence-research'
   );
+  assert.equal(areaIdForWorkflow({ workflow: 'future-workflow', state: 'coding' }), 'central-operations');
 });
 
-test('one hermes job walks the room as its activity state changes', () => {
+test('one canonical workflow remains at its owning station as activity state changes', () => {
   const now = Date.parse('2025-03-04T12:00:00.000Z');
   const stateAt = (state, offsetSeconds) => normalizePublicState({
     success: true,
@@ -639,7 +692,7 @@ test('one hermes job walks the room as its activity state changes', () => {
       workflow: 'ai-news',
       workflowLabel: 'AI News',
       state,
-      activity: `Hermes is ${state}`,
+      activity: `Workflow is ${state}`,
       timestamp: new Date(now - offsetSeconds * 1000).toISOString(),
       ttlSeconds: 900,
       context: {}
@@ -647,11 +700,11 @@ test('one hermes job walks the room as its activity state changes', () => {
   }, now);
   const at = (state, offsetSeconds) => stateAt(state, offsetSeconds).primaryWorkflow;
 
-  // Same workflow, same machine owner, five different destinations.
+  // Same workflow, same machine owner and destination for every lifecycle state.
   assert.equal(at('researching', 5).areaId, 'intelligence-research');
-  assert.equal(at('evaluating', 5).areaId, 'profit-analyzer');
-  assert.equal(at('writing', 5).areaId, 'creator-console');
-  assert.equal(at('terminal_publish', 5).areaId, 'terminal-transmitter');
+  assert.equal(at('evaluating', 5).areaId, 'intelligence-research');
+  assert.equal(at('writing', 5).areaId, 'intelligence-research');
+  assert.equal(at('terminal_publish', 5).areaId, 'intelligence-research');
   assert.equal(at('writing', 5).machineId, 'news-array', 'the owning machine is unchanged');
   assert.equal(at('writing', 5).stationId, at('writing', 5).areaId);
 
@@ -685,55 +738,36 @@ test('one hermes job walks the room as its activity state changes', () => {
   assert.equal(stale.areaId, 'intelligence-research');
 });
 
-test('canonical command center machines map the core research lanes exactly once', () => {
+test('canonical command center catalog maps all workflow lanes exactly once', () => {
   const machineIds = COMMAND_CENTER_MACHINES.map((machine) => machine.id);
   const machineNames = COMMAND_CENTER_MACHINES.map((machine) => machine.name);
   assert.equal(new Set(machineIds).size, machineIds.length, 'duplicate machine id');
   assert.equal(new Set(machineNames).size, machineNames.length, 'duplicate machine name');
 
-  const expectedCoreLanes = new Map([
-    ['ai-news', 'news-array'],
-    ['github', 'repo-forge'],
-    ['new-tools', 'tool-scanner'],
-    ['agents', 'agent-lab'],
-    ['models-infra', 'model-furnace'],
-    ['creator-content', 'creator-console'],
-    ['monetization', 'profit-analyzer'],
-    ['playbooks', 'experiment-bench']
-  ]);
-
-  expectedCoreLanes.forEach((machineId, workflow) => {
-    const machine = machineForWorkflow(workflow);
-    assert.equal(machine?.id, machineId, `${workflow} canonical machine`);
-    assert.equal(machineAreaIdForWorkflow(workflow), machine.areaId, `${workflow} area`);
+  assert.equal(COMMAND_CENTER_WORKFLOWS.length, 12);
+  COMMAND_CENTER_WORKFLOWS.forEach(({ slug, label, machineId, stationId }) => {
+    const machine = machineForWorkflow(slug);
+    assert.equal(machine?.id, machineId, `${slug} canonical machine`);
+    assert.equal(machine?.areaId, stationId, `${slug} machine station`);
+    assert.equal(machineAreaIdForWorkflow(slug), stationId, `${slug} area`);
+    assert.equal(workflowLabelFor(slug, 'Producer Override'), label, `${slug} label`);
     assert.equal(
-      Object.entries(COMMAND_CENTER_WORKFLOW_AREAS).filter(([key]) => key === workflow).length,
+      Object.entries(COMMAND_CENTER_WORKFLOW_AREAS).filter(([key]) => key === slug).length,
       1,
-      `${workflow} workflow area declaration`
+      `${slug} workflow area declaration`
     );
   });
 
-  assert.equal(machineForWorkflow('newsletter').id, 'newsletter-still');
-  assert.equal(machineForWorkflow('social-x').id, 'x-uplink');
-  assert.equal(machineForWorkflow('terminal-publisher').id, 'publish-transmitter');
   assert.equal(machineForWorkflow('opportunity-scout')?.id, 'opportunity-radar');
   assert.equal(machineAreaIdForWorkflow('unknown-workflow'), '');
 });
 
-test('canonical machines resolve Hermes jobs without inventing workflow telemetry', () => {
-  ['newsletter', 'finisher'].forEach((jobId) => {
-    assert.equal(machineForHermesJobId(jobId)?.id, 'newsletter-still', `${jobId} Hermes job`);
-  });
-
-  ['x-draft', 'x-publish', 'x-amplify'].forEach((jobId) => {
-    assert.equal(machineForHermesJobId(jobId)?.id, 'x-uplink', `${jobId} Hermes job`);
-  });
-
-  assert.equal(machineForHermesJobId('Beehiiv Draft')?.id, 'publish-transmitter');
-  assert.equal(machineForHermesJobId({ jobId: 'beehiiv-draft' })?.id, 'publish-transmitter');
-  assert.equal(machineForHermesJobId('254525fa846f')?.id, 'opportunity-radar');
-  assert.equal(machineForHermesJobId('Opportunity Scout')?.id, 'opportunity-radar');
-  assert.equal(machineForWorkflow('254525fa846f')?.id, 'opportunity-radar', 'Hermes identities use the same mapping');
+test('unknown workflow identities use the ordinary fallback without legacy aliases', () => {
+  ['finisher', 'x-draft', 'x-publish', 'x-amplify', 'beehiiv-draft', '254525fa846f']
+    .forEach((workflow) => {
+      assert.equal(machineForWorkflow(workflow), null, `${workflow} must remain unknown`);
+      assert.equal(areaIdForWorkflow({ workflow, context: {} }), 'central-operations');
+    });
 });
 
 test('machine metadata stays semantic and has no geometry or production-art fields', () => {
@@ -748,7 +782,6 @@ test('machine metadata stays semantic and has no geometry or production-art fiel
   COMMAND_CENTER_MACHINES.forEach((machine) => {
     assert.equal(Object.isFrozen(machine), true, `${machine.id} is frozen`);
     assert.equal(Object.isFrozen(machine.workflows), true, `${machine.id} workflows frozen`);
-    assert.equal(Object.isFrozen(machine.hermesJobs), true, `${machine.id} jobs frozen`);
     assert.equal(Object.isFrozen(machine.propKeys), true, `${machine.id} propKeys frozen`);
     forbiddenFields.forEach((field) => {
       assert.equal(Object.hasOwn(machine, field), false, `${machine.id} must not carry ${field}`);
@@ -759,18 +792,10 @@ test('machine metadata stays semantic and has no geometry or production-art fiel
   });
 });
 
-test('Hermes job ids are assigned to only one canonical machine', () => {
-  const jobIds = COMMAND_CENTER_MACHINES.flatMap((machine) => (
-    machine.hermesJobs.map((hermesJob) => hermesJob.id)
-  ));
-
-  assert.equal(new Set(jobIds).size, jobIds.length, 'duplicate Hermes job id');
-
-  COMMAND_CENTER_MACHINES.forEach((machine) => {
-    machine.hermesJobs.forEach((hermesJob) => {
-      assert.equal(machineForHermesJobId(hermesJob.id)?.id, machine.id, `${hermesJob.id} owner`);
-    });
-  });
+test('canonical workflow slugs are assigned to only one machine', () => {
+  const workflowIds = COMMAND_CENTER_MACHINES.flatMap((machine) => machine.workflows);
+  assert.equal(new Set(workflowIds).size, workflowIds.length, 'duplicate workflow slug');
+  assert.deepEqual(workflowIds.slice().sort(), COMMAND_CENTER_WORKFLOWS.map((entry) => entry.slug).sort());
 });
 
 test('selects command center focus by attention, transmission, active, then fresh complete', () => {
@@ -2996,15 +3021,11 @@ test('the Newsletter Still sheet is the whole machine, column and tray both', ()
 });
 
 test('the Newsletter Still art does not disturb routing, telemetry or the camper', () => {
-  // The still is one machine covering both newsletter Hermes jobs, and the art
-  // pass must not have split it or renamed its lane.
+  // The art pass must not have split the machine or renamed its canonical lane.
   const machine = machineForWorkflow('newsletter');
   assert.equal(machine.id, 'newsletter-still');
   assert.equal(machine.areaId, 'newsletter');
   assert.deepEqual(machine.workflows, ['newsletter']);
-  assert.deepEqual(machine.hermesJobs.map((job) => job.id).sort(), ['finisher', 'newsletter']);
-  assert.equal(machineForHermesJobId('newsletter').id, 'newsletter-still');
-  assert.equal(machineForHermesJobId('finisher').id, 'newsletter-still');
 
   // The still is a front-rank machine at foot 456, so he works it from 12px south
   // like every other console. It was left at y480 — out on the south lane, 24px
@@ -3484,17 +3505,17 @@ test('the two new stations are reachable, axis-aligned, and south-anchored', () 
   assert.equal(profitStub.to.y, 490, 'profit-stub must meet the south lane');
 });
 
-test('the geometry pass changed no workflow, Hermes or telemetry semantics', () => {
+test('the geometry pass preserves canonical workflow and telemetry semantics', () => {
   // Workflow keys and their machines are untouched: only which zone a machine
   // physically occupies moved.
   assert.deepEqual(
     COMMAND_CENTER_MACHINES.flatMap((m) => m.workflows).sort(),
     ['agents', 'ai-news', 'creator-content', 'models-infra', 'monetization',
-      'new-tools', 'newsletter', 'playbooks', 'github', 'social-x', 'terminal-publisher'].sort()
+      'new-tools', 'newsletter', 'opportunity-scout', 'playbooks', 'github', 'social-x',
+      'terminal-publisher'].sort()
   );
 
-  // Every Hermes job still resolves to the machine it always did.
-  const expectedJobs = {
+  const expectedWorkflows = {
     'ai-news': 'news-array',
     github: 'repo-forge',
     'new-tools': 'tool-scanner',
@@ -3504,15 +3525,12 @@ test('the geometry pass changed no workflow, Hermes or telemetry semantics', () 
     monetization: 'profit-analyzer',
     playbooks: 'experiment-bench',
     newsletter: 'newsletter-still',
-    finisher: 'newsletter-still',
-    'x-draft': 'x-uplink',
-    'x-publish': 'x-uplink',
-    'x-amplify': 'x-uplink',
-    'beehiiv-draft': 'publish-transmitter',
-    '254525fa846f': 'opportunity-radar'
+    'social-x': 'x-uplink',
+    'terminal-publisher': 'publish-transmitter',
+    'opportunity-scout': 'opportunity-radar'
   };
-  Object.entries(expectedJobs).forEach(([jobId, machineId]) => {
-    assert.equal(machineForHermesJobId(jobId)?.id, machineId, `${jobId} Hermes mapping`);
+  Object.entries(expectedWorkflows).forEach(([workflow, machineId]) => {
+    assert.equal(machineForWorkflow(workflow)?.id, machineId, `${workflow} catalog mapping`);
   });
 
   // Zone 02 still exists and still owns News Array. The Opportunity Radar was carved
@@ -3524,7 +3542,7 @@ test('the geometry pass changed no workflow, Hermes or telemetry semantics', () 
   assert.equal(machineById('news-array').areaId, 'intelligence-research');
   assert.equal(machineById('opportunity-radar').areaId, 'opportunity-radar');
   assert.equal(canonicalAreaId('radar'), 'opportunity-radar');
-  assert.equal(machineForHermesJobId('254525fa846f').id, 'opportunity-radar');
+  assert.equal(machineForWorkflow('opportunity-scout').id, 'opportunity-radar');
 
   // The twelve finished machines each anchor where they are supposed to.
   assert.deepEqual(
@@ -3669,14 +3687,12 @@ test('the Experiment Bench occupies the retired Power Core pocket, alone', () =>
   assert.deepEqual([spur.from, spur.to], [{ x: 480, y: 372 }, { x: 588, y: 372 }]);
 
   // Semantics are exactly what they were on the scanner bench. Only areaId and
-  // propKeys moved; the workflow key and the Hermes job did not.
+  // propKeys moved; the workflow key did not.
   const machine = machineById('experiment-bench');
   assert.equal(machine.areaId, 'experiment-bench');
   assert.deepEqual([...machine.propKeys], ['prop_experiment_bench']);
   assert.deepEqual([...machine.workflows], ['playbooks']);
-  assert.deepEqual(machine.hermesJobs.map((job) => job.id), ['playbooks']);
   assert.equal(machineForWorkflow('playbooks').id, 'experiment-bench');
-  assert.equal(machineForHermesJobId('playbooks').id, 'experiment-bench');
   assert.equal(areaIdForWorkflow({ workflow: 'playbooks', context: {} }), 'experiment-bench');
   assert.equal(canonicalAreaId('playbooks'), 'experiment-bench');
 

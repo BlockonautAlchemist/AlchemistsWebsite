@@ -38,7 +38,7 @@ async function initCommandCenter() {
     { COMMAND_CENTER_CANVAS, areaById },
     { createTelemetryClient },
     { visualForState },
-    { COMMAND_CENTER_MACHINES, machineForWorkflow, machineById },
+    { COMMAND_CENTER_MACHINES, machineForWorkflow, machineById, workflowLabelFor },
     { presentCommandCenterState, TASK_LABELS }
   ] = await Promise.all([
     loadArtManifest(), import('phaser'), import('./src/command-center/CommandCenterScene.mjs'),
@@ -134,7 +134,10 @@ async function initCommandCenter() {
     node.title = absoluteTime(value);
     return node;
   }
-  const workflowName = (workflow) => workflow?.taskTitle || workflow?.workflowLabel || workflow?.machineName || 'Public task';
+  const canonicalWorkflowLabel = (workflow) => workflow
+    ? workflowLabelFor(workflow.workflow, workflow.workflowLabel)
+    : '';
+  const workflowName = (workflow) => workflow?.taskTitle || canonicalWorkflowLabel(workflow) || workflow?.machineName || 'Public task';
   const machineForArea = (areaId) => COMMAND_CENTER_MACHINES.find((machine) => machine.areaId === areaId) || null;
 
   function renderRows(rows) {
@@ -323,8 +326,8 @@ async function initCommandCenter() {
     const item = el('li', 'cc-run'); item.dataset.state = run.taskState;
     const head = el('div', 'cc-run__head');
     const titleWrap = el('div');
-    titleWrap.append(el('h3', '', run.taskTitle || run.workflowLabel || machine?.name || 'Public task'));
-    titleWrap.append(el('p', 'cc-run__machine mono', machine?.name || run.workflowLabel || run.workflow));
+    titleWrap.append(el('h3', '', run.taskTitle || canonicalWorkflowLabel(run) || machine?.name || 'Public task'));
+    titleWrap.append(el('p', 'cc-run__machine mono', machine?.name || canonicalWorkflowLabel(run)));
     const status = el('span', 'cc-run__state mono', TASK_LABELS[run.taskState] || 'Unknown');
     head.append(titleWrap, status); item.append(head);
     const meta = el('p', 'cc-run__meta mono'); meta.append(`${run.totalEventCount} event${run.totalEventCount === 1 ? '' : 's'} · `, timeNode(run.updatedAt)); item.append(meta);

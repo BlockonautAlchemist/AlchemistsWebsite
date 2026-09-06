@@ -7,12 +7,12 @@ swaps to art **per file**, so this directory can fill up one asset at a time.
 
 The production-hardening geometry and recovery rules in `docs/command-center.md` supersede the historical layout-pass notes below. All frames are recorded in `src/command-center/assetMeasurements.json`. The current Creator Console replacement is **1600×200**, eight **200×200** frames, a 136px opaque width and 32px bottom slack. Its floor contact remains (132,264), with its operating point at (132,276). The Tool Scanner replacement is also **1600×200**, eight **200×200** frames, with a 104px opaque width and 20px bottom slack; it renders approximately x264-368, y102-264 and keeps its floor contact at (316,264) and operating point at (316,276). The Opportunity Radar replacement is now **1600×200**, eight **200×200** frames, 88px wide with 32px bottom slack; it renders x616-704, y128-264 and keeps its station at (660,276). The relocated X Uplink replacement is likewise **1600×200** with 200×200 frames, 148px art width and 36px bottom slack; it renders x406-554, y365-494 and uses (480,502) as its clear front position. The measured west corridor is X=241; Zone 2 stands at (164,180).
 
-## Machine → Hermes workflow mapping
+## Canonical workflow mapping
 
 This is semantic mapping only. Coordinates stay in `src/command-center/sceneConfig.mjs`,
 and production art stays in `src/command-center/propSheets.mjs`.
 
-| machine | Hermes job(s) | workflow/lane | purpose | pixel-art visual description |
+| machine | canonical label | workflow/lane | purpose | pixel-art visual description |
 | --- | --- | --- | --- | --- |
 | News Array | AI News | `ai-news` | AI gaming news intelligence | Shallow horizontal wall display, cycling CRT cells, cyan packets |
 | Repo Forge | GitHub | `github` | Repository and code-signal watch | Green code bench, phosphor terminal, disk tower |
@@ -22,14 +22,14 @@ and production art stays in `src/command-center/propSheets.mjs`.
 | Creator Console | Creator Content | `creator-content` | Creator-facing intelligence angles | Floor console, three-cell editorial CRT row, signal traffic |
 | Profit Analyzer | Monetization | `monetization` | Monetization and partner opportunity review | Floor console, gold analysis CRT row, warmer pulses |
 | Experiment Bench | Playbooks | `playbooks` | Playbooks and repeatable experiments | Wooden alchemist bench, potions and books, glowing magical circle, spell effects |
-| Newsletter Still | Newsletter, Finisher | `newsletter` | Longer-form newsletter distillation | Tall still column, coil, chamber fill, output tray |
-| X Uplink | X Draft, X Publish, X Amplify | `social-x` | Public X formatting and transmission | Communications console, transport CRT, antenna mast |
-| Publish Transmitter | Beehiiv Draft | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, large CRT, charge meter |
-| Opportunity Radar | `254525fa846f` / Opportunity Scout | Hermes-only, no workflow lane yet | Opportunity scouting reserve mapping | Ribbed radar drum with a dominant circular sweep |
+| Newsletter Still | Newsletter | `newsletter` | Longer-form newsletter distillation | Tall still column, coil, chamber fill, output tray |
+| X Uplink | X / Social | `social-x` | Public X formatting and transmission | Communications console, transport CRT, antenna mast |
+| Publish Transmitter | Terminal Publisher | `terminal-publisher` | Terminal/Beehiiv publish handoff | Heavy transmitter cabinet, large CRT, charge meter |
+| Opportunity Radar | Opportunity Scout | `opportunity-scout` | Opportunity scouting | Ribbed radar drum with a dominant circular sweep |
 
-Opportunity Radar is configured for Hermes semantics, but no frontend workflow key is
-invented until real telemetry emits one. Sprite Fusion prompts should use one dominant
-silhouette, one obvious functional feature, and a few accents.
+The canonical slugs, labels and owners live in `src/command-center/workflowCatalog.json`.
+Sprite Fusion prompts should use one dominant silhouette, one obvious functional feature,
+and a few accents.
 
 ## Two production asset types — and nothing else
 
@@ -605,11 +605,9 @@ anchor that cannot stand in front of both — so the drum was carved out into **
 `opportunity-radar`**, the same operation done for the Creator Console (10), the Profit
 Analyzer (11) and the Agent Lab (12).
 
-Zone 02 keeps its id, label, aliases and conduit; the `ai-news` workflow and the `researching`
-/ `browsing` states still resolve to it. The radar carried its Hermes job (`254525fa846f`,
-Opportunity Scout) and its deliberately empty workflow list into zone 13 unchanged. Because it
-drives no workflow lane, **zone 13 sits idle unless that Hermes job fires** — already true of
-the machine, now simply visible as a zone of its own.
+Zone 02 keeps its id, label, aliases and conduit; the `ai-news` workflow still resolves to it
+regardless of lifecycle state. Opportunity Radar owns the canonical `opportunity-scout`
+workflow in zone 13, so its telemetry resolves directly to the radar.
 
 Two anchors moved and no walk segment was added:
 
@@ -824,9 +822,9 @@ moved again in the layout normalization pass. The Profit Analyzer settled at **(
 one vertical `profit-stub` off the south lane. The Creator Console went to the mid-east column
 and then swapped back west with the Opportunity Radar, so it carries **(132, 276)**, the west
 end of `north-spur`, and the mid-east segment it left behind was renamed `radar-spur`.
-Workflow keys, Hermes job ids, telemetry state names and the API are unchanged through every
-one of those moves — only which zone a machine physically occupies, and where that zone sits,
-has ever changed.
+Workflow keys, telemetry state names and the API are unchanged through every one of those
+moves — only which zone a machine physically occupies, and where that zone sits, has ever
+changed.
 
 The second three-way collision is now resolved outright:
 
@@ -837,7 +835,7 @@ The second three-way collision is now resolved outright:
 | Experiment Bench | `prop_scanner_bench` | `prop_experiment_bench` 144x96 @ 408,264 — **art shipped** | **09**, floor |
 
 Art pass 4 resolved Experiment Bench by **retiring the Power Core**. Zone 09 was a recessed
-well in the middle of the room with no Hermes job behind it and no machine mapped to its
+well in the middle of the room with no workflow behind it and no machine mapped to its
 lane, so its group was permanently idle, its `anim_core_pulse` / `anim_core_sigil` /
 `anim_core_seed` components were ambient-only and conduit `D3`'s operational branch could
 never fire — scenery holding the best floor pocket in the facility while three real machines
@@ -848,13 +846,13 @@ the Experiment Bench moved onto the same 144x96 box.
 Because the box, the zone number and the walk anchor were reused verbatim, this move needed
 **no walk-graph geometry at all** — the old `core-spur` was renamed `bench-spur` and nothing
 else. He routes (480,228) → (622,228) → (622,372) → (480,372), axis-aligned, and stands 12px
-south of the bench's bottom edge. Workflow keys, Hermes job ids and telemetry state names are
-unchanged; only which zone the machine physically occupies moved.
+south of the bench's bottom edge. Workflow keys and telemetry state names are unchanged; only
+which zone the machine physically occupies moved.
 
 Art pass 5 resolved Agent Lab the same way, against a cosmetic panel rather than a whole
 retired machine. Its art is a **tall wall cabinet**, not a bench, so it took the middle
 louvre of `prop_wall_vents` — three 64x70 tapered panels of unzoned dressing at 724,20, with
-no Hermes job and no zone behind them. That louvre was deleted from the prop's `parts` and
+no workflow and no zone behind them. That louvre was deleted from the prop's `parts` and
 the cabinet hung between the two survivors.
 
 The **whitebox cleanup pass then deleted the whole bank**, box and registry entry together,
@@ -905,15 +903,15 @@ the spur now runs (922, 192) → (832, 192), crossing above the furnace rather t
 21px clear of its top edge, 12px clear of the Agent Lab cabinet's foot, and 12px clear of the
 furnace art's right edge at x910 on the way up. He routes
 (480,228) → (578,228) → (578,490) → (922,490) → (922,348) → (922,192) → (832,192),
-axis-aligned throughout, and zone 12's anchor is still untouched. Workflow keys, Hermes job
-ids, telemetry state names and the API are unchanged — only which zone the machine physically
+axis-aligned throughout, and zone 12's anchor is still untouched. Workflow keys, telemetry
+state names and the API are unchanged — only which zone the machine physically
 occupies moved.
 
 Tool Scanner was untouched by all of this — same 168x48 bench, same replacement sheet, same components,
 same zone 03 — and it is the only owner. The layout normalization pass later slid that bench
 to 232,216 and its anchor to (316, 276), because at 48,264 its art touched the Opportunity
-Radar's at exactly 0px and overlapped the Repo Forge's by 2px. Sheet, components, workflow key,
-Hermes job and zone number are all still untouched.
+Radar's at exactly 0px and overlapped the Repo Forge's by 2px. Sheet, components, workflow key
+and zone number are all still untouched.
 
 **Nothing outstanding.** Every workflow machine in the room owns a primary box of its own.
 `KNOWN_SHARED_ANCHORS` in `test/command-center.test.js` is empty and stays empty — the test

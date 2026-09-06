@@ -10,11 +10,8 @@
 // carries the section 08 filename it is waiting for, so generated pixel art drops
 // into the same rectangle without touching a single coordinate.
 
-import {
-  areaIdForState,
-  areaIdForWorkflow as areaIdForMachineWorkflow
-} from './machineConfig.mjs';
-export { COMMAND_CENTER_STATE_AREAS, COMMAND_CENTER_WORKFLOW_AREAS } from './machineConfig.mjs';
+import { areaIdForWorkflow as areaIdForMachineWorkflow } from './machineConfig.mjs';
+export { COMMAND_CENTER_WORKFLOW_AREAS } from './machineConfig.mjs';
 
 // Section 09 palette block. The whole facility is drawn from this 16-colour ramp.
 export const COMMAND_CENTER_PALETTE = Object.freeze({
@@ -850,10 +847,8 @@ export const COMMAND_CENTER_AREAS = Object.freeze([
   // stand in front of both. So the drum was carved out, exactly as the Creator
   // Console, Profit Analyzer and Agent Lab were before it.
   //
-  // Its Hermes job (254525fa846f / Opportunity Scout), its deliberately empty
-  // workflow list and its prop are all untouched — only which zone it occupies moved.
-  // It declares no conduit because it drives no workflow lane, so this zone stays
-  // idle unless that Hermes job actually fires, which was already true of the machine.
+  // Its Opportunity Scout workflow and prop are untouched — only which zone it
+  // occupies moved. It declares no conduit because the radar is a terminal station.
   //
   // No new walk segment: (660, 276) is already the far end of `radar-spur`, the
   // segment built for the Creator Console when it held this slot.
@@ -953,22 +948,16 @@ export function stationById(stationId) {
  * Where SpawnCamper stands for one telemetry entry, in three steps:
  *
  *   1. `context.station` — an explicit per-event override. Optional, and the only
- *      thing that outranks the activity, because a sender that names a station
- *      knows something the state alone cannot say.
- *   2. the activity `state` — the normal path. The work moved, so he moves.
- *   3. the workflow's own machine — the fallback, and the answer for every state
- *      that names no activity (idle, waiting, complete, warning, error).
+ *      thing that outranks catalog ownership.
+ *   2. the canonical workflow's owning station.
+ *   3. Central Operations for an unknown workflow or invalid station override.
  *
- * Callers that pass no `state` get exactly the behaviour they had before step 2
- * existed, which is why the whitebox and the machine-mapping tests are unaffected.
+ * Lifecycle state controls truthful status and animation, never machine ownership.
  */
 export function areaIdForWorkflow(workflow) {
   const context = workflow && workflow.context;
-  const contextArea = canonicalAreaId(context && (context.area || context.station));
+  const contextArea = canonicalAreaId(context && context.station);
   if (contextArea) return contextArea;
-
-  const stateArea = areaIdForState(workflow && workflow.state);
-  if (stateArea) return stateArea;
 
   return areaIdForMachineWorkflow(workflow) || COMMAND_CENTER_FALLBACK_AREA_ID;
 }

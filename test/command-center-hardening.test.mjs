@@ -140,20 +140,20 @@ test('unknown entries cannot create warnings; heartbeat focus is stable but mean
   const error=normalizePublicState(payload([entry({state:'error'}),b,entry({agent:'other',state:'warning'})]),epoch,{previousState:changed,agent:'spawncamper9000'});
   assert.equal(error.primaryWorkflow.workflow,'ai-news');assert.equal(error.workflows.length,2);
 });
-test('stationless status retains last activity across live updates and reload, bounded by startedAt',()=>{
+test('stationless status stays at canonical workflow ownership across live updates and reload',()=>{
   const first=normalizePublicState(payload([entry({state:'coding'})]),epoch);
   for(const state of ['waiting','complete','warning','error']) {
     const current=entry({state,timestamp:new Date(epoch+100).toISOString()});
     const next=normalizePublicState(payload([current]),epoch+100,{previousState:first});
-    assert.equal(next.primaryWorkflow.areaId,'github-code');
+    assert.equal(next.primaryWorkflow.areaId,'intelligence-research');
     const reloaded=normalizePublicState(payload([{...current,lastActivity:next.primaryWorkflow.lastActivity}]),epoch+100);
-    assert.equal(reloaded.primaryWorkflow.areaId,'github-code');
+    assert.equal(reloaded.primaryWorkflow.areaId,'intelligence-research');
     const newJob=normalizePublicState(payload([{...current,startedAt:new Date(epoch+50).toISOString(),lastActivity:next.primaryWorkflow.lastActivity}]),epoch+100);
     assert.equal(newJob.primaryWorkflow.areaId,'intelligence-research');
   }
 });
 
-test('authoritative empty activity and equal-timestamp completed boundaries prevent station leakage', () => {
+test('history activity never overrides canonical workflow ownership', () => {
   const prior = normalizePublicState(payload([entry({state:'coding'})]), epoch);
   const current = entry({state:'waiting', eventId:'z'});
   assert.equal(normalizePublicState(payload([{...current,lastActivity:null}]),epoch,{previousState:prior}).primaryWorkflow.areaId,'intelligence-research');
