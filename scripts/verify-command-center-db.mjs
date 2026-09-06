@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import pg from 'pg';
-import { createTelemetry, listPublicCommandCenterState } from '../server/command-center/telemetry.js';
+import { createTelemetry, listPublicCommandCenterState, listPublicRunHistory } from '../server/command-center/telemetry.js';
 import { _setSqlForTests } from '../server/command-center/db.js';
 import { normalizePublicState } from '../src/command-center/stateModel.mjs';
+import validation from '../server/command-center/validation.js';
+const { validateHistoryQuery } = validation;
 
 const connectionString = process.env.CC_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set CC_TEST_DATABASE_URL to a disposable local PostgreSQL database.');
@@ -16,11 +18,22 @@ const pool = new pg.Pool({ connectionString, max: 12, options: `-c search_path=$
 let checks = 0;
 try {
   await pool.query(fs.readFileSync('migrations/20260820000000_create_command_center.sql','utf8'));
+  const seedTime = new Date(Date.now() - 60000).toISOString();
+  await pool.query(`INSERT INTO command_center_events
+    (event_id,agent,workflow,workflow_label,state,activity,event_timestamp,ttl_seconds,expires_at)
+    VALUES ('replay-old:complete','spawncamper9000','fixture','Fixture','complete','Synthetic result',$1,900,$2),
+      ('producer-old','spawncamper9000','github','GitHub','complete','Repository finding',$1,900,$2)`,
+    [seedTime, new Date(Date.parse(seedTime) + 900000).toISOString()]);
+  await pool.query(fs.readFileSync('migrations/20260906000000_command_center_public_runs.sql','utf8'));
+  assert.equal((await pool.query('SELECT count(*)::int n FROM command_center_events')).rows[0].n,2);
+  assert.equal((await pool.query("SELECT visibility FROM command_center_events WHERE event_id='replay-old:complete'")).rows[0].visibility,'diagnostic');
+  assert.equal((await pool.query("SELECT count(*)::int n FROM command_center_workflow_state WHERE workflow='fixture'")).rows[0].n,0);
+  assert.equal((await pool.query("SELECT count(*)::int n FROM command_center_workflow_state WHERE workflow='github'")).rows[0].n,1);checks++;
   _setSqlForTests(async (strings,...values) => (await pool.query(strings.reduce((q,s,i)=>q+(i?`$${i}`:'')+s,''),values)).rows);
   const now=Date.now(), stamp=new Date(now).toISOString(), startedAt=new Date(now-1000).toISOString();
   const event=(eventId,overrides={})=>({eventId,agent:'spawncamper9000',workflow:'ai-news',workflowLabel:'AI News',
     state:'coding',activity:'Code review',context:{},publicUrl:null,timestamp:stamp,startedAt,ttlSeconds:900,
-    expiresAt:new Date(now+900000).toISOString(),...overrides});
+    expiresAt:new Date(now+900000).toISOString(),runId:'verify-main',taskTitle:'Database verification',outcome:null,visibility:'public',...overrides});
   const duplicates=await Promise.all(Array.from({length:24},()=>createTelemetry(event('duplicate'))));
   assert.equal(duplicates.filter(e=>e.status==='created').length,1);assert.equal(new Set(duplicates.map(e=>e.id)).size,1);checks++;
   await Promise.all(Array.from({length:24},(_,i)=>createTelemetry(event(`ordered-${String(i).padStart(2,'0')}`))));
@@ -57,7 +70,20 @@ try {
   await createTelemetry(event('new-job-wait',{state:'waiting',timestamp:new Date(now+200).toISOString(),startedAt:new Date(now+150).toISOString()}));
   state=await listPublicCommandCenterState({agent:'spawncamper9000',historyLimit:0,now:now+200});
   assert.equal(state.workflows[0].lastActivity,null);checks++;
-  console.log(`PostgreSQL: ${checks} checks passed (concurrency, deduplication, atomic rollback, retry repair, ordering, agent isolation, reload retention, job boundaries).`);
+  const beforeDiagnostic=(await listPublicCommandCenterState({agent:'spawncamper9000'})).workflows[0].eventId;
+  await createTelemetry(event('diagnostic-new',{timestamp:new Date(now+300).toISOString(),state:'error',visibility:'diagnostic',runId:'diagnostic-run'}));
+  assert.equal((await pool.query("SELECT count(*)::int n FROM command_center_events WHERE event_id='diagnostic-new' AND visibility='diagnostic'")).rows[0].n,1);
+  assert.equal((await listPublicCommandCenterState({agent:'spawncamper9000'})).workflows[0].eventId,beforeDiagnostic);
+  let history=await listPublicRunHistory({agent:'spawncamper9000',limit:2,now:now+300});
+  assert.equal(history.runs.some(run=>run.runId==='diagnostic-run'),false);checks++;
+  for(let i=0;i<5;i++) await createTelemetry(event(`page-${i}`,{runId:`page-run-${i}`,timestamp:new Date(now+400+i).toISOString(),state:'complete'}));
+  const seen=[];let cursor=null;
+  do { const decodedCursor=cursor ? validateHistoryQuery({cursor}).cursor : null;
+    history=await listPublicRunHistory({agent:'spawncamper9000',limit:2,cursor:decodedCursor,now:now+1000});
+    seen.push(...history.runs.map(run=>run.id));cursor=history.nextCursor;
+  } while(cursor);
+  assert.equal(new Set(seen).size,seen.length);assert.ok(seen.length>=6);checks++;
+  console.log(`PostgreSQL: ${checks} checks passed (migration/backfill preservation, diagnostic isolation, concurrency, deduplication, atomic rollback, retry repair, ordering, agent isolation, reload retention, job boundaries, run history, cursor pagination).`);
 } finally {
   _setSqlForTests(null);await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();
 }

@@ -2,7 +2,10 @@ const { ApiError } = require('../vision-forge/errors');
 const {
   COMMAND_CENTER_HISTORY_LIMIT_DEFAULT,
   COMMAND_CENTER_HISTORY_LIMIT_MAX,
+  COMMAND_CENTER_RUN_HISTORY_LIMIT_DEFAULT,
+  COMMAND_CENTER_RUN_HISTORY_LIMIT_MAX,
   COMMAND_CENTER_STATES,
+  COMMAND_CENTER_VISIBILITIES,
   DEFAULT_COMMAND_CENTER_AGENT,
   DEFAULT_COMMAND_CENTER_TTL_SECONDS
 } = require('./constants');
@@ -10,6 +13,7 @@ const {
 const STATE_SET = new Set(COMMAND_CENTER_STATES);
 const ALLOWED_TELEMETRY_FIELDS = new Set([
   'eventId',
+  'runId',
   'agent',
   'workflow',
   'workflowLabel',
@@ -19,17 +23,23 @@ const ALLOWED_TELEMETRY_FIELDS = new Set([
   'startedAt',
   'ttlSeconds',
   'publicUrl',
+  'taskTitle',
+  'outcome',
+  'visibility',
   'context'
 ]);
 const ALLOWED_CONTEXT_FIELDS = new Set(['station', 'target', 'count']);
 
 const LIMITS = {
   eventId: 180,
+  runId: 180,
   agent: 80,
   workflow: 80,
   workflowLabel: 96,
   state: 40,
   activity: 220,
+  taskTitle: 140,
+  outcome: 500,
   publicUrl: 2048,
   contextStation: 80,
   contextTarget: 140,
@@ -115,6 +125,24 @@ function validateEventId(value) {
   }
 
   return text;
+}
+
+function validateRunId(value) {
+  if (value === undefined || value === null) return null;
+  const text = cleanText(value, 'runId', LIMITS.runId, { required: false });
+  if (!text) return null;
+  if (!/^[a-z0-9][a-z0-9._:-]*$/i.test(text)) {
+    throw new ApiError(400, 'runId may only contain letters, numbers, dots, underscores, colons, and hyphens.');
+  }
+  return text;
+}
+
+function validateVisibility(value) {
+  const visibility = cleanText(value === undefined ? 'public' : value, 'visibility', 20).toLowerCase();
+  if (!COMMAND_CENTER_VISIBILITIES.includes(visibility)) {
+    throw new ApiError(400, 'visibility must be public or diagnostic.');
+  }
+  return visibility;
 }
 
 function validateState(value) {
@@ -252,11 +280,15 @@ function validateTelemetryPayload(body, { now = Date.now() } = {}) {
 
   return {
     eventId: validateEventId(body.eventId),
+    runId: validateRunId(body.runId),
     agent,
     workflow,
     workflowLabel,
     state,
     activity: cleanText(body.activity, 'activity', LIMITS.activity),
+    taskTitle: cleanText(body.taskTitle, 'taskTitle', LIMITS.taskTitle, { required: false }),
+    outcome: cleanText(body.outcome, 'outcome', LIMITS.outcome, { required: false }),
+    visibility: validateVisibility(body.visibility),
     timestamp,
     startedAt,
     ttlSeconds,
@@ -292,12 +324,43 @@ function validateStateQuery(query = {}) {
   return { historyLimit, agent };
 }
 
+function decodeCursor(value) {
+  if (!value) return null;
+  if (typeof value !== 'string' || value.length > 1024 || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new ApiError(400, 'cursor is invalid.');
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (decoded?.v !== 1 || !Number.isFinite(Date.parse(decoded.timestamp))
+      || typeof decoded.order !== 'string' || !decoded.order
+      || typeof decoded.key !== 'string' || !decoded.key) throw new Error('invalid');
+    return { timestamp: new Date(decoded.timestamp).toISOString(), order: decoded.order, key: decoded.key };
+  } catch (error) {
+    throw new ApiError(400, 'cursor is invalid.');
+  }
+}
+
+function validateHistoryQuery(query = {}) {
+  const base = validateStateQuery({ agent: query.agent, historyLimit: 0 });
+  const rawLimit = firstQueryValue(query.limit);
+  let limit = COMMAND_CENTER_RUN_HISTORY_LIMIT_DEFAULT;
+  if (rawLimit !== undefined && rawLimit !== '') {
+    if (!/^\d+$/.test(String(rawLimit))) throw new ApiError(400, 'limit must be a whole number.');
+    limit = Number(rawLimit);
+    if (limit < 1 || limit > COMMAND_CENTER_RUN_HISTORY_LIMIT_MAX) {
+      throw new ApiError(400, `limit must be between 1 and ${COMMAND_CENTER_RUN_HISTORY_LIMIT_MAX}.`);
+    }
+  }
+  return { agent: base.agent, limit, cursor: decodeCursor(firstQueryValue(query.cursor)) };
+}
+
 module.exports = {
   ALLOWED_CONTEXT_FIELDS,
   ALLOWED_TELEMETRY_FIELDS,
   LIMITS,
   cleanText,
   labelizeWorkflow,
+  validateHistoryQuery,
   validateStateQuery,
   validateTelemetryPayload
 };

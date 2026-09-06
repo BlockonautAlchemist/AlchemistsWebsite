@@ -4,6 +4,7 @@ const test = require('node:test');
 const zlib = require('node:zlib');
 
 const commandCenterStateHandler = require('../api/command-center/state');
+const commandCenterHistoryHandler = require('../api/command-center/history');
 const commandCenterTelemetryHandler = require('../api/command-center/telemetry');
 const { _setSqlForTests } = require('../server/command-center/db');
 const { commandCenterStorageError } = require('../server/command-center/errors');
@@ -222,7 +223,11 @@ function makeCommandCenterSqlStore(initialEvents = []) {
         eventTimestamp,
         startedAt,
         ttlSeconds,
-        expiresAt
+        expiresAt,
+        runId,
+        taskTitle,
+        outcome,
+        visibility
       ] = values;
       const duplicate = eventId
         ? events.find((event) => event.agent === agent && event.event_id === eventId)
@@ -230,7 +235,7 @@ function makeCommandCenterSqlStore(initialEvents = []) {
 
       if (duplicate) {
         if (query.startsWith('with event')) {
-          workflowState.set(keyFor(duplicate.agent, duplicate.workflow), { ...duplicate, latest_event_id: duplicate.id });
+          if ((duplicate.visibility || 'public') === 'public') workflowState.set(keyFor(duplicate.agent, duplicate.workflow), { ...duplicate, latest_event_id: duplicate.id });
           return [{ ...duplicate, inserted: false }];
         }
         return [];
@@ -250,12 +255,16 @@ function makeCommandCenterSqlStore(initialEvents = []) {
         started_at: startedAt,
         ttl_seconds: ttlSeconds,
         expires_at: expiresAt,
+        run_id: runId,
+        task_title: taskTitle,
+        outcome,
+        visibility: visibility || 'public',
         received_at: new Date(Date.parse(eventTimestamp) + 500).toISOString()
       };
 
       events.push(row);
       if (query.startsWith('with event')) {
-        workflowState.set(keyFor(agent, workflow), { ...row, latest_event_id: row.id, updated_at: row.received_at });
+        if (row.visibility === 'public') workflowState.set(keyFor(agent, workflow), { ...row, latest_event_id: row.id, updated_at: row.received_at });
         return [{ ...row, inserted: true }];
       }
       return [{ id: row.id }];
@@ -309,9 +318,11 @@ function makeCommandCenterSqlStore(initialEvents = []) {
     }
 
     if (query.includes('from command_center_events')) {
-      const limit = values.at(-1);
+      const limit = Number.isInteger(values.at(-1)) ? values.at(-1) : undefined;
+      const requestedAgent = typeof values[0] === 'string' ? values[0] : null;
       return events
         .slice()
+        .filter((event) => (event.visibility || 'public') === 'public' && (!requestedAgent || event.agent === requestedAgent))
         .sort(latestSort)
         .slice(0, limit);
     }
@@ -795,8 +806,8 @@ test('selects command center focus by attention, transmission, active, then fres
       })
     ]
   }, now);
-  assert.equal(state.primaryWorkflow.workflow, 'github');
-  assert.equal(state.primaryWorkflow.displayState, 'error');
+  assert.equal(state.primaryWorkflow.workflow, 'newsletter');
+  assert.equal(state.workflows.find((entry) => entry.workflow === 'github').taskState, 'failed');
 
   state = normalizePublicState({
     success: true,
@@ -973,6 +984,13 @@ test('command center API enforces POST auth and accepts public GET', async () =>
   assert.equal(listed.body.workflows.length, 1);
   assert.equal(listed.body.recentHistory.length, 1);
   assert.equal(listed.body.workflows[0].publicUrl, 'https://example.com/post/123');
+
+  const history = await invokeHandler(commandCenterHistoryHandler, {
+    method: 'GET', url: '/api/command-center/history?agent=spawncamper9000&limit=8'
+  });
+  assert.equal(history.statusCode, 200);
+  assert.equal(history.body.runs.length, 1);
+  assert.equal(history.body.runs[0].totalEventCount, 1);
 });
 
 test('command center API rejects malformed payloads and unsupported methods', async () => {
@@ -1006,6 +1024,11 @@ test('command center API rejects malformed payloads and unsupported methods', as
     url: '/api/command-center/state?historyLimit=999'
   });
   assert.equal(invalidHistoryLimit.statusCode, 400);
+
+  const invalidCursor = await invokeHandler(commandCenterHistoryHandler, {
+    method: 'GET', url: '/api/command-center/history?cursor=invalid'
+  });
+  assert.equal(invalidCursor.statusCode, 400);
 });
 
 test('command center storage errors hide raw database details for unmigrated tables', () => {

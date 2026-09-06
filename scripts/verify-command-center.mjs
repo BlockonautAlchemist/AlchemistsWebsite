@@ -10,11 +10,23 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
 const errors = [], results = [];
 const state = (station, mode = 'coding', suffix = '') => ({ success: true, fetchedAt: new Date().toISOString(), workflows: station ? [{
   agent: 'spawncamper9000', workflow: 'ai-news', workflowLabel: 'AI News', eventId: `fixture-${station}-${mode}-${suffix}`,
-  state: mode, activity: `Inspect ${station}`, timestamp: new Date().toISOString(),
-  startedAt: '2026-09-05T00:00:00Z', ttlSeconds: 900, context: { station }
+  runId: `run-${station}`, taskTitle: `Inspect ${station}`, state: mode, activity: `Inspect ${station}`, timestamp: new Date().toISOString(),
+  startedAt: '2026-09-05T00:00:00Z', ttlSeconds: 900, context: { station }, outcome: mode === 'complete' ? 'Inspection complete' : null
 }] : [], recentHistory: [] });
 let fixture = state(null), offline = false;
-async function pageFor({ failedAssets = [], ...options } = {}) {
+const runFixture = (index, taskState = index % 3 === 0 ? 'failed' : 'completed') => {
+  const timestamp = new Date(Date.now() - index * 60000).toISOString();
+  return { id: `history-${index}`, runId: `history-run-${index}`, agent: 'spawncamper9000',
+    workflow: index % 2 ? 'github' : 'ai-news', workflowLabel: index % 2 ? 'GitHub' : 'AI News',
+    taskTitle: `Public task ${index}`, outcome: taskState === 'completed' ? `Finding ${index}` : null,
+    state: taskState === 'failed' ? 'error' : 'complete', taskState, startedAt: timestamp, updatedAt: timestamp,
+    publicUrl: index === 1 ? 'https://example.com/public-result' : null, totalEventCount: index === 2 ? 3 : 1,
+    omittedEventCount: 0, events: [{ id: `history-event-${index}`, eventId: `history-event-${index}`,
+      state: taskState === 'failed' ? 'error' : 'complete', activity: `Event ${index}`, timestamp,
+      lastTimestamp: timestamp, occurrenceCount: index === 2 ? 3 : 1, context: {} }] };
+};
+const allRuns = Array.from({ length: 9 }, (_, index) => runFixture(index));
+async function pageFor({ failedAssets = [], historyMode = 'normal', ...options } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
@@ -22,6 +34,14 @@ async function pageFor({ failedAssets = [], ...options } = {}) {
   for (const asset of failedAssets) await page.route(`**/${asset}`, route => route.abort());
   await page.route('**/api/command-center/state*', route => offline
     ? route.fulfill({ status: 503, json: { success: false } }) : route.fulfill({ json: fixture }));
+  await page.route('**/api/command-center/history*', async route => {
+    const earlier = new URL(route.request().url()).searchParams.has('cursor');
+    if (historyMode === 'loading') await new Promise(resolve => setTimeout(resolve, 3000));
+    if (historyMode === 'error' || (historyMode === 'pagination-error' && earlier)) return route.fulfill({ status: 503, json: { success: false } });
+    if (historyMode === 'empty') return route.fulfill({ json: { success: true, fetchedAt: new Date().toISOString(), runs: [], nextCursor: null } });
+    return route.fulfill({ json: { success: true, fetchedAt: new Date().toISOString(),
+      runs: earlier ? allRuns.slice(8) : allRuns.slice(0, 8), nextCursor: earlier ? null : 'fixture-cursor' } });
+  });
   // Instrument only the intercepted local script response; no production hook.
   await page.route('**/command-center.js*', async route => {
     const response = await route.fetch();
@@ -47,12 +67,15 @@ const settle = page => page.waitForFunction(() => !window.__ccTest.game.scene.sc
 const aspect = (at, label) => assert.ok(Math.abs(at.canvas.width / at.canvas.height - at.logical.width / at.logical.height) < .002, label);
 try {
   const page = await pageFor();
+  await page.waitForFunction(() => document.querySelectorAll('#cc-recent-list > li').length === 8);
   const areas = await page.evaluate(async () => (await import('/src/command-center/sceneConfig.mjs')).COMMAND_CENTER_AREAS);
   await refresh(page, state('scanner-bench')); await page.waitForTimeout(100);
   let at = await get(page); assert.match(at.animation, /camper_walk_/); assert.equal(at.attendance, '');
   const generation = at.move.generation;
+  const crtBefore = await page.locator('#cc-crt').innerText();
   await refresh(page, state('scanner-bench', 'coding', 'heartbeat'));
   assert.equal((await get(page)).move.generation, generation);
+  assert.equal(await page.locator('#cc-crt').innerText(), crtBefore);
   await settle(page); at = await get(page);
   assert.equal(at.animation, 'camper_operate_back'); assert.equal(at.attendance, 'scanner-bench');
   assert.ok(at.machines.find(([id]) => id === 'scanner-bench')[1]);
@@ -84,12 +107,48 @@ try {
     const s = window.__ccTest.game.scene.scenes[0], r = s.game.canvas.getBoundingClientRect();
     return { x: r.left + 420 * r.width / s.scale.width, y: r.top + 490 * r.height / s.scale.height };
   });
-  await page.mouse.click(floor.x, floor.y); assert.equal(await page.locator('#cc-hud').isVisible(), false);
-  results.push('empty floor and Escape dismiss inspection');
+  await page.mouse.click(floor.x, floor.y); assert.equal(await page.locator('#cc-hud').isVisible(), true);
+  await page.keyboard.press('Escape'); assert.equal(await page.locator('#cc-hud').isVisible(), false);
+  results.push('empty floor preserves inspection; Escape dismisses');
+
+  const machineButton = page.locator('[data-machine-id="tool-scanner"]');
+  await machineButton.focus();
+  assert.equal(await machineButton.getAttribute('data-highlighted'), 'true');
+  await machineButton.press('Enter');
+  assert.equal(await page.locator('#cc-hud').isVisible(), true);
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'cc-hud-close');
+  await page.locator('#cc-hud-close').click();
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.machineId), 'tool-scanner');
+  const firstMachine = page.locator('.cc-machine-button').first();
+  await firstMachine.focus();
+  const keyboardMachines = [];
+  for (let index = 0; index < 12; index++) {
+    keyboardMachines.push(await page.evaluate(() => document.activeElement?.dataset.machineId));
+    if (index < 11) await page.keyboard.press('Tab');
+  }
+  assert.equal(new Set(keyboardMachines).size, 12);
+  assert.notEqual(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), 'none');
+  results.push('machine directory keyboard activation and focus restoration');
+
+  await page.locator('#cc-recent-list details').first().locator('summary').click();
+  assert.match(await page.locator('#cc-recent-list details').first().innerText(), /Event 0/);
+  await page.locator('#cc-history-status').selectOption('completed');
+  assert.equal(await page.locator('#cc-recent-list > li').count(), 5);
+  await page.locator('#cc-load-earlier').click();
+  await page.waitForFunction(() => document.querySelector('#cc-history-message')?.textContent.includes('6 public runs'));
+  await page.locator('#cc-history-status').selectOption('all');
+  assert.equal(await page.locator('#cc-recent-list > li').count(), 9);
+  const completedState = state('scanner-bench', 'complete', 'new-work');
+  completedState.recentHistory = completedState.workflows;
+  await refresh(page, completedState);
+  assert.equal(await page.locator('#cc-new-work').isVisible(), true);
+  results.push('history expansion, filtering, pagination, and stable new-work notice');
   for (const [width, height] of [[1280,720],[1440,900],[1920,1080],[3440,1440],[850,900],[390,844]]) {
     await page.setViewportSize({ width, height }); await page.waitForTimeout(180);
     aspect(await get(page), `${width}x${height}`);
     await page.locator('#cc-frame').screenshot({ path: `${evidence}/viewport-${width}x${height}.png` });
+    if (width === 1440) await page.screenshot({ path: `${evidence}/page-${width}x${height}.png`, fullPage: true });
+    if (width === 390) await page.screenshot({ path: `${evidence}/page-${width}x${height}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 850, height: 900 }); await page.waitForTimeout(150);
   await refresh(page, state('github-code')); const before = await get(page);
@@ -113,7 +172,7 @@ try {
     return window.__pulse === s.tweens.getTweensOf(s.zoneObjects.get('scanner-bench').glow)[0];
   }), true);
   offline = true; await page.evaluate(() => window.__ccTest.client.refresh());
-  assert.equal(await page.locator('#cc-status').textContent(), 'Offline'); offline = false;
+  assert.equal(await page.locator('#cc-status').textContent(), 'Disconnected'); offline = false;
   results.push('effect phase and connection health');
   const soak = await page.evaluate(async () => {
     const s = window.__ccTest.game.scene.scenes[0], { normalizePublicState } = await import('/src/command-center/stateModel.mjs');
@@ -145,10 +204,26 @@ try {
   assert.equal(await page.evaluate(() => window.__savedGame === window.__ccTest.game && document.querySelectorAll('#cc-canvas canvas').length === 1), true);
   results.push('persisted pagehide/pageshow restore one game');
   fixture = state('agent-lab');
-  const reduced = await pageFor({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 } });
+  const reduced = await pageFor({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 }, hasTouch: true });
   await refresh(reduced, state('github-code')); at = await get(reduced);
   assert.deepEqual(at.position, { x: 132, y: 468 }); assert.equal(at.move.moving, false);
   assert.ok(at.machines.every(([, playing]) => !playing)); results.push('reduced motion restoration and relocation');
+  const mobileButton = reduced.locator('[data-machine-id="repo-forge"]');
+  await mobileButton.tap();
+  const mobilePlacement = await reduced.evaluate(() => {
+    const frame = document.querySelector('#cc-frame').getBoundingClientRect();
+    const inspector = document.querySelector('#cc-hud').getBoundingClientRect();
+    const undersized = [...document.querySelectorAll('button, select')].filter(element => {
+      const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.height < 44;
+    }).map(element => element.id || element.textContent.trim());
+    return { frameBottom: frame.bottom, inspectorTop: inspector.top,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, undersized };
+  });
+  assert.ok(mobilePlacement.inspectorTop >= mobilePlacement.frameBottom - 1, JSON.stringify(mobilePlacement));
+  assert.ok(mobilePlacement.overflow <= 0, JSON.stringify(mobilePlacement));
+  assert.deepEqual(mobilePlacement.undersized, [], JSON.stringify(mobilePlacement));
+  await reduced.keyboard.press('Escape');
+  results.push('mobile stacked inspector and no horizontal overflow');
   fixture = state('scanner-bench');
   const fallback = await pageFor({ failedAssets: ['spawncamper_walk_left_sheet.png', 'anim_tool_scanner_sheet.png'] });
   await refresh(fallback, state('github-code')); await settle(fallback);
@@ -159,6 +234,18 @@ try {
   await reduced.waitForFunction(() => window.__ccTest?.game.scene.scenes[0]?.locomotion);
   assert.equal(await reduced.locator('#cc-canvas canvas').count(), 1);
   results.push('native back navigation restores one functioning canvas');
+  const loading = await pageFor({ historyMode: 'loading' });
+  assert.match(await loading.locator('#cc-history-message').textContent(), /Loading/);
+  const empty = await pageFor({ historyMode: 'empty' });
+  await empty.waitForFunction(() => document.querySelector('#cc-history-message')?.textContent.includes('No public work'));
+  const unavailable = await pageFor({ historyMode: 'error' });
+  await unavailable.waitForFunction(() => document.querySelector('#cc-history-message')?.textContent.includes('unavailable'));
+  const paginationError = await pageFor({ historyMode: 'pagination-error' });
+  await paginationError.waitForFunction(() => document.querySelectorAll('#cc-recent-list > li').length === 8);
+  await paginationError.locator('#cc-load-earlier').click();
+  await paginationError.waitForFunction(() => document.querySelector('#cc-history-message')?.textContent.includes('Earlier work unavailable'));
+  assert.equal(await paginationError.locator('#cc-recent-list > li').count(), 8);
+  results.push('history loading, empty, unavailable, and pagination-error states');
   assert.deepEqual(errors, []);
   fs.writeFileSync(`${evidence}/results.json`, JSON.stringify({ results, errors }, null, 2));
   console.log(JSON.stringify({ results, errors, evidence }, null, 2));

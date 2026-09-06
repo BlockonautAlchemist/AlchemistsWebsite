@@ -34,19 +34,19 @@ Focus is stable through heartbeat-only changes. Higher-priority activity preempt
 
 ## Persistence
 
-Event persistence and latest-state advancement are one PostgreSQL statement. Event-ID conflicts return the original stored event and attempt latest-state repair, so retries can recover rows left partially persisted by older versions. Concurrent duplicates serialize on the unique event index. Latest state compares `(event_timestamp, event_id-or-UUID)` with C collation, yielding deterministic equal-timestamp ordering. Existing tables and indexes are reused; there is no schema migration.
+Event persistence and public latest-state advancement are one PostgreSQL statement. Event-ID conflicts return the original stored event and attempt latest-state repair, so retries can recover rows left partially persisted by older versions. Concurrent duplicates serialize on the unique event index. Diagnostic events persist but never advance public latest state. Latest state compares `(event_timestamp, event_id-or-UUID)` with C collation, yielding deterministic equal-timestamp ordering.
 
 ## Viewport and lifecycle
 
 One host-size calculation sets canvas dimensions and centered letterboxing in ordinary, portrait and fullscreen modes. Phaser pointer bounds refresh after the canvas layout settles. Resize/fullscreen does not replace movement state. Portrait camera focus passes through one hold policy and cancels obsolete pans when viewport mode changes.
 
-Machine clicks open an inspector beside projected object bounds, with bounded scrolling when space is limited. Empty-floor clicks, outside clicks and Escape dismiss it. The character inspector updates while open. Physical station names remain fixed when another workflow uses them. The activity strip is an activity indicator, not a progress estimate.
+Machine clicks and the semantic machine directory open a persistent inspector beside the scene on desktop and beneath it on narrow screens. Close, Escape, or another selection dismisses/replaces it; empty-floor and outside clicks do not. Focus moves to Close and returns to the originating machine button. The character and Central Operations remain inspectable. Physical station names remain fixed when another workflow uses them. The activity strip is an activity indicator, not a progress estimate.
 
 Manifest requests time out after five seconds; individual assets have bounded loading and loaded-texture/procedural fallbacks. Page exit removes polling, resize/fullscreen/visibility handlers, observers, animation frames, tweens and timers. Persisted pagehide suspends the existing game; pageshow wakes it and refreshes without destroying or duplicating the canvas.
 
 ## Data Model
 
-Migration: `migrations/20260820000000_create_command_center.sql`.
+Migrations: `migrations/20260820000000_create_command_center.sql` and additive `migrations/20260906000000_command_center_public_runs.sql`.
 
 Tables:
 
@@ -68,11 +68,15 @@ Accepted payload:
 ```json
 {
   "eventId": "optional-stable-id-for-retries",
+  "runId": "optional-stable-run-id",
   "agent": "spawncamper9000",
   "workflow": "new-tools",
   "workflowLabel": "New Tools",
   "state": "researching",
   "activity": "Scanning AI gaming tools",
+  "taskTitle": "Review new AI gaming tools",
+  "outcome": "Three tools qualified for follow-up",
+  "visibility": "public",
   "timestamp": "2026-08-20T16:03:00-04:00",
   "startedAt": "2026-08-20T16:03:00-04:00",
   "ttlSeconds": 900,
@@ -85,7 +89,7 @@ Accepted payload:
 }
 ```
 
-Required fields are `workflow`, `state`, and `activity`. The default agent is `spawncamper9000`. Unknown top-level fields and unknown `context` fields are rejected. Public text is control-character sanitized and length-limited. `publicUrl` must be `http` or `https` and cannot include credentials.
+Required fields are `workflow`, `state`, and `activity`. `runId`, `taskTitle`, `outcome`, and `visibility` are optional; omitted visibility defaults to `public`. Visibility is `public` or `diagnostic`. The default agent is `spawncamper9000`. Unknown top-level fields and unknown `context` fields are rejected. Public text is control-character sanitized and length-limited. `publicUrl` must be `http` or `https` and cannot include credentials.
 
 Valid states: `idle`, `researching`, `browsing`, `scanning`, `evaluating`, `thinking`, `writing`, `coding`, `processing`, `executing`, `publishing`, `posting_to_x`, `newsletter`, `terminal_publish`, `waiting`, `complete`, `warning`, `error`.
 
@@ -113,9 +117,15 @@ Returns:
 - Workflow `id`, `eventId`, `eventOrder`: public event identity and deterministic ordering.
 - Workflow `lastActivity`: sanitized workflow/state/timestamp/station reference from indexed history, even when `historyLimit=0`.
 
-The frontend applies TTL fallback. When `expiresAt` has passed, a workflow is marked stale and visually falls back to idle so active states do not stay active forever. Heartbeat updates should arrive before `ttlSeconds` expires.
+The endpoint filters diagnostic rows. `isStale` means an expired heartbeat only for nonterminal activity, and `freshness` is `fresh`, `expired`, or `not_applicable`. The presentation layer reports expired running/waiting/warning activity as unknown while preserving its last-known state and timestamp. `complete`, `error`, and `idle` stay terminal regardless of age.
 
-`complete` is treated as a brief visual acknowledgement. Fresh complete states animate in the affected area for 30 seconds, then visually return to idle unless another visible workflow is active.
+Fresh completion and failure states may animate as a brief acknowledgement, then the room returns to Between tasks. Their durable task/history status never changes.
+
+## Public History API
+
+`GET /api/command-center/history?agent=spawncamper9000&limit=8&cursor=…`
+
+History groups events only by `(agent, runId)` or, for compatibility, exact `(agent, workflow, startedAt)`. It never groups by temporal proximity. Legacy events without either stable identity appear only as standalone `complete` or `error` tasks. Consecutive identical transitions are collapsed for display with occurrence counts while raw rows remain stored. Responses contain a deterministic opaque cursor, total event counts, capped event details, and an omitted-event count when applicable.
 
 SpawnCamper9000 focuses on one workflow using this deterministic priority:
 

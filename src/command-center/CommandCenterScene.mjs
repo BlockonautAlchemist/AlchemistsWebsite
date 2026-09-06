@@ -1382,10 +1382,8 @@ export class CommandCenterScene extends Phaser.Scene {
     camperZone.input.cursor = 'crosshair';
     camperZone.on('pointerdown', () => this.inspectCamper());
     this.camperZone = camperZone;
-    this.input.on('pointerdown', (_pointer, objects) => {
-      if (objects.length) return;
-      this.clearInspection(); this.options.onInspectDismiss?.();
-    });
+    // Inspection is persistent. Empty floor clicks are intentionally ignored;
+    // Close, Escape, or selecting another inspectable object ends a selection.
     this.events.on('update', () => {
       // The origin is on his feet, so the box hangs one half-height above the anchor.
       camperZone.setPosition(this.camperRig.x, this.camperRig.y - hitHeight / 2).setDepth(this.camperRig.depth + .1);
@@ -1411,6 +1409,14 @@ export class CommandCenterScene extends Phaser.Scene {
 
   inspectStation(stationId) {
     this.inspectArea(stationId);
+  }
+
+  highlightArea(areaId, highlighted = true) {
+    const object = this.zoneObjects.get(areaId);
+    if (!object) return;
+    const visible = highlighted || this.selectedZoneId === areaId;
+    object.outline.setVisible(visible);
+    object.nameTag.setVisible(visible);
   }
 
   inspectCamper() {
@@ -1451,11 +1457,9 @@ export class CommandCenterScene extends Phaser.Scene {
     const areaGroups = state.areaGroups || [];
 
     this.applyAreaGroups(areaGroups);
-    this.setOpsReadout({
-      status: this.connectionHealth === 'offline' ? 'offline' : state.overallStatus,
-      active: state.activeWorkflows.length,
-      stale: state.staleCount
-    });
+    this.connectionHealth = state.presentation?.connection || this.connectionHealth;
+    this.setOpsReadout({ connection: this.connectionHealth, taskState: state.presentation?.taskState,
+      active: state.presentation?.currentTaskCount ?? state.activeWorkflows.length });
     this.setTerminalReadout(state);
 
     const primary = state.primaryWorkflow;
@@ -1470,16 +1474,15 @@ export class CommandCenterScene extends Phaser.Scene {
       if (!this.pendingCamperZoneId) this.pendingCamperAnim = 'idle';
       this.moveCamperTo(area.destination, {
         immediate: firstPaint,
-        label: `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
+        label: state.presentation?.characterLabel || `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
       });
       this.focusZone(primary.areaId);
     } else {
       this.pendingCamperAnim = 'idle';
       this.pendingCamperZoneId = '';
-      const offline = state.overallStatus === 'offline';
       this.moveCamperTo(COMMAND_CENTER_CANVAS.homePoint, {
         immediate: firstPaint,
-        label: offline ? 'UPLINK · OFFLINE' : 'IDLE · OPS'
+        label: state.presentation?.characterLabel || 'BETWEEN TASKS · OPS'
       });
     }
   }
@@ -1835,22 +1838,25 @@ export class CommandCenterScene extends Phaser.Scene {
   // Only real, already-sanitized strings ever reach a screen.
   // -------------------------------------------------------------------------
 
-  setOpsReadout({ status, active, stale }) {
+  setOpsReadout({ status, connection, taskState, active = 0 }) {
     const component = this.componentObjects.get('anim_ops_screens');
     if (!component?.parts?.lines) return;
 
-    const online = status !== 'offline';
-    const health = status === 'error' ? 'FAULT' : status === 'warning' ? 'DEGRADED' : online ? 'NOMINAL' : 'NO LINK';
-    const filled = online ? clamp(2 + active, 0, 8) : 0;
+    const resolvedConnection = connection || (status === 'offline' ? 'disconnected' : status === 'connecting' ? 'connecting' : 'connected');
+    const connectionLabel = resolvedConnection === 'connected' ? 'CONNECTED' : resolvedConnection === 'disconnected' ? 'DISCONNECTED' : 'CONNECTING';
+    const taskLabel = ({ running: 'WORKING', waiting: 'WAITING', needs_attention: 'NEEDS ATTENTION',
+      completed: 'COMPLETED', failed: 'FAILED', idle: 'BETWEEN TASKS', unknown: 'STATUS UNKNOWN' })[taskState]
+      || (status === 'active' ? 'WORKING' : status === 'complete' ? 'COMPLETED' : status === 'error' ? 'FAILED' : 'BETWEEN TASKS');
+    const filled = resolvedConnection === 'connected' ? clamp(2 + active, 0, 8) : 0;
     const meter = `${'▮'.repeat(filled)}${'▯'.repeat(8 - filled)}`;
 
     component.parts.lines.setText([
-      `GA//OPS ▓▒░ ${health}`,
-      `SPWNCMP9000 > ${online ? 'ONLINE' : 'OFFLINE'}`,
-      `ACTIVE ${String(active).padStart(2, '0')}   STALE ${String(stale).padStart(2, '0')}`,
+      `GA//OPS ▓▒░ ${connectionLabel}`,
+      `SPWNCMP9000 > ${taskLabel}`,
+      `CURRENT TASKS ${String(active).padStart(2, '0')}`,
       `UPLINK ${meter}`
     ].join('\n'));
-    component.parts.lines.setColor(hexColor(status === 'error' ? P.warn : P.phosphor));
+    component.parts.lines.setColor(hexColor(taskState === 'failed' || taskState === 'needs_attention' ? P.warn : P.phosphor));
   }
 
   setTerminalReadout(state) {

@@ -42,6 +42,8 @@ function replayPayload(entry, { runId, startedAt }) {
     agent: 'spawncamper9000',
     ...payload,
     eventId: `${runId}:${eventId || payload.workflow}`,
+    runId,
+    visibility: 'diagnostic',
     timestamp,
     startedAt: payload.startedAt || timestamp
   };

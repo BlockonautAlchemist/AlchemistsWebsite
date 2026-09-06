@@ -3,151 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SpawnCamper9000 Command Center - The Alchemists</title>
-  <meta name="description" content="A live public command center showing SpawnCamper9000 workflow telemetry for AI gaming intelligence operations." />
+  <title>Command Center - The Alchemists</title>
+  <meta name="description" content="SpawnCamper9000’s public AI, gaming, tools, and content workflow status." />
   <meta property="og:title" content="SpawnCamper9000 Command Center - The Alchemists" />
-  <meta property="og:description" content="Live SpawnCamper9000 workflow state for The Alchemists AI gaming intelligence pipeline." />
+  <meta property="og:description" content="Public operational status and recent work from SpawnCamper9000." />
   <meta property="og:image" content="assets/full-logo.png" />
   <meta name="theme-color" content="#0d0214" />
-
   <link rel="icon" type="image/png" href="assets/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Audiowide&family=Saira:wdth,wght@100,400..900;125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="command-center.css" />
 </head>
 <body class="command-center-page">
   <a class="skip-link" href="#command-center">Skip to command center</a>
-
   <div class="ticker" data-ticker role="marquee" aria-label="Command Center announcements">
-    <div class="ticker__track">
-      <div class="ticker__group">
-        <span>SpawnCamper9000</span>
-        <span>Workflow Telemetry</span>
-        <span>Research</span>
-        <span>Publishing</span>
-        <span>Newsletter</span>
-        <span>Terminal Uplink</span>
-      </div>
-    </div>
+    <div class="ticker__track"><div class="ticker__group">
+      <span>SpawnCamper9000</span><span>Public Workflow Telemetry</span><span>Research</span>
+      <span>Tools</span><span>Community Content</span><span>Command Center</span>
+    </div></div>
   </div>
-
   <nav class="nav" aria-label="Main">
-    <a href="/" class="nav__brand" aria-label="The Alchemists home">
-      <img src="assets/logo-mark.png" alt="" />
-      <span class="display">The Alchemists</span>
-    </a>
+    <a href="/" class="nav__brand" aria-label="The Alchemists home"><img src="assets/logo-mark.png" alt="" /><span class="display">The Alchemists</span></a>
     <div class="nav__links" id="nav-links">
-      <a href="/#constellation">Strengths</a>
-      <a href="/#identity">The Guild</a>
-      <a href="/#opportunities">Opportunities</a>
-      <a href="/#culture">Culture</a>
-      <a href="/#partners">Partners</a>
-      <a href="/vision-forge">Vision Forge</a>
-      <a href="/streamers">Streamers</a>
-      <a href="/terminal">Dev Terminal</a>
-      <a href="/command-center" aria-current="page">Command Center</a>
+      <a href="/#constellation">Strengths</a><a href="/#identity">The Guild</a><a href="/#opportunities">Opportunities</a>
+      <a href="/#culture">Culture</a><a href="/#partners">Partners</a><a href="/vision-forge">Vision Forge</a>
+      <a href="/streamers">Streamers</a><a href="/terminal">Dev Terminal</a><a href="/command-center" aria-current="page">Command Center</a>
     </div>
-    <div class="nav__actions">
-      <span class="nav__status mono">Workflow Uplink</span>
+    <div class="nav__actions"><span class="nav__status mono">Public operations</span>
       <a href="https://discord.com/invite/WaReRAXHHE" class="btn btn-primary btn-nav" target="_blank" rel="noopener noreferrer">Join Discord</a>
-      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-controls="nav-links" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </nav>
 
   <main class="cc-main" id="command-center">
     <section class="cc-room" aria-labelledby="cc-title" data-readonly="true">
       <header class="cc-room__header">
-        <div>
-          <p class="eyebrow cc-eyebrow mono">The Alchemists / Behind the curtain</p>
-          <h1 class="display" id="cc-title">SpawnCamper9000<span>Command Center</span></h1>
-        </div>
-        <p class="cc-room__copy">
-          The facility floor, live. Every lamp, sweep and transmission below is driven by
-          real SpawnCamper9000 workflow telemetry &mdash; nothing here is simulated.
-        </p>
+        <div><p class="eyebrow cc-eyebrow mono">The Alchemists / Public operations</p><h1 class="display" id="cc-title">Command Center</h1></div>
+        <p class="cc-room__copy">Meet SpawnCamper9000, The Alchemists&rsquo; AI operator. He researches AI and gaming news, evaluates tools and workflows, and helps prepare community content. This room visualizes his public work as it happens.</p>
       </header>
 
-      <div class="cc-world" id="cc-world">
-        <div class="cc-world__bar mono">
-          <span>Facility view · live telemetry</span>
-          <span class="cc-world__live" id="cc-connection">● Connecting</span>
-          <button type="button" class="cc-fullscreen mono" id="cc-fullscreen" hidden>Fullscreen</button>
+      <nav class="cc-jump" aria-label="Command Center sections">
+        <a class="cc-action mono" href="#cc-machine-directory">Explore machines</a>
+        <a class="cc-action mono" href="#cc-recent-work">Recent work</a>
+      </nav>
+
+      <section class="cc-summary" aria-labelledby="cc-summary-title">
+        <div class="cc-summary__lead">
+          <p class="cc-kicker mono" id="cc-summary-title">Current public status</p>
+          <p class="cc-summary__narration" id="cc-status-copy">Current activity cannot be confirmed.</p>
+          <p class="cc-summary__step mono" id="cc-current-step" hidden></p>
         </div>
+        <dl class="cc-summary__facts">
+          <div><dt>Connection</dt><dd id="cc-status" data-state="connecting">Connecting</dd></div>
+          <div><dt>Task state</dt><dd id="cc-task-state">Status unknown</dd></div>
+          <div><dt>Updated</dt><dd><time id="cc-updated-at">No heartbeat</time></dd></div>
+          <div><dt>Current tasks</dt><dd id="cc-active-count">0</dd></div>
+          <div class="cc-summary__latest"><dt>Latest completed task</dt><dd id="cc-latest-complete">No completed public task yet</dd></div>
+        </dl>
+        <span id="cc-stale-count" hidden>0</span>
+      </section>
+      <p class="cc-disclosure">Operational status and task text come from sanitized public events. Character movement, machine animation, and ambient effects illustrate those states.</p>
 
-        <div class="cc-world__frame" id="cc-frame">
-          <div class="cc-canvas" id="cc-canvas" role="img" aria-label="SpawnCamper9000 command center facility floor"></div>
-
-          <aside class="cc-hud" id="cc-hud" data-edge="left" aria-labelledby="cc-hud-title" hidden>
-            <div class="cc-hud__head">
-              <span class="mono" id="cc-hud-eyebrow">Zone · inspect</span>
-              <h2 class="mono" id="cc-hud-title">Central Operations</h2>
-            </div>
-            <dl class="cc-hud__rows" id="cc-hud-rows"></dl>
+      <div class="cc-world" id="cc-world">
+        <div class="cc-world__bar mono"><span>Facility view · public telemetry</span><span class="cc-world__live" id="cc-connection">● Connecting</span><button type="button" class="cc-fullscreen mono" id="cc-fullscreen" hidden>Fullscreen</button></div>
+        <div class="cc-world__body">
+          <div class="cc-world__frame" id="cc-frame">
+            <div class="cc-canvas" id="cc-canvas" role="img" aria-label="SpawnCamper9000 command center facility floor"></div>
+            <section class="cc-crt" id="cc-crt" aria-label="SpawnCamper9000 narration">
+              <p class="cc-crt__heading mono" id="cc-crt-heading">Status unknown</p>
+              <p class="cc-crt__summary" id="cc-crt-summary">Current activity cannot be confirmed.</p>
+              <p class="cc-crt__detail mono" id="cc-crt-detail"></p><time class="cc-crt__time mono" id="cc-crt-time"></time>
+            </section>
+          </div>
+          <aside class="cc-hud" id="cc-hud" aria-labelledby="cc-hud-title" hidden tabindex="-1">
+            <div class="cc-hud__head"><div><span class="mono" id="cc-hud-eyebrow">Machine guide</span><h2 class="mono" id="cc-hud-title" tabindex="-1">Central Operations</h2></div><button class="cc-hud__close mono" id="cc-hud-close" type="button" aria-label="Close machine details">Close</button></div>
+            <p class="cc-hud__purpose" id="cc-hud-purpose"></p><dl class="cc-hud__rows" id="cc-hud-rows"></dl><div class="cc-hud__runs" id="cc-hud-runs"></div><div id="cc-area-body"></div>
           </aside>
         </div>
-
-        <div class="cc-strip" id="cc-strip">
-          <p class="cc-strip__line mono">Mode · <strong id="cc-strip-state">Idle</strong></p>
-          <p class="cc-strip__line cc-strip__caption mono" id="cc-strip-caption">No workflows · room alive, nothing operational</p>
-          <div class="cc-strip__hairline"><i id="cc-strip-progress"></i></div>
-          <ul class="cc-strip__unattended mono" id="cc-strip-unattended"></ul>
-        </div>
+        <div class="cc-strip" id="cc-strip"><p class="cc-strip__line mono">Mode · <strong id="cc-strip-state">Status unknown</strong></p><p class="cc-strip__line cc-strip__caption mono" id="cc-strip-caption">Opening public telemetry</p><div class="cc-strip__hairline"><i id="cc-strip-progress"></i></div><ul class="cc-strip__unattended mono" id="cc-strip-unattended"></ul></div>
       </div>
 
-      <!--
-        A canvas is opaque to assistive technology, so the same sanitized public
-        state the room renders is mirrored here for screen readers. Read-only.
-      -->
-      <div class="cc-a11y" id="cc-a11y">
-        <h2>Live command center state</h2>
-        <p aria-live="polite">
-          Uplink <span id="cc-status" data-state="connecting">Connecting</span>,
-          <span id="cc-status-copy">opening uplink</span>.
-          <span id="cc-active-count">0</span> active,
-          <span id="cc-stale-count">0</span> stale,
-          updated <span id="cc-updated-at">No heartbeat</span>.
-        </p>
-        <h3 id="cc-area-title">Central Operations</h3>
-        <div id="cc-area-body" aria-live="polite"></div>
-        <h3>Recent signals</h3>
-        <ol id="cc-recent-list" aria-live="polite"></ol>
-      </div>
+      <section class="cc-directory" id="cc-machine-directory" aria-labelledby="cc-directory-title">
+        <div class="cc-section-heading"><div><p class="cc-kicker mono">Facility guide</p><h2 id="cc-directory-title">Explore machines</h2></div><p>Focus a machine to highlight it in the room. Open it for purpose, workflow, and recent public use.</p></div>
+        <div class="cc-directory__grid" id="cc-directory-grid"></div>
+      </section>
 
-      <noscript>
-        <p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render live workflow telemetry.</p>
-      </noscript>
+      <section class="cc-history" id="cc-recent-work" aria-labelledby="cc-history-title">
+        <div class="cc-section-heading"><div><p class="cc-kicker mono">Public run history</p><h2 id="cc-history-title">Recent work</h2></div><button class="cc-action mono" id="cc-new-work" type="button" hidden>New work available</button></div>
+        <div class="cc-history__controls"><label class="mono">Machine <select id="cc-history-machine"><option value="all">All machines</option></select></label><label class="mono">Status <select id="cc-history-status"><option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="running">Working</option><option value="waiting">Waiting</option><option value="needs_attention">Needs attention</option><option value="unknown">Unknown</option></select></label></div>
+        <p class="cc-history__message mono" id="cc-history-message">Loading recent public work…</p><ol class="cc-history__list" id="cc-recent-list"></ol><button class="cc-action mono" id="cc-load-earlier" type="button" hidden>Load earlier</button>
+      </section>
+
+      <div class="cc-a11y"><h2 id="cc-area-title">Command Center status updates</h2><p id="cc-live-status" aria-live="polite" aria-atomic="true"></p></div>
+      <noscript><p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render public workflow telemetry.</p></noscript>
     </section>
   </main>
-
-  <footer class="footer">
-    <div class="footer__inner">
-      <div class="footer__brand">
-        <div class="footer__brand-row">
-          <img src="assets/logo-mark.png" alt="" />
-          <span>The Alchemists</span>
-        </div>
-        <p class="footer__about">
-          Workflow telemetry shows the public operational state of SpawnCamper9000 without exposing private logs or drafts.
-        </p>
-        <p class="footer__motto subtitle-font">We strive to do good.</p>
-      </div>
-
-      <a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a>
-    </div>
-
-    <div class="footer__legal">
-      <span>&copy; 2026 The Alchemists Guild</span>
-    </div>
-  </footer>
-
-  <script type="module" src="script.js"></script>
-  <script type="module" src="command-center.js"></script>
+  <footer class="footer"><div class="footer__inner"><div class="footer__brand"><div class="footer__brand-row"><img src="assets/logo-mark.png" alt="" /><span>The Alchemists</span></div><p class="footer__about">Public operational telemetry shows sanitized status without exposing private logs, prompts, credentials, or drafts.</p><p class="footer__motto subtitle-font">We strive to do good.</p></div><a class="footer__discord" href="https://discord.com/invite/WaReRAXHHE" target="_blank" rel="noopener noreferrer">Discord</a></div><div class="footer__legal"><span>&copy; 2026 The Alchemists Guild</span></div></footer>
+  <script type="module" src="script.js"></script><script type="module" src="command-center.js"></script>
 </body>
 </html>

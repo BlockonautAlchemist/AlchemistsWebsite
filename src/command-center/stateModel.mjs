@@ -58,6 +58,7 @@ const STATE_SET = new Set(COMMAND_CENTER_STATES);
 const ACTIVE_STATE_SET = new Set(COMMAND_CENTER_ACTIVE_STATES);
 const ATTENTION_STATE_SET = new Set(['warning', 'error']);
 const TRANSMISSION_STATE_SET = new Set(COMMAND_CENTER_TRANSMISSION_STATES);
+const TERMINAL_STATE_SET = new Set(['idle', 'complete', 'error']);
 
 function cleanText(value, maxLength = 220) {
   if (value === undefined || value === null) return '';
@@ -127,8 +128,8 @@ function computedExpiresAt(timestamp, ttlSeconds) {
   return new Date(timestampValue + ttlSeconds * 1000).toISOString();
 }
 
-function isFreshComplete(state, sortTime, now) {
-  if (state !== 'complete' || !sortTime) return false;
+function isFreshTerminal(state, sortTime, now) {
+  if (!['complete', 'error'].includes(state) || !sortTime) return false;
   const age = now - sortTime;
   return age >= 0 && age <= COMMAND_CENTER_COMPLETE_ACK_MS;
 }
@@ -136,7 +137,7 @@ function isFreshComplete(state, sortTime, now) {
 function displayStateFor({ state, stale, history, sortTime, now }) {
   if (history) return state;
   if (stale) return 'idle';
-  if (state === 'complete' && !isFreshComplete(state, sortTime, now)) return 'idle';
+  if (['complete', 'error'].includes(state) && !isFreshTerminal(state, sortTime, now)) return 'idle';
   return state;
 }
 
@@ -147,7 +148,7 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
   const expiresAt = isoDate(entry.expiresAt) || computedExpiresAt(timestamp, ttlSeconds);
   const expired = Boolean(expiresAt && timestampMs(expiresAt) <= now);
   const sortTime = timestampMs(timestamp) || timestampMs(entry.updatedAt) || timestampMs(entry.receivedAt);
-  const stale = expired || Boolean(entry.isStale);
+  const stale = !TERMINAL_STATE_SET.has(state) && (expired || Boolean(entry.isStale));
   const displayState = displayStateFor({ state, stale, history, sortTime, now });
   const context = normalizeContext(entry.context);
   const lastActivity = entry.lastActivity;
@@ -156,6 +157,16 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     context.station = areaIdForWorkflow(lastActivity);
   }
   const displayMachine = machineDisplay(machineForWorkflow(entry.workflow));
+  const agent = cleanToken(entry.agent, 'spawncamper9000');
+  const runId = /^[a-z0-9][a-z0-9._:-]*$/i.test(cleanText(entry.runId, 180)) ? cleanText(entry.runId, 180) : '';
+  const startedAt = isoDate(entry.startedAt);
+  const runKey = runId ? `${agent}:run:${runId}` : startedAt
+    ? `${agent}:started:${cleanToken(entry.workflow, 'unknown')}:${startedAt}` : '';
+  const freshness = TERMINAL_STATE_SET.has(state) ? 'not_applicable' : stale ? 'expired' : 'fresh';
+  const taskState = stale ? 'unknown' : state === 'complete' ? 'completed'
+    : state === 'error' ? 'failed' : state === 'idle' ? 'idle'
+      : state === 'waiting' ? 'waiting' : state === 'warning' ? 'needs_attention'
+        : ACTIVE_STATE_SET.has(state) ? 'running' : 'unknown';
   // `displayState`, not `state`: a stale or long-finished entry reads as idle, and
   // an idle entry names no activity, so it resolves back to its own machine rather
   // than pinning him to a workstation whose work ended hours ago.
@@ -171,17 +182,25 @@ function normalizeWorkflow(entry = {}, now = Date.now(), { history = false } = {
     eventOrder: cleanText(entry.eventOrder || entry.id, 180),
     lastActivity: lastActivity ? { workflow: cleanToken(lastActivity.workflow), state: normalizeState(lastActivity.state),
       timestamp: isoDate(lastActivity.timestamp), context: normalizeContext(lastActivity.context) } : null,
-    agent: cleanToken(entry.agent, 'spawncamper9000'),
+    agent,
+    runId: runId || null,
+    runKey,
     workflow: cleanToken(entry.workflow, 'unknown'),
     workflowLabel: cleanText(entry.workflowLabel, 96) || cleanText(entry.workflow, 80) || 'Unknown',
+    taskTitle: cleanText(entry.taskTitle, 140) || null,
     state,
     displayState,
     activity: cleanText(entry.activity, 220) || 'Awaiting heartbeat',
+    outcome: cleanText(entry.outcome, 500) || null,
     timestamp,
-    startedAt: isoDate(entry.startedAt),
+    startedAt,
     ttlSeconds,
     expiresAt,
     publicUrl: normalizeUrl(entry.publicUrl),
+    visibility: entry.visibility === 'diagnostic' ? 'diagnostic' : 'public',
+    freshness,
+    taskState,
+    lastKnownState: stale ? state : null,
     context,
     updatedAt: isoDate(entry.updatedAt || entry.receivedAt),
     receivedAt: isoDate(entry.receivedAt),
@@ -292,8 +311,8 @@ function validEntry(entry) {
 }
 
 export function activityKey(workflow) {
-  return workflow ? JSON.stringify([workflow.agent, workflow.workflow, workflow.startedAt,
-    workflow.displayState, workflow.areaId, workflow.activity, workflow.context?.target]) : '';
+  return workflow ? JSON.stringify([workflow.agent, workflow.workflow, workflow.runId, workflow.startedAt,
+    workflow.displayState, workflow.areaId, workflow.activity, workflow.outcome, workflow.context?.target]) : '';
 }
 const priority = (w) => !w?.isVisible ? 0 : w.isAttention ? 4 : w.isTransmission ? 3 : w.isActive ? 2 : 1;
 
