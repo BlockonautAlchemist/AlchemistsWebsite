@@ -33,6 +33,7 @@ import {
 import { COMMAND_CENTER_TIMINGS, visualForState } from './visualMappings.mjs';
 import { createLocomotion } from './locomotion.mjs';
 import { stationGeometry } from './stationGeometry.mjs';
+import { presentCommandCenterState } from './presentationModel.mjs';
 
 // Ground baselines sort machinery and the character. Shadows, wall fixtures,
 // effects and interface objects occupy explicit layers.
@@ -87,6 +88,11 @@ export class CommandCenterScene extends Phaser.Scene {
     this.phoneViewport = false;
     this.lastFocusAt = 0;
     this.focusZoneId = '';
+    this.opsReadoutTarget = '';
+    this.opsReadoutVisible = '';
+    this.opsReadoutTone = '';
+    this.opsCursorVisible = true;
+    this.opsTypingEvent = null;
   }
 
   hasArt(path) {
@@ -150,7 +156,10 @@ export class CommandCenterScene extends Phaser.Scene {
 
     this.startAmbient();
     this.applyAreaGroups([]);
-    this.setOpsReadout({ status: 'connecting', active: 0, stale: 0 });
+    this.setOpsReadout({
+      lines: ['> status unconfirmed', '> uplink connecting', '> opening public telemetry'],
+      tone: 'normal'
+    }, { immediate: true });
 
     this.bindVisibility();
 
@@ -641,8 +650,30 @@ export class CommandCenterScene extends Phaser.Scene {
     switch (spec.kind) {
       case 'ops-crt': {
         this.screenBase(object);
-        object.parts.lines = this.addMonoText(object, 6, 5, '', spec.color, 1, '9px');
-        this.addScanline(object, 12, spec.color, 0.16);
+        const content = this.add.container(0, 0);
+        const lines = this.add.text(6, 5, '', {
+          fontFamily: MONO, fontSize: '8px', color: hexColor(spec.color), lineSpacing: 2,
+          fixedWidth: spec.w - 12, fixedHeight: spec.h - 10, maxLines: 3
+        });
+        const scanline = this.add
+          .rectangle(2, 0, spec.w - 4, 10, spec.color, 0.14)
+          .setOrigin(0, 0);
+        content.add([lines, scanline]);
+        object.container.add(content);
+        object.parts.content = content;
+        object.parts.lines = lines;
+        object.parts.scanline = scanline;
+
+        if (!this.reducedMotion) {
+          this.opsCursorEvent = this.time.addEvent({
+            delay: 500,
+            loop: true,
+            callback: () => {
+              this.opsCursorVisible = !this.opsCursorVisible;
+              this.renderOpsReadout();
+            }
+          });
+        }
         break;
       }
       case 'crt-row': {
@@ -1455,11 +1486,13 @@ export class CommandCenterScene extends Phaser.Scene {
     const firstPaint = !this.latestState;
     this.latestState = state;
     const areaGroups = state.areaGroups || [];
+    const view = state.presentation || presentCommandCenterState(state, {
+      connection: this.connectionHealth || 'connected'
+    });
 
     this.applyAreaGroups(areaGroups);
-    this.connectionHealth = state.presentation?.connection || this.connectionHealth;
-    this.setOpsReadout({ connection: this.connectionHealth, taskState: state.presentation?.taskState,
-      active: state.presentation?.currentTaskCount ?? state.activeWorkflows.length });
+    this.connectionHealth = view.connection || this.connectionHealth;
+    this.setOpsReadout(view.crt);
     this.setTerminalReadout(state);
 
     const primary = state.primaryWorkflow;
@@ -1474,7 +1507,7 @@ export class CommandCenterScene extends Phaser.Scene {
       if (!this.pendingCamperZoneId) this.pendingCamperAnim = 'idle';
       this.moveCamperTo(area.destination, {
         immediate: firstPaint,
-        label: state.presentation?.characterLabel || `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
+        label: view.characterLabel || `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
       });
       this.focusZone(primary.areaId);
     } else {
@@ -1482,7 +1515,7 @@ export class CommandCenterScene extends Phaser.Scene {
       this.pendingCamperZoneId = '';
       this.moveCamperTo(COMMAND_CENTER_CANVAS.homePoint, {
         immediate: firstPaint,
-        label: state.presentation?.characterLabel || 'BETWEEN TASKS · OPS'
+        label: view.characterLabel || 'BETWEEN TASKS · OPS'
       });
     }
   }
@@ -1838,25 +1871,47 @@ export class CommandCenterScene extends Phaser.Scene {
   // Only real, already-sanitized strings ever reach a screen.
   // -------------------------------------------------------------------------
 
-  setOpsReadout({ status, connection, taskState, active = 0 }) {
+  renderOpsReadout() {
+    const component = this.componentObjects.get('anim_ops_screens');
+    if (!component?.parts?.lines) return;
+    component.parts.lines.setText(`${this.opsReadoutVisible}${this.opsCursorVisible ? '▌' : ' '}`);
+  }
+
+  setOpsReadout(readout = {}, { immediate = false } = {}) {
     const component = this.componentObjects.get('anim_ops_screens');
     if (!component?.parts?.lines) return;
 
-    const resolvedConnection = connection || (status === 'offline' ? 'disconnected' : status === 'connecting' ? 'connecting' : 'connected');
-    const connectionLabel = resolvedConnection === 'connected' ? 'CONNECTED' : resolvedConnection === 'disconnected' ? 'DISCONNECTED' : 'CONNECTING';
-    const taskLabel = ({ running: 'WORKING', waiting: 'WAITING', needs_attention: 'NEEDS ATTENTION',
-      completed: 'COMPLETED', failed: 'FAILED', idle: 'BETWEEN TASKS', unknown: 'STATUS UNKNOWN' })[taskState]
-      || (status === 'active' ? 'WORKING' : status === 'complete' ? 'COMPLETED' : status === 'error' ? 'FAILED' : 'BETWEEN TASKS');
-    const filled = resolvedConnection === 'connected' ? clamp(2 + active, 0, 8) : 0;
-    const meter = `${'▮'.repeat(filled)}${'▯'.repeat(8 - filled)}`;
+    const target = (readout.lines || []).slice(0, 3).map((line) => String(line).slice(0, 42)).join('\n');
+    const tone = readout.tone === 'attention' ? 'attention' : 'normal';
+    if (target === this.opsReadoutTarget && tone === this.opsReadoutTone) return;
 
-    component.parts.lines.setText([
-      `GA//OPS ▓▒░ ${connectionLabel}`,
-      `SPWNCMP9000 > ${taskLabel}`,
-      `CURRENT TASKS ${String(active).padStart(2, '0')}`,
-      `UPLINK ${meter}`
-    ].join('\n'));
-    component.parts.lines.setColor(hexColor(taskState === 'failed' || taskState === 'needs_attention' ? P.warn : P.phosphor));
+    this.opsTypingEvent?.remove();
+    this.opsTypingEvent = null;
+    this.opsReadoutTarget = target;
+    this.opsReadoutTone = tone;
+    this.opsCursorVisible = true;
+    component.parts.lines.setColor(hexColor(tone === 'attention' ? P.warn : P.phosphor));
+
+    if (immediate || this.reducedMotion || !target) {
+      this.opsReadoutVisible = target;
+      this.renderOpsReadout();
+      return;
+    }
+
+    const characters = [...target];
+    let index = 0;
+    this.opsReadoutVisible = '';
+    this.renderOpsReadout();
+    this.opsTypingEvent = this.time.addEvent({
+      delay: 12,
+      repeat: characters.length - 1,
+      callback: () => {
+        this.opsReadoutVisible += characters[index];
+        index += 1;
+        this.renderOpsReadout();
+        if (index === characters.length) this.opsTypingEvent = null;
+      }
+    });
   }
 
   setTerminalReadout(state) {

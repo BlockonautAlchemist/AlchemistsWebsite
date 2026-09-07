@@ -28,9 +28,15 @@ Effects change only when their resolved mode changes. Heartbeats preserve pulse 
 
 Each request has its own AbortController, 10-second timeout and generation. Superseded requests cannot publish, change backoff or schedule more polling. Malformed successful envelopes and older snapshots are rejected. Invalid workflow entries are ignored rather than turned into warning activity. The last valid state survives connection failures until its TTL or completion deadline expires.
 
-A separate 250ms clock recalculates TTL and the 30-second completion acknowledgement using server-aligned time. Cached responses never rewind this clock. Visibility restoration recalculates immediately and refreshes telemetry. Stop/destroy remove timers and visibility listeners. Connection health is separate from workflow activity and is shown in the facility bar, the Ops readout and accessible content.
+A separate 250ms clock recalculates TTL and the 30-second completion acknowledgement using server-aligned time. Cached responses never rewind this clock. Visibility restoration recalculates immediately and refreshes telemetry. Stop/destroy remove timers and visibility listeners. Connection health is separate from workflow activity and is shown in the facility bar, the summary facts and accessible content.
 
 Focus is stable through heartbeat-only changes. Higher-priority activity preempts immediately; meaningful equal-priority activity changes can change focus. Ties are deterministic. Station resolution is a valid explicit `context.station`, then the canonical workflow's owning station, then Central Operations. Lifecycle states control truthful status and animation but never redirect canonical workflow ownership.
+
+## Live presentation
+
+The summary above the room is the factual live feed. It selects the foreground run by stable `runId`, or exact workflow and `startedAt` for compatible older events, then merges the polled 30-event public history window with the already-loaded Recent Work details. Consecutive identical state/activity heartbeats collapse, only the newest six facts render, and a run without stable identity falls back to its current snapshot rather than borrowing events from another run. Completion and failure retain their final facts during the existing acknowledgement window before returning to the truthful between-tasks state.
+
+The Central Operations wall CRT is a separate Phaser-native commentary surface. It uses deterministic allowlisted phrases selected from sanitized workflow state and activity categories; it does not display raw reasoning, invent findings, or call a generative model. Meaningful changes type onto the clipped screen, heartbeat-equivalent text keeps its animation phase, and reduced motion renders immediately with a static cursor. The external summary and polite live region remain the accessible source of the factual status.
 
 ## Persistence
 

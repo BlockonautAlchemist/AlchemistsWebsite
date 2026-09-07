@@ -51,9 +51,11 @@
 
       <section class="cc-summary" aria-labelledby="cc-summary-title">
         <div class="cc-summary__lead">
-          <p class="cc-kicker mono" id="cc-summary-title">Current public status</p>
+          <p class="cc-kicker mono" id="cc-summary-title">Live public activity</p>
+          <p class="cc-summary__workflow" id="cc-feed-workflow" hidden></p>
+          <p class="cc-summary__state mono" id="cc-feed-state">STATUS UNKNOWN</p>
+          <ol class="cc-summary__feed" id="cc-activity-feed" hidden></ol>
           <p class="cc-summary__narration" id="cc-status-copy">Current activity cannot be confirmed.</p>
-          <p class="cc-summary__step mono" id="cc-current-step" hidden></p>
         </div>
         <dl class="cc-summary__facts">
           <div><dt>Connection</dt><dd id="cc-status" data-state="connecting">Connecting</dd></div>
@@ -71,11 +73,6 @@
         <div class="cc-world__body">
           <div class="cc-world__frame" id="cc-frame">
             <div class="cc-canvas" id="cc-canvas" role="img" aria-label="SpawnCamper9000 command center facility floor"></div>
-            <section class="cc-crt" id="cc-crt" aria-label="SpawnCamper9000 narration">
-              <p class="cc-crt__heading mono" id="cc-crt-heading">Status unknown</p>
-              <p class="cc-crt__summary" id="cc-crt-summary">Current activity cannot be confirmed.</p>
-              <p class="cc-crt__detail mono" id="cc-crt-detail"></p><time class="cc-crt__time mono" id="cc-crt-time"></time>
-            </section>
           </div>
           <aside class="cc-hud" id="cc-hud" aria-labelledby="cc-hud-title" hidden tabindex="-1">
             <div class="cc-hud__head"><div><span class="mono" id="cc-hud-eyebrow">Machine guide</span><h2 class="mono" id="cc-hud-title" tabindex="-1">Central Operations</h2></div><button class="cc-hud__close mono" id="cc-hud-close" type="button" aria-label="Close machine details">Close</button></div>

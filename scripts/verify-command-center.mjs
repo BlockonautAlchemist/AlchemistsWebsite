@@ -54,13 +54,20 @@ async function pageFor({ failedAssets = [], historyMode = 'normal', ...options }
 }
 const get = page => page.evaluate(() => {
   const s = window.__ccTest.game.scene.scenes[0], c = document.querySelector('canvas').getBoundingClientRect();
+  const crt = s.componentObjects.get('anim_ops_screens');
   return { position: { x: s.camperRig.x, y: s.camperRig.y }, move: s.locomotion.state,
     animation: s.camperBody.anims.currentAnim?.key, attendance: s.camperStationZoneId,
-    fetchedAt: s.latestState?.fetchedAt, error: window.__lastTelemetryError, primary: s.latestState?.primaryWorkflow?.areaId, health: document.querySelector('#cc-status-copy').textContent,
+    fetchedAt: s.latestState?.fetchedAt, error: window.__lastTelemetryError, primary: s.latestState?.primaryWorkflow?.areaId,
+    crt: { target: s.opsReadoutTarget, visible: s.opsReadoutVisible, typing: Boolean(s.opsTypingEvent),
+      cursorTimer: Boolean(s.opsCursorEvent), masked: crt?.parts?.lines?.style?.fixedWidth === crt?.spec?.w - 12 },
+    feed: [...document.querySelectorAll('#cc-activity-feed li span')].map((node) => node.textContent),
     canvas: { width: c.width, height: c.height }, logical: { width: s.scale.width, height: s.scale.height },
     machines: [...s.propArtByZone].map(([id, entries]) => [id, entries.some(({ object }) => object.anims.isPlaying)]) };
 });
-const refresh = async (page, next) => { fixture = next; await page.evaluate(() => window.__ccTest.client.refresh());
+const refresh = async (page, next) => {
+  const currentTime = Date.parse((await get(page)).fetchedAt) || 0;
+  if (Date.parse(next.fetchedAt) <= currentTime) next.fetchedAt = new Date(currentTime + 1).toISOString();
+  fixture = next; await page.evaluate(() => window.__ccTest.client.refresh());
   if (next.workflows[0] && (await get(page)).primary !== next.workflows[0].context.station) console.log('REFRESH MISMATCH', next, await get(page));
 };
 const settle = page => page.waitForFunction(() => !window.__ccTest.game.scene.scenes[0].locomotion.state.moving, {}, { timeout: 15000 });
@@ -72,14 +79,63 @@ try {
   await refresh(page, state('scanner-bench')); await page.waitForTimeout(100);
   let at = await get(page); assert.match(at.animation, /camper_walk_/); assert.equal(at.attendance, '');
   const generation = at.move.generation;
-  const crtBefore = await page.locator('#cc-crt').innerText();
+  await page.waitForFunction(() => {
+    const scene = window.__ccTest.game.scene.scenes[0];
+    return scene.opsReadoutVisible === scene.opsReadoutTarget && !scene.opsTypingEvent;
+  });
+  const beforeHeartbeat = await get(page);
   await refresh(page, state('scanner-bench', 'coding', 'heartbeat'));
   assert.equal((await get(page)).move.generation, generation);
-  assert.equal(await page.locator('#cc-crt').innerText(), crtBefore);
+  const afterHeartbeat = await get(page);
+  assert.equal(afterHeartbeat.crt.target, beforeHeartbeat.crt.target);
+  assert.equal(afterHeartbeat.crt.visible, beforeHeartbeat.crt.visible);
+  assert.equal(afterHeartbeat.crt.typing, false);
+  assert.equal(afterHeartbeat.crt.masked, true);
+  assert.equal(await page.locator('#cc-crt').count(), 0);
   await settle(page); at = await get(page);
   assert.equal(at.animation, 'camper_operate_back'); assert.equal(at.attendance, 'scanner-bench');
   assert.ok(at.machines.find(([id]) => id === 'scanner-bench')[1]);
-  results.push('rendered walking arrival and duplicate heartbeat');
+  results.push('rendered walking arrival, masked Phaser CRT and duplicate heartbeat');
+
+  const liveFeedFixture = state('opportunity-radar', 'researching', 'live-feed');
+  const liveWorkflow = liveFeedFixture.workflows[0];
+  liveWorkflow.workflow = 'opportunity-scout';
+  liveWorkflow.workflowLabel = 'AI Opportunity Scout';
+  liveWorkflow.taskTitle = 'AI Opportunity Scout';
+  const activities = [
+    'Starting AI Opportunity Scout',
+    'Loading the scout brief',
+    'Searching: AI game development tools new release 2026 September',
+    'Searching: AI game development tools new release 2026 September',
+    'Searching: autonomous NPC AI persistent memory games 2026',
+    'Searching: GitHub trending game AI-assisted coding',
+    'Opening public source pages',
+    'Reading github.com'
+  ];
+  liveFeedFixture.recentHistory = activities.map((activity, index) => ({
+    ...liveWorkflow,
+    eventId: `live-feed-${index}`,
+    activity,
+    timestamp: new Date(Date.now() - (activities.length - index) * 1000).toISOString()
+  }));
+  Object.assign(liveWorkflow, liveFeedFixture.recentHistory.at(-1));
+  await refresh(page, liveFeedFixture);
+  await page.waitForFunction(() => document.querySelectorAll('#cc-activity-feed li').length === 6);
+  assert.equal(await page.locator('#cc-feed-workflow').textContent(), 'AI OPPORTUNITY SCOUT');
+  assert.equal(await page.locator('#cc-feed-state').textContent(), 'RESEARCHING');
+  const feed = (await get(page)).feed;
+  assert.equal(feed[0], 'Loading the scout brief');
+  assert.equal(feed.at(-1), 'Reading github.com');
+  assert.equal(feed.filter((activity) => activity.startsWith('Searching: AI game development')).length, 1);
+  await page.screenshot({ path: `${evidence}/live-activity-feed.png`, fullPage: false });
+  await page.waitForFunction(() => {
+    const scene = window.__ccTest.game.scene.scenes[0];
+    return scene.opsReadoutVisible === scene.opsReadoutTarget && !scene.opsTypingEvent;
+  });
+  await page.locator('#cc-frame').screenshot({ path: `${evidence}/live-activity-crt.png` });
+  results.push('live current-run activity feed, six-event rollup and heartbeat compaction');
+  await refresh(page, state('scanner-bench'));
+  await settle(page);
   for (const mode of ['waiting', 'complete', 'warning', 'error']) {
     await refresh(page, state('scanner-bench', mode)); at = await get(page);
     assert.equal(at.animation, 'camper_idle'); assert.ok(at.machines.every(([, playing]) => !playing)); assert.equal(at.attendance, '');
@@ -207,6 +263,7 @@ try {
   const reduced = await pageFor({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 }, hasTouch: true });
   await refresh(reduced, state('github-code')); at = await get(reduced);
   assert.deepEqual(at.position, { x: 132, y: 468 }); assert.equal(at.move.moving, false);
+  assert.equal(at.crt.visible, at.crt.target); assert.equal(at.crt.typing, false); assert.equal(at.crt.cursorTimer, false);
   assert.ok(at.machines.every(([, playing]) => !playing)); results.push('reduced motion restoration and relocation');
   const mobileButton = reduced.locator('[data-machine-id="repo-forge"]');
   await mobileButton.tap();

@@ -40,6 +40,74 @@ test('presentation separates connection, current task state, and truthful narrat
   assert.equal(presentCommandCenterState(state([entry()]), { connection: 'live' }).taskState, 'running');
 });
 
+test('live activity feed stays on the current run, rolls to six facts and deduplicates heartbeats', () => {
+  const runEvents = Array.from({ length: 8 }, (_, index) => entry({
+    id: `run-1-${index}`, eventId: `run-1-${index}`, activity: `Transition ${index}`,
+    timestamp: new Date(now - (8 - index) * 1000).toISOString()
+  }));
+  const otherRun = entry({
+    id: 'other-run', eventId: 'other-run', runId: 'run-2', workflow: 'github',
+    activity: 'Unrelated repository task', timestamp: new Date(now - 500).toISOString()
+  });
+  const normalized = state([runEvents.at(-1)], [...runEvents, otherRun]);
+  let view = presentCommandCenterState(normalized, { connection: 'connected' });
+  assert.equal(view.liveFeed.workflowLabel, 'REVIEW TODAY’S AI NEWS');
+  assert.equal(view.liveFeed.stateLabel, 'RESEARCHING');
+  assert.deepEqual(view.liveFeed.events.map((event) => event.activity), [
+    'Transition 2', 'Transition 3', 'Transition 4', 'Transition 5', 'Transition 6', 'Transition 7'
+  ]);
+  assert.equal(view.liveFeed.events.some((event) => event.activity.includes('Unrelated')), false);
+
+  const first = entry({ id: 'fact-a', eventId: 'fact-a', activity: 'Loading the scout brief', timestamp: new Date(now - 3000).toISOString() });
+  const search = entry({ id: 'fact-b', eventId: 'fact-b', activity: 'Searching: AI game development tools', timestamp: new Date(now - 2000).toISOString() });
+  view = presentCommandCenterState(state([search], [first, search]), { connection: 'connected' });
+  const originalSignature = view.liveFeed.signature;
+  const heartbeat = entry({ ...search, id: 'fact-c', eventId: 'fact-c', timestamp: new Date(now - 1000).toISOString() });
+  view = presentCommandCenterState(state([heartbeat], [first, search, heartbeat]), { connection: 'connected' });
+  assert.deepEqual(view.liveFeed.events.map((event) => event.activity), ['Loading the scout brief', 'Searching: AI game development tools']);
+  assert.equal(view.liveFeed.signature, originalSignature);
+});
+
+test('live activity feed uses Recent Work as backfill and fails closed without stable run identity', () => {
+  const current = entry({ id: 'current', eventId: 'current', activity: 'Reading github.com' });
+  const historyRuns = [{
+    agent: current.agent, workflow: current.workflow, runId: current.runId, startedAt: current.startedAt,
+    events: [entry({ id: 'older', eventId: 'older', activity: 'Starting AI Opportunity Scout', timestamp: new Date(now - 4000).toISOString() })]
+  }];
+  let view = presentCommandCenterState(state([current], [current]), { connection: 'connected', historyRuns });
+  assert.deepEqual(view.liveFeed.events.map((event) => event.activity), ['Starting AI Opportunity Scout', 'Reading github.com']);
+
+  const legacy = entry({ id: 'legacy', eventId: null, runId: null, startedAt: null, activity: 'Current legacy activity' });
+  const older = entry({ id: 'older-legacy', eventId: null, runId: null, startedAt: null, activity: 'Possibly another run' });
+  view = presentCommandCenterState(state([legacy], [older, legacy]), { connection: 'connected' });
+  assert.deepEqual(view.liveFeed.events.map((event) => event.activity), ['Current legacy activity']);
+});
+
+test('CRT commentary is deterministic, compact and never repeats unverified activity claims', () => {
+  const idle = presentCommandCenterState(state(), { connection: 'connected' });
+  assert.deepEqual(idle.crt.lines, ['> standing by', '> uplink connected', '> waiting for the next job']);
+
+  const searching = entry({ activity: 'Searching: confirmed best secret autonomous NPC memory finding' });
+  const first = presentCommandCenterState(state([searching]), { connection: 'connected' });
+  const heartbeat = entry({ ...searching, id: 'heartbeat', eventId: 'heartbeat', timestamp: new Date(now - 500).toISOString() });
+  const second = presentCommandCenterState(state([heartbeat]), { connection: 'connected' });
+  assert.deepEqual(second.crt, first.crt);
+  assert.doesNotMatch(first.crt.lines.join(' '), /confirmed|best|secret|autonomous|NPC|memory|finding/i);
+  assert.ok(first.crt.lines.every((line) => line.startsWith('> ') && line.length <= 42));
+
+  for (const task of [
+    entry({ state: 'browsing', activity: 'Reading github.com' }),
+    entry({ state: 'writing', activity: 'Writing a public summary' }),
+    entry({ state: 'waiting', activity: 'Waiting for source confirmation' }),
+    entry({ state: 'complete', activity: 'Finished AI Opportunity Scout' }),
+    entry({ state: 'error', activity: 'Run stopped' })
+  ]) {
+    const crt = presentCommandCenterState(state([task]), { connection: 'connected' }).crt;
+    assert.ok(crt.lines.length >= 2 && crt.lines.length <= 3);
+    assert.ok(crt.lines.every((line) => line.length <= 42));
+  }
+});
+
 test('terminal facts endure while animation acknowledgement and expired current work settle', () => {
   const oldComplete = state([entry({ state: 'complete', timestamp: new Date(now - 3600000).toISOString(), expiresAt: new Date(now - 3599000).toISOString(), outcome: 'Three findings recorded' })]);
   assert.equal(oldComplete.workflows[0].taskState, 'completed');

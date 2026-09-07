@@ -1229,6 +1229,10 @@ test('command center page is wired as a public read-only route', () => {
   assert.match(html, /data-readonly="true"/);
   assert.match(html, /id="cc-area-body"/);
   assert.match(html, /id="cc-recent-list"/);
+  assert.match(html, /id="cc-activity-feed"/);
+  assert.match(html, /id="cc-feed-state"/);
+  assert.doesNotMatch(html, /id="cc-crt"/);
+  assert.doesNotMatch(styles, /\.cc-crt\b/);
   assert.match(html, /src="command-center\.js"/);
   assert.doesNotMatch(html, /method="post"/i);
   assert.doesNotMatch(html, /cc-ops|cc-workflow-list|cc-refresh|Refresh command center state/i);
@@ -2616,7 +2620,8 @@ test('the Ops Console art retires its whitebox desk but never the GA//OPS wall d
   assert.equal(replacedComponentKeys(live).has('anim_ops_screens'), false);
   const scene = fs.readFileSync(`${__dirname}/../src/command-center/CommandCenterScene.mjs`, 'utf8');
   assert.match(scene, /this\.componentObjects\.get\('anim_ops_screens'\)/);
-  assert.match(scene, /GA\/\/OPS/);
+  assert.match(scene, /renderOpsReadout/);
+  assert.match(scene, /fixedWidth: spec\.w - 12, fixedHeight: spec\.h - 10, maxLines: 3/);
 
   // The console art clears the wall display's bottom edge rather than crowding
   // it: the box bottom is y108 and the art's top row lands at y112.

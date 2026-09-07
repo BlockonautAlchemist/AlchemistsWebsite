@@ -49,10 +49,10 @@ async function initCommandCenter() {
 
   const refs = Object.fromEntries([
     'cc-hud-eyebrow', 'cc-hud-title', 'cc-hud-purpose', 'cc-hud-rows', 'cc-hud-runs', 'cc-hud-close',
-    'cc-status', 'cc-status-copy', 'cc-task-state', 'cc-current-step', 'cc-updated-at',
+    'cc-status', 'cc-status-copy', 'cc-task-state', 'cc-updated-at', 'cc-feed-workflow',
+    'cc-feed-state', 'cc-activity-feed',
     'cc-active-count', 'cc-stale-count', 'cc-latest-complete', 'cc-connection', 'cc-live-status',
-    'cc-crt-heading', 'cc-crt-summary', 'cc-crt-detail', 'cc-crt-time', 'cc-strip-state',
-    'cc-strip-caption', 'cc-strip-progress', 'cc-strip-unattended', 'cc-directory-grid',
+    'cc-strip-state', 'cc-strip-caption', 'cc-strip-progress', 'cc-strip-unattended', 'cc-directory-grid',
     'cc-history-machine', 'cc-history-status', 'cc-history-message', 'cc-recent-list',
     'cc-load-earlier', 'cc-new-work'
   ].map((id) => [id.replace(/^cc-/, '').replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), byId(id)]));
@@ -67,7 +67,7 @@ async function initCommandCenter() {
   let selectedAreaId = '';
   let selectedKind = '';
   let returnFocus = null;
-  let narrationSignature = '';
+  let feedSignature = '';
   let liveSignature = '';
   let layoutFrame = 0;
   let boundsFrame = 0;
@@ -274,14 +274,11 @@ async function initCommandCenter() {
 
   function renderPresentation() {
     if (!latestState) return;
-    presentation = presentCommandCenterState(latestState, { connection: connectionStatus });
+    presentation = presentCommandCenterState(latestState, { connection: connectionStatus, historyRuns: history.runs });
     latestState.presentation = presentation;
     refs.status.textContent = presentation.connectionLabel;
     refs.status.dataset.state = presentation.connection;
-    refs.statusCopy.textContent = presentation.narration;
     refs.taskState.textContent = presentation.taskLabel;
-    refs.currentStep.textContent = presentation.step;
-    refs.currentStep.hidden = !presentation.step;
     refs.updatedAt.textContent = shortTime(presentation.timestamp);
     refs.updatedAt.dateTime = Number.isFinite(parsedTime(presentation.timestamp)) ? new Date(presentation.timestamp).toISOString() : '';
     refs.updatedAt.title = absoluteTime(presentation.timestamp);
@@ -294,17 +291,25 @@ async function initCommandCenter() {
     canvasHost.setAttribute('aria-label', `SpawnCamper9000 facility. ${presentation.connectionLabel}. ${presentation.taskLabel}. ${presentation.currentTaskCount} current public tasks.`);
     renderStrip();
 
-    if (presentation.meaningfulSignature !== narrationSignature) {
-      narrationSignature = presentation.meaningfulSignature;
-      refs.crtHeading.textContent = presentation.taskLabel;
-      refs.crtSummary.textContent = presentation.narration;
-      refs.crtDetail.textContent = presentation.step;
-      refs.crtDetail.hidden = !presentation.step;
-      refs.crtTime.textContent = shortTime(presentation.timestamp);
-      refs.crtTime.dateTime = refs.updatedAt.dateTime;
-      refs.crtTime.title = refs.updatedAt.title;
+    const feed = presentation.liveFeed;
+    refs.feedWorkflow.textContent = feed.workflowLabel;
+    refs.feedWorkflow.hidden = !feed.workflowLabel;
+    refs.feedState.textContent = feed.stateLabel;
+    refs.statusCopy.textContent = feed.message;
+    refs.statusCopy.hidden = !feed.message;
+    refs.activityFeed.hidden = feed.events.length === 0;
+    if (feed.signature !== feedSignature) {
+      feedSignature = feed.signature;
+      refs.activityFeed.replaceChildren(...feed.events.map((event) => {
+        const item = el('li');
+        const activity = el('span', '', event.activity);
+        activity.title = event.activity;
+        item.append(activity);
+        return item;
+      }));
     }
-    const nextLive = `${presentation.connectionLabel}. ${presentation.taskLabel}. ${presentation.narration} ${presentation.step}`.trim();
+    const newestActivity = feed.events.at(-1)?.activity || feed.message;
+    const nextLive = `${presentation.connectionLabel}. ${feed.stateLabel}. ${newestActivity}`.trim();
     if (nextLive !== liveSignature) { liveSignature = nextLive; refs.liveStatus.textContent = nextLive; }
     scene?.updatePublicState(latestState);
     if (!hud.hidden && selectedAreaId) openZonePanel(areaById(selectedAreaId), latestState.areaGroups?.find((group) => group.id === selectedAreaId)?.workflows || []);
