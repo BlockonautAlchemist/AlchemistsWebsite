@@ -22,11 +22,13 @@ try {
   await pool.query(`INSERT INTO command_center_events
     (event_id,agent,workflow,workflow_label,state,activity,event_timestamp,ttl_seconds,expires_at)
     VALUES ('replay-old:complete','spawncamper9000','fixture','Fixture','complete','Synthetic result',$1,900,$2),
+      ('real-baseline-old:scanning','spawncamper9000','verification-scanner','Verification Scanner','scanning','Synthetic scan',$1,900,$2),
       ('producer-old','spawncamper9000','github','GitHub','complete','Repository finding',$1,900,$2)`,
     [seedTime, new Date(Date.parse(seedTime) + 900000).toISOString()]);
   await pool.query(fs.readFileSync('migrations/20260906000000_command_center_public_runs.sql','utf8'));
-  assert.equal((await pool.query('SELECT count(*)::int n FROM command_center_events')).rows[0].n,2);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM command_center_events')).rows[0].n,3);
   assert.equal((await pool.query("SELECT visibility FROM command_center_events WHERE event_id='replay-old:complete'")).rows[0].visibility,'diagnostic');
+  assert.equal((await pool.query("SELECT visibility FROM command_center_events WHERE event_id='real-baseline-old:scanning'")).rows[0].visibility,'diagnostic');
   assert.equal((await pool.query("SELECT count(*)::int n FROM command_center_workflow_state WHERE workflow='fixture'")).rows[0].n,0);
   assert.equal((await pool.query("SELECT count(*)::int n FROM command_center_workflow_state WHERE workflow='github'")).rows[0].n,1);checks++;
   _setSqlForTests(async (strings,...values) => (await pool.query(strings.reduce((q,s,i)=>q+(i?`$${i}`:'')+s,''),values)).rows);

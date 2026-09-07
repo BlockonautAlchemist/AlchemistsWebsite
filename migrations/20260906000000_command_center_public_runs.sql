@@ -47,7 +47,13 @@ SET visibility = 'diagnostic'
 WHERE visibility = 'public'
   AND (
     event_id LIKE 'replay-%'
+    OR event_id LIKE 'real-baseline-%'
     OR event_id LIKE 'real-cleanup-%'
+    OR event_id LIKE 'real-replay-%'
+    OR event_id LIKE 'real-supplement-%'
+    OR event_id LIKE 'verify-%'
+    OR event_id LIKE 'supplement-%'
+    OR event_id LIKE 'codex-env-check-%'
     OR workflow = 'fixture'
   );
 

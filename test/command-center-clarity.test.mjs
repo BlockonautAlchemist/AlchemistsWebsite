@@ -145,8 +145,14 @@ test('canonical workflow labels override producer display copy in current state 
 
 test('additive migration classifies diagnostics and rebuilds public latest state without deleting events', () => {
   const sql = fs.readFileSync(new URL('../migrations/20260906000000_command_center_public_runs.sql', import.meta.url), 'utf8');
+  const cleanupSql = fs.readFileSync(new URL('../migrations/20260907000000_command_center_diagnostic_cleanup.sql', import.meta.url), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS run_id/);
   assert.match(sql, /workflow = 'fixture'/);
+  assert.match(sql, /event_id LIKE 'real-baseline-%'/);
+  assert.match(sql, /event_id LIKE 'verify-%'/);
   assert.match(sql, /DELETE FROM command_center_workflow_state/);
   assert.doesNotMatch(sql, /DELETE FROM command_center_events/);
+  assert.match(cleanupSql, /event_id LIKE 'supplement-%'/);
+  assert.match(cleanupSql, /DELETE FROM command_center_workflow_state/);
+  assert.doesNotMatch(cleanupSql, /DELETE FROM command_center_events/);
 });

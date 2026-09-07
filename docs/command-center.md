@@ -46,7 +46,7 @@ Manifest requests time out after five seconds; individual assets have bounded lo
 
 ## Data Model
 
-Migrations: `migrations/20260820000000_create_command_center.sql` and additive `migrations/20260906000000_command_center_public_runs.sql`.
+Migrations: `migrations/20260820000000_create_command_center.sql`, additive `migrations/20260906000000_command_center_public_runs.sql`, and corrective `migrations/20260907000000_command_center_diagnostic_cleanup.sql`.
 
 Tables:
 
@@ -54,6 +54,21 @@ Tables:
 - `command_center_workflow_state`: latest state per `agent + workflow`.
 
 The storage layer uses `DATABASE_URL` with the existing Neon serverless pattern. `/api/terminal/signals` is unchanged and independent.
+
+### Migration-first deployment
+
+Command Center schema changes must be applied to the target database before deploying code that consumes them. Pull the intended Vercel environment into a temporary file so local overrides in `.env.local` are not replaced, inspect the target, then apply explicitly:
+
+```bash
+production_env=$(mktemp)
+./node_modules/.bin/vc env pull "$production_env" --environment=production --yes
+node --env-file="$production_env" scripts/command-center-schema.mjs migrate
+node --env-file="$production_env" scripts/command-center-schema.mjs migrate --apply
+node --env-file="$production_env" scripts/command-center-schema.mjs check
+rm -f "$production_env"
+```
+
+The migration command requires `--apply`, runs in one transaction under an advisory lock, and refuses to commit if event rows are lost or latest public state is inconsistent. Vercel runs the read-only schema check before every deployment build and fails with the required migration path when its target database is incompatible. It never applies migrations during a build. Plain `npm run build` remains database-independent for local asset work.
 
 `src/command-center/workflowCatalog.json` is the shared server/browser source of truth:
 
@@ -161,6 +176,7 @@ SpawnCamper9000 focuses on one workflow using this deterministic priority:
 npm test
 npm run build
 npm run command-center:measure
+npm run command-center:schema:check
 
 # Start the local Vite page in another terminal.
 npm run dev

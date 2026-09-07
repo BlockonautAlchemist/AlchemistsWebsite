@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
   "devCommand": "vite --host 127.0.0.1 --port $PORT",
   "outputDirectory": "dist",
   "rewrites": [
