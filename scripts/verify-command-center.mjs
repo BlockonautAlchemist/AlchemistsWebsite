@@ -13,7 +13,8 @@ const state = (station, mode = 'coding', suffix = '') => ({ success: true, fetch
   runId: `run-${station}`, taskTitle: `Inspect ${station}`, state: mode, activity: `Inspect ${station}`, timestamp: new Date().toISOString(),
   startedAt: '2026-09-05T00:00:00Z', ttlSeconds: 900, context: { station }, outcome: mode === 'complete' ? 'Inspection complete' : null
 }] : [], recentHistory: [] });
-let fixture = state(null), offline = false;
+let fixture = state(null), offline = false, newsletterMode = 'success', releaseNewsletter = null;
+const newsletterRequests = [];
 const runFixture = (index, taskState = index % 3 === 0 ? 'failed' : 'completed') => {
   const timestamp = new Date(Date.now() - index * 60000).toISOString();
   return { id: `history-${index}`, runId: `history-run-${index}`, agent: 'spawncamper9000',
@@ -41,6 +42,19 @@ async function pageFor({ failedAssets = [], historyMode = 'normal', ...options }
     if (historyMode === 'empty') return route.fulfill({ json: { success: true, fetchedAt: new Date().toISOString(), runs: [], nextCursor: null } });
     return route.fulfill({ json: { success: true, fetchedAt: new Date().toISOString(),
       runs: earlier ? allRuns.slice(8) : allRuns.slice(0, 8), nextCursor: earlier ? null : 'fixture-cursor' } });
+  });
+  await page.route('**/api/newsletter/subscribe', async route => {
+    newsletterRequests.push(route.request().postDataJSON());
+    if (newsletterMode === 'loading') await new Promise(resolve => { releaseNewsletter = resolve; });
+    if (newsletterMode === 'error') {
+      await route.fulfill({ status: 503, json: {
+        ok: false,
+        error: 'Newsletter signup is temporarily unavailable.',
+        fallbackUrl: 'https://spawncamper9000.beehiiv.com/?modal=signup'
+      } });
+      return;
+    }
+    await route.fulfill({ json: { ok: true, status: 'subscribed' } });
   });
   // Instrument only the intercepted local script response; no production hook.
   await page.route('**/command-center.js*', async route => {
@@ -186,6 +200,48 @@ try {
   assert.notEqual(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), 'none');
   results.push('machine directory keyboard activation and focus restoration');
 
+  const newsletterInput = page.locator('#cc-newsletter-email');
+  const newsletterSubmit = page.locator('#cc-newsletter-submit');
+  const newsletterStatus = page.locator('#cc-newsletter-status');
+  const requestsBeforeValidation = newsletterRequests.length;
+  await newsletterInput.fill('not-an-email');
+  await newsletterSubmit.click();
+  assert.match(await newsletterStatus.textContent(), /enter a valid email address/i);
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'cc-newsletter-email');
+  assert.equal(newsletterRequests.length, requestsBeforeValidation);
+
+  newsletterMode = 'loading';
+  await newsletterInput.fill('reader@example.com');
+  await page.locator('#cc-newsletter-form').evaluate(form => form.requestSubmit());
+  await page.waitForFunction(() => document.querySelector('#cc-newsletter-submit')?.disabled);
+  await page.locator('#cc-newsletter-form').evaluate(form => form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true })));
+  await page.waitForTimeout(30);
+  assert.equal(newsletterRequests.length, requestsBeforeValidation + 1);
+  assert.match(await newsletterStatus.textContent(), /opening deeper intel route/i);
+  releaseNewsletter();
+  await page.waitForFunction(() => document.querySelector('#cc-newsletter-status')?.dataset.state === 'success');
+  assert.deepEqual(newsletterRequests.at(-1), { email: 'reader@example.com' });
+  assert.equal(await newsletterInput.inputValue(), '');
+  assert.equal(await newsletterSubmit.isEnabled(), true);
+
+  newsletterMode = 'error';
+  await newsletterInput.fill('reader@example.com');
+  await newsletterSubmit.click();
+  await page.waitForFunction(() => document.querySelector('#cc-newsletter-status')?.dataset.state === 'error');
+  assert.equal(await page.locator('#cc-newsletter-fallback').isVisible(), true);
+  assert.equal(await page.locator('#cc-newsletter-fallback').getAttribute('href'), 'https://spawncamper9000.beehiiv.com/?modal=signup');
+  newsletterMode = 'success';
+  results.push('newsletter validation, loading lock, success reset and hosted fallback');
+  await page.evaluate(() => {
+    const panel = document.querySelector('#cc-newsletter');
+    const status = document.querySelector('#cc-newsletter-status');
+    const fallback = document.querySelector('#cc-newsletter-fallback');
+    document.querySelector('#cc-newsletter-form')?.reset();
+    if (panel) panel.dataset.state = 'idle';
+    if (status) { status.hidden = true; status.textContent = ''; status.dataset.state = 'idle'; }
+    if (fallback) fallback.hidden = true;
+  });
+
   await page.locator('#cc-recent-list details').first().locator('summary').click();
   assert.match(await page.locator('#cc-recent-list details').first().innerText(), /Event 0/);
   await page.locator('#cc-history-status').selectOption('completed');
@@ -202,6 +258,31 @@ try {
   for (const [width, height] of [[1280,720],[1440,900],[1920,1080],[3440,1440],[850,900],[390,844]]) {
     await page.setViewportSize({ width, height }); await page.waitForTimeout(180);
     aspect(await get(page), `${width}x${height}`);
+    const newsletterLayout = await page.evaluate(() => {
+      const directory = document.querySelector('#cc-machine-directory').getBoundingClientRect();
+      const newsletter = document.querySelector('#cc-newsletter').getBoundingClientRect();
+      const history = document.querySelector('#cc-recent-work').getBoundingClientRect();
+      const content = document.querySelector('.cc-newsletter__content').getBoundingClientRect();
+      const uplink = document.querySelector('.cc-newsletter__uplink').getBoundingClientRect();
+      const field = document.querySelector('.cc-newsletter__field').getBoundingClientRect();
+      const submit = document.querySelector('.cc-newsletter__submit').getBoundingClientRect();
+      return {
+        order: [directory.bottom, newsletter.top, newsletter.bottom, history.top],
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        columns: content.right <= uplink.left + 1,
+        stackedPanel: uplink.top >= content.bottom - 1,
+        stackedControls: submit.top >= field.bottom - 1,
+        fieldHeight: field.height,
+        submitHeight: submit.height
+      };
+    });
+    assert.ok(newsletterLayout.order[0] <= newsletterLayout.order[1] + 1, JSON.stringify(newsletterLayout));
+    assert.ok(newsletterLayout.order[2] <= newsletterLayout.order[3] + 1, JSON.stringify(newsletterLayout));
+    assert.ok(newsletterLayout.overflow <= 0, JSON.stringify(newsletterLayout));
+    assert.ok(newsletterLayout.fieldHeight >= 44 && newsletterLayout.submitHeight >= 44, JSON.stringify(newsletterLayout));
+    if (width > 760) assert.equal(newsletterLayout.columns, true, JSON.stringify(newsletterLayout));
+    if (width <= 760) assert.equal(newsletterLayout.stackedPanel, true, JSON.stringify(newsletterLayout));
+    if (width <= 460) assert.equal(newsletterLayout.stackedControls, true, JSON.stringify(newsletterLayout));
     await page.locator('#cc-frame').screenshot({ path: `${evidence}/viewport-${width}x${height}.png` });
     if (width === 1440) await page.screenshot({ path: `${evidence}/page-${width}x${height}.png`, fullPage: true });
     if (width === 390) await page.screenshot({ path: `${evidence}/page-${width}x${height}.png`, fullPage: true });

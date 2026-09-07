@@ -1,8 +1,18 @@
+import { initNewsletterSignup } from './src/newsletter/client.mjs';
+
 const ART_MANIFEST_URL = '/assets/command-center/manifest.json';
 const HISTORY_ENDPOINT = '/api/command-center/history';
 const AGENT = 'spawncamper9000';
 
 if (typeof document !== 'undefined') {
+  initNewsletterSignup({
+    panel: document.getElementById('cc-newsletter'),
+    form: document.getElementById('cc-newsletter-form'),
+    emailInput: document.getElementById('cc-newsletter-email'),
+    submitButton: document.getElementById('cc-newsletter-submit'),
+    status: document.getElementById('cc-newsletter-status'),
+    fallbackLink: document.getElementById('cc-newsletter-fallback')
+  });
   initCommandCenter().catch((error) => {
     const status = document.getElementById('cc-status');
     const copy = document.getElementById('cc-status-copy');

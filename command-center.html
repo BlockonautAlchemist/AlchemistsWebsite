@@ -87,6 +87,35 @@
         <div class="cc-directory__grid" id="cc-directory-grid"></div>
       </section>
 
+      <section class="cc-newsletter" id="cc-newsletter" aria-labelledby="cc-newsletter-title">
+        <div class="cc-newsletter__content">
+          <p class="cc-newsletter__kicker mono"><span>// Newsletter transmission</span><span>Channel open</span></p>
+          <div class="cc-newsletter__identity">
+            <img class="cc-newsletter__avatar" src="assets/spawncamper9000.jpg" alt="" width="128" height="130" loading="lazy" decoding="async" />
+            <span class="cc-newsletter__id-text">
+              <span class="cc-newsletter__handle mono">SPAWNCAMPER9000</span>
+              <span class="cc-newsletter__role mono">AI Gaming Intel Scout</span>
+            </span>
+          </div>
+          <h2 class="cc-newsletter__title display" id="cc-newsletter-title">GO BEYOND THE TERMINAL</h2>
+          <p class="cc-newsletter__copy">Get the deeper intel behind the signals. AI × gaming opportunities, tools, and analysis transmitted to your inbox.</p>
+        </div>
+        <div class="cc-newsletter__uplink">
+          <form class="cc-newsletter__form" id="cc-newsletter-form" novalidate>
+            <label class="cc-newsletter__label mono" for="cc-newsletter-email">Email destination</label>
+            <div class="cc-newsletter__controls">
+              <div class="cc-newsletter__field">
+                <span class="cc-newsletter__prompt mono" aria-hidden="true">intel@inbox:~$</span>
+                <input class="cc-newsletter__input mono" id="cc-newsletter-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="cc-newsletter-status" />
+              </div>
+              <button class="cc-newsletter__submit mono" id="cc-newsletter-submit" type="submit">[ subscribe // connect ]</button>
+            </div>
+          </form>
+          <p class="cc-newsletter__status mono" id="cc-newsletter-status" role="status" aria-live="polite" hidden></p>
+          <a class="cc-newsletter__fallback mono" id="cc-newsletter-fallback" href="https://spawncamper9000.beehiiv.com/?modal=signup" target="_blank" rel="noopener noreferrer" hidden>[ open hosted signup ↗ ]</a>
+        </div>
+      </section>
+
       <section class="cc-history" id="cc-recent-work" aria-labelledby="cc-history-title">
         <div class="cc-section-heading"><div><p class="cc-kicker mono">Public run history</p><h2 id="cc-history-title">Recent work</h2></div><button class="cc-action mono" id="cc-new-work" type="button" hidden>New work available</button></div>
         <div class="cc-history__controls"><label class="mono">Machine <select id="cc-history-machine"><option value="all">All machines</option></select></label><label class="mono">Status <select id="cc-history-status"><option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="running">Working</option><option value="waiting">Waiting</option><option value="needs_attention">Needs attention</option><option value="unknown">Unknown</option></select></label></div>

@@ -188,10 +188,26 @@ test('newsletter API does not leak Beehiiv secrets in browser code or responses'
   const responseText = JSON.stringify(result.body);
   const terminalJs = fs.readFileSync(`${__dirname}/../terminal.js`, 'utf8');
   const terminalHtml = fs.readFileSync(`${__dirname}/../terminal.html`, 'utf8');
+  const commandCenterJs = fs.readFileSync(`${__dirname}/../command-center.js`, 'utf8');
+  const commandCenterHtml = fs.readFileSync(`${__dirname}/../command-center.html`, 'utf8');
+  const newsletterClient = fs.readFileSync(`${__dirname}/../src/newsletter/client.mjs`, 'utf8');
 
   assert.doesNotMatch(responseText, /beehiiv-secret-never-leak/);
   assert.doesNotMatch(terminalJs, /BEEHIIV_API_KEY|beehiiv-secret-never-leak/);
   assert.doesNotMatch(terminalHtml, /BEEHIIV_API_KEY|beehiiv-secret-never-leak/);
+  assert.doesNotMatch(commandCenterJs, /BEEHIIV_API_KEY|beehiiv-secret-never-leak/);
+  assert.doesNotMatch(commandCenterHtml, /BEEHIIV_API_KEY|beehiiv-secret-never-leak/);
+  assert.doesNotMatch(newsletterClient, /BEEHIIV_API_KEY|beehiiv-secret-never-leak/);
+});
+
+test('shared newsletter client preserves terminal validation behavior', async () => {
+  const { normalizeNewsletterEmail: normalizeClientEmail, isValidNewsletterEmail } = await import('../src/newsletter/client.mjs');
+
+  assert.equal(normalizeClientEmail('  Reader@Example.COM  '), 'Reader@Example.COM');
+  assert.equal(isValidNewsletterEmail('Reader@Example.COM'), true);
+  assert.equal(isValidNewsletterEmail('reader@example'), false);
+  assert.equal(isValidNewsletterEmail('not-an-email'), false);
+  assert.equal(isValidNewsletterEmail(`${'x'.repeat(250)}@example.com`), false);
 });
 
 test('newsletter payload helper keeps Beehiiv mutations limited to subscriptions', () => {
@@ -238,4 +254,41 @@ test('terminal page exposes newsletter CTA as a separate desktop-sticky sidebar 
   assert.match(css, /\.terminal-newsletter\b/);
   assert.match(css, /\.terminal-newsletter__status\[data-state="success"\]/);
   assert.match(css, /\.terminal-newsletter__status\[data-state="error"\]/);
+});
+
+test('command center exposes the shared newsletter transmission between machines and recent work', () => {
+  const html = fs.readFileSync(`${__dirname}/../command-center.html`, 'utf8');
+  const css = fs.readFileSync(`${__dirname}/../command-center.css`, 'utf8');
+  const commandCenterJs = fs.readFileSync(`${__dirname}/../command-center.js`, 'utf8');
+  const terminalJs = fs.readFileSync(`${__dirname}/../terminal.js`, 'utf8');
+
+  const directoryStart = html.indexOf('<section class="cc-directory"');
+  const directoryEnd = html.indexOf('</section>', directoryStart) + '</section>'.length;
+  const newsletterStart = html.indexOf('<section class="cc-newsletter"');
+  const newsletterEnd = html.indexOf('</section>', newsletterStart) + '</section>'.length;
+  const historyStart = html.indexOf('<section class="cc-history"');
+
+  assert.notEqual(directoryStart, -1);
+  assert.ok(newsletterStart > directoryEnd);
+  assert.ok(historyStart > newsletterEnd);
+  assert.match(html, /\/\/ Newsletter transmission/);
+  assert.match(html, /Channel open/);
+  assert.match(html, /assets\/spawncamper9000\.jpg/);
+  assert.match(html, /SPAWNCAMPER9000/);
+  assert.match(html, /AI Gaming Intel Scout/);
+  assert.match(html, /GO BEYOND THE TERMINAL/);
+  assert.match(html, /Get the deeper intel behind the signals\./);
+  assert.match(html, /id="cc-newsletter-form"[\s\S]+novalidate/);
+  assert.match(html, /for="cc-newsletter-email">Email destination<\/label>/);
+  assert.match(html, /id="cc-newsletter-email"[\s\S]+type="email"[\s\S]+autocomplete="email"/);
+  assert.match(html, /id="cc-newsletter-status"[\s\S]+role="status"[\s\S]+aria-live="polite"/);
+  assert.match(html, new RegExp(NEWSLETTER_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(commandCenterJs, /initNewsletterSignup/);
+  assert.match(terminalJs, /initNewsletterSignup/);
+  assert.doesNotMatch(commandCenterJs, /function initNewsletterSignup/);
+  assert.doesNotMatch(terminalJs, /function initTerminalNewsletter/);
+  assert.match(css, /\.cc-newsletter\s*\{[\s\S]+grid-template-columns:/);
+  assert.match(css, /@media \(max-width: 760px\) \{[\s\S]+\.cc-newsletter\s*\{[\s\S]+grid-template-columns:\s*1fr/);
+  assert.match(css, /\.cc-newsletter__status\[data-state='success'\]/);
+  assert.match(css, /\.cc-newsletter__status\[data-state='error'\]/);
 });
