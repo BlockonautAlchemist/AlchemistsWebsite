@@ -276,11 +276,13 @@ test('command center exposes the shared newsletter transmission between machines
   assert.match(html, /assets\/spawncamper9000\.jpg/);
   assert.match(html, /SPAWNCAMPER9000/);
   assert.match(html, /AI Gaming Intel Scout/);
-  assert.match(html, /GO BEYOND THE TERMINAL/);
+  assert.match(html, /GET THE DAILY INTEL/);
   assert.match(html, /Get the deeper intel behind the signals\./);
   assert.match(html, /id="cc-newsletter-form"[\s\S]+novalidate/);
   assert.match(html, /for="cc-newsletter-email">Email destination<\/label>/);
   assert.match(html, /id="cc-newsletter-email"[\s\S]+type="email"[\s\S]+autocomplete="email"/);
+  assert.doesNotMatch(html, /intel@inbox/);
+  assert.match(html, /id="cc-newsletter-submit"[^>]*>Subscribe<\/button>/);
   assert.match(html, /id="cc-newsletter-status"[\s\S]+role="status"[\s\S]+aria-live="polite"/);
   assert.match(html, new RegExp(NEWSLETTER_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(commandCenterJs, /initNewsletterSignup/);

@@ -464,7 +464,7 @@
 
 .cc-newsletter__form { display: grid; gap: 8px; min-width: 0; }
 .cc-newsletter__label { color: var(--cc-ink-muted); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
-.cc-newsletter__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-width: 0; }
+.cc-newsletter__controls { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 8px; min-width: 0; }
 .cc-newsletter__field {
   display: flex;
   align-items: center;
@@ -478,8 +478,7 @@
 }
 
 .cc-newsletter__field:focus-within { border-color: var(--cc-cyan); box-shadow: 0 0 18px -9px var(--cc-cyan); }
-.cc-newsletter__prompt { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--cc-phosphor); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
-.cc-newsletter__input { flex: 1 1 110px; min-width: 0; min-height: 44px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--cc-ink); font-size: 12px; caret-color: var(--cc-magenta); }
+.cc-newsletter__input { width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--cc-ink); font-size: 12px; caret-color: var(--cc-magenta); }
 .cc-newsletter__input::placeholder { color: rgba(184, 154, 202, .65); }
 .cc-newsletter__submit {
   min-height: 46px;
