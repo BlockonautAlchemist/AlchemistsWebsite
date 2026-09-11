@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "node --test",
     "command-center:verify:browser": "node scripts/verify-command-center.mjs",
+    "command-center:verify:mobile": "node scripts/verify-command-center-mobile.mjs",
     "command-center:verify:db": "node scripts/verify-command-center-db.mjs",
     "command-center:measure": "node scripts/measure-command-center.mjs"
   },

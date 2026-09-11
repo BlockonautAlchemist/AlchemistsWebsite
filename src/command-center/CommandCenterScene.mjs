@@ -85,9 +85,6 @@ export class CommandCenterScene extends Phaser.Scene {
     this.transientEffects = new Set();
     this.latestState = null;
     this.selectedZoneId = '';
-    this.phoneViewport = false;
-    this.lastFocusAt = 0;
-    this.focusZoneId = '';
     this.opsReadoutTarget = '';
     this.opsReadoutVisible = '';
     this.opsReadoutTone = '';
@@ -184,58 +181,18 @@ export class CommandCenterScene extends Phaser.Scene {
   // -------------------------------------------------------------------------
 
   configureViewport() {
-    const width = typeof window === 'undefined' ? 1280 : window.innerWidth;
-    const portrait = typeof window === 'undefined'
-      ? false
-      : window.matchMedia('(orientation: portrait)').matches;
-    const phone = width <= COMMAND_CENTER_CAMERA.phoneMaxWidth && portrait;
-
-    if (phone === this.phoneViewport && this.viewportReady) return;
+    if (this.viewportReady) return;
     this.cameras.main.panEffect.reset();
-    this.focusZoneId = '';
-    this.lastFocusAt = -Infinity;
-    this.phoneViewport = phone;
     this.viewportReady = true;
-
-    const view = phone ? COMMAND_CENTER_CAMERA.focusWindow : COMMAND_CENTER_CANVAS;
-    this.scale.resize(view.width, view.height);
-    // Camera zoom stays integer: a fractional world zoom kills the pixel grid.
-    // Presentation scale is handled by CSS on the canvas element instead.
+    // Always render the complete logical room. The host uniformly contains it
+    // at its display size and refreshes pointer bounds after layout settles.
     this.cameras.main.setZoom(COMMAND_CENTER_CAMERA.baseZoom);
     this.cameras.main.setBounds(0, 0, COMMAND_CENTER_CANVAS.width, COMMAND_CENTER_CANVAS.height);
-
-    if (phone) this.focusCamera(COMMAND_CENTER_CAMERA.idleFocus, true);
-    else this.cameras.main.centerOn(COMMAND_CENTER_CANVAS.width / 2, COMMAND_CENTER_CANVAS.height / 2);
-  }
-
-  focusCamera(point, immediate = false) {
-    if (!this.phoneViewport) return;
-    const camera = this.cameras.main;
-    const x = Math.round(point.x);
-    const y = Math.round(point.y);
-    if (immediate || this.reducedMotion) {
-      camera.centerOn(x, y);
-      return;
-    }
-    // Never snap-cut between zones.
-    camera.pan(x, y, COMMAND_CENTER_CAMERA.focusLerpMs, 'Sine.easeOut');
-  }
-
-  focusZone(zoneId) {
-    if (!this.phoneViewport || !zoneId) return;
-    const now = this.time.now;
-    // Hold at least 8s before moving again.
-    if (zoneId === this.focusZoneId) return;
-    if (now - this.lastFocusAt < COMMAND_CENTER_CAMERA.focusHoldMs) return;
-    const area = areaById(zoneId);
-    this.focusZoneId = zoneId;
-    this.lastFocusAt = now;
-    this.focusCamera({ x: area.x, y: area.y + 60 });
+    this.cameras.main.centerOn(COMMAND_CENTER_CANVAS.width / 2, COMMAND_CENTER_CANVAS.height / 2);
   }
 
   update(_time, delta = 0) {
     if (this.locomotion) this.renderLocomotion(this.locomotion.update(delta));
-    if (this.latestState) this.focusZone(this.latestState.primaryWorkflow?.areaId || 'central-operations');
     if (this.camperInspected && this.time.now - (this.lastInspectorAt || 0) > 250) {
       this.lastInspectorAt = this.time.now; this.inspectCamper();
     }
@@ -1509,7 +1466,6 @@ export class CommandCenterScene extends Phaser.Scene {
         immediate: firstPaint,
         label: view.characterLabel || `${visual.label.toUpperCase()} · ${machineLabel.toUpperCase()}`
       });
-      this.focusZone(primary.areaId);
     } else {
       this.pendingCamperAnim = 'idle';
       this.pendingCamperZoneId = '';

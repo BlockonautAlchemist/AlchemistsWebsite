@@ -1,4 +1,5 @@
 import { initNewsletterSignup } from './src/newsletter/client.mjs';
+import { createMobilePresentation } from './src/command-center/mobilePresentation.mjs';
 
 const ART_MANIFEST_URL = '/assets/command-center/manifest.json';
 const HISTORY_ENDPOINT = '/api/command-center/history';
@@ -13,11 +14,13 @@ if (typeof document !== 'undefined') {
     status: document.getElementById('cc-newsletter-status'),
     fallbackLink: document.getElementById('cc-newsletter-fallback')
   });
-  initCommandCenter().catch((error) => {
+  const mobile = createMobilePresentation();
+  initCommandCenter(mobile).catch((error) => {
     const status = document.getElementById('cc-status');
     const copy = document.getElementById('cc-status-copy');
     if (status) { status.textContent = 'Disconnected'; status.dataset.state = 'disconnected'; }
     if (copy) copy.textContent = error?.message || 'Current activity cannot be confirmed.';
+    document.getElementById('cc-mobile-connection').textContent = '● DISCONNECTED';
   });
 }
 
@@ -34,7 +37,7 @@ async function loadArtManifest() {
   } finally { clearTimeout(timeout); }
 }
 
-async function initCommandCenter() {
+async function initCommandCenter(mobile) {
   const byId = (id) => document.getElementById(id);
   const canvasHost = byId('cc-canvas');
   const frame = byId('cc-frame');
@@ -104,8 +107,9 @@ async function initCommandCenter() {
       onZoneInspect({ area, workflows }) {
         if (!returnFocus?.isConnected) returnFocus = document.querySelector(`[data-machine-id="${machineForArea(area.id)?.id || ''}"]`);
         openZonePanel(area, workflows);
+        revealInspector();
       },
-      onCamperInspect(details) { openCamperPanel(details); }
+      onCamperInspect(details) { const wasHidden = hud.hidden; openCamperPanel(details); if (wasHidden) revealInspector(); }
     })
   });
 
@@ -149,11 +153,18 @@ async function initCommandCenter() {
     : '';
   const workflowName = (workflow) => workflow?.taskTitle || canonicalWorkflowLabel(workflow) || workflow?.machineName || 'Public task';
   const machineForArea = (areaId) => COMMAND_CENTER_MACHINES.find((machine) => machine.areaId === areaId) || null;
+  function revealInspector() {
+    if (!mobile.active) return;
+    refs.hudClose.focus({ preventScroll: true });
+    if (hud.closest('#cc-world')) hud.scrollTop = 0;
+    else hud.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  }
 
   function renderRows(rows) {
-    refs.hudRows.replaceChildren(...rows.filter(([, value]) => value !== '' && value !== null && value !== undefined).flatMap(([label, value]) => {
-      const term = el('dt', 'mono', label);
-      const detail = el('dd', 'mono');
+    refs.hudRows.replaceChildren(...rows.filter(([, value]) => value !== '' && value !== null && value !== undefined).flatMap(([label, value, mobileOnly]) => {
+      const className = mobileOnly ? 'mono cc-mobile-only' : 'mono';
+      const term = el('dt', className, label);
+      const detail = el('dd', className);
       detail.append(value instanceof Node ? value : document.createTextNode(String(value)));
       return [term, detail];
     }));
@@ -185,6 +196,7 @@ async function initCommandCenter() {
     }
     hud.style.setProperty('--cc-hud-accent', accent);
     hud.hidden = false;
+    mobile.selection(machineForArea(areaId)?.id || '');
     if (wasHidden) refs.hudClose.focus({ preventScroll: true });
   }
 
@@ -203,6 +215,7 @@ async function initCommandCenter() {
       areaId: area.id,
       accent: `#${area.color.toString(16).padStart(6, '0')}`,
       rows: machine ? [
+        ['WORKFLOW', machine.workflows.map((workflow) => workflowLabelFor(workflow)).join(' · '), true],
         ['INPUT', machine.input], ['WORK', machine.work], ['OUTPUT', machine.output],
         ['CURRENT USE', focus ? `${TASK_LABELS[focus.taskState]} · ${focus.activity}` : 'Not in public use'],
         ['LATEST TASK', latestRun ? workflowName(latestRun) : ''], ['LATEST OUTCOME', latestRun?.outcome || ''],
@@ -236,6 +249,7 @@ async function initCommandCenter() {
     selectedAreaId = '';
     selectedKind = '';
     scene?.clearInspection();
+    mobile.selection('');
     if (restore && returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
     returnFocus = null;
   }
@@ -248,7 +262,7 @@ async function initCommandCenter() {
       const button = el('button', 'cc-machine-button');
       button.type = 'button';
       button.dataset.machineId = machine.id;
-      button.append(el('strong', '', machine.name), el('span', '', machine.purpose));
+      button.append(el('strong', '', machine.name), el('span', 'cc-desktop-only', machine.purpose), el('span', 'cc-mobile-only cc-machine-state', 'Status unknown'));
       const highlight = (active) => {
         button.dataset.highlighted = active ? 'true' : 'false';
         scene?.highlightArea?.(machine.areaId, active);
@@ -260,7 +274,7 @@ async function initCommandCenter() {
       listen(button, 'click', () => {
         returnFocus = button;
         if (scene) scene.inspectArea(machine.areaId);
-        else openZonePanel(areaById(machine.areaId), []);
+        else { openZonePanel(areaById(machine.areaId), []); revealInspector(); }
       });
       fragment.append(button);
       const option = el('option', '', machine.name); option.value = machine.id; refs.historyMachine.append(option);
@@ -296,6 +310,17 @@ async function initCommandCenter() {
     refs.staleCount.textContent = String(latestState.staleCount || 0);
     const completed = presentation.latestCompleted || history.runs.find((run) => run.taskState === 'completed');
     refs.latestComplete.textContent = completed ? `${workflowName(completed)} · ${relativeTime(completed.timestamp || completed.updatedAt)}` : 'No completed public task yet';
+    mobile.render(presentation, { updated: shortTime(presentation.timestamp), timestamp: refs.updatedAt.dateTime, latest: refs.latestComplete.textContent });
+    COMMAND_CENTER_MACHINES.forEach((machine) => {
+      const node = refs.directoryGrid.querySelector(`[data-machine-id="${machine.id}"] .cc-machine-state`);
+      const group = latestState.areaGroups?.find((group) => group.id === machine.areaId);
+      const current = group?.displayWorkflow;
+      const latest = group?.workflows.slice().sort((a, b) => b.sortTime - a.sortTime)[0];
+      const last = matchingRuns(machine)[0];
+      const state = presentation.connection !== 'connected' ? 'unknown' : current?.taskState || (latest?.taskState === 'unknown' ? 'unknown' : 'idle');
+      node.dataset.state = state;
+      node.textContent = `● ${state === 'idle' ? 'Idle' : TASK_LABELS[state] || 'Unknown'}${state === 'idle' && last ? ` · Last: ${TASK_LABELS[last.taskState] || 'Unknown'}` : ''}`;
+    });
     refs.connection.textContent = `● ${presentation.connectionLabel}`;
     refs.connection.dataset.state = presentation.connection;
     canvasHost.setAttribute('aria-label', `SpawnCamper9000 facility. ${presentation.connectionLabel}. ${presentation.taskLabel}. ${presentation.currentTaskCount} current public tasks.`);
@@ -345,11 +370,19 @@ async function initCommandCenter() {
     titleWrap.append(el('p', 'cc-run__machine mono', machine?.name || canonicalWorkflowLabel(run)));
     const status = el('span', 'cc-run__state mono', TASK_LABELS[run.taskState] || 'Unknown');
     head.append(titleWrap, status); item.append(head);
-    const meta = el('p', 'cc-run__meta mono'); meta.append(`${run.totalEventCount} event${run.totalEventCount === 1 ? '' : 's'} · `, timeNode(run.updatedAt)); item.append(meta);
+    const toggle = el('button', 'cc-mobile-only cc-run__toggle');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-label', `View details: ${run.taskTitle || canonicalWorkflowLabel(run) || 'Public task'}`);
+    toggle.setAttribute('aria-expanded', 'false');
+    head.append(toggle);
+    const meta = el('p', 'cc-run__meta mono'); meta.append(el('span', 'cc-desktop-only', `${run.totalEventCount} event${run.totalEventCount === 1 ? '' : 's'} · `), timeNode(run.updatedAt)); item.append(meta);
     if (run.outcome) item.append(el('p', 'cc-run__outcome', run.outcome));
     const actions = el('div', 'cc-run__actions mono');
     if (run.publicUrl) { const link = el('a', '', 'View public output'); link.href = run.publicUrl; link.target = '_blank'; link.rel = 'noopener noreferrer'; actions.append(link); }
     const details = el('details');
+    details.id = `cc-run-details-${encodeURIComponent(run.id)}`;
+    toggle.setAttribute('aria-controls', details.id);
+    const expandedOutcome = run.outcome ? el('p', 'cc-mobile-only cc-run__full-outcome', run.outcome) : null;
     const summary = el('summary', 'mono', 'Task details');
     const list = el('ol', 'cc-run__events');
     if (run.omittedEventCount) list.append(el('li', 'mono', `${run.omittedEventCount} earlier event${run.omittedEventCount === 1 ? '' : 's'} omitted from expanded details.`));
@@ -361,11 +394,25 @@ async function initCommandCenter() {
       eventItem.append(label, ` — ${event.activity} · `, at, absolute);
       list.append(eventItem);
     });
-    details.append(summary, list); actions.append(details); item.append(actions);
+    details.append(summary);
+    details.append(el('p', 'cc-mobile-only cc-run__event-count mono', `${run.totalEventCount} event${run.totalEventCount === 1 ? '' : 's'} · ${absoluteTime(run.updatedAt)}`));
+    if (expandedOutcome) details.append(expandedOutcome);
+    details.append(list); actions.append(details); item.append(actions);
+    const syncOpen = () => {
+      item.dataset.expanded = String(details.open);
+      toggle.setAttribute('aria-expanded', String(details.open));
+      toggle.setAttribute('aria-label', `${details.open ? 'Hide' : 'View'} details: ${workflowName(run)}`);
+    };
+    toggle.addEventListener('click', () => { details.open = !details.open; syncOpen(); });
+    details.addEventListener('toggle', syncOpen);
+    syncOpen();
     return item;
   }
 
+  const runNodes = new Map();
   function renderHistory() {
+    const retainedIds = new Set(history.runs.map((run) => run.id));
+    runNodes.forEach((_, id) => { if (!retainedIds.has(id)) runNodes.delete(id); });
     const machineFilter = refs.historyMachine.value;
     const statusFilter = refs.historyStatus.value;
     const filtered = history.runs.filter((run) => {
@@ -373,7 +420,23 @@ async function initCommandCenter() {
       return (machineFilter === 'all' || machine?.id === machineFilter)
         && (statusFilter === 'all' || run.taskState === statusFilter);
     });
-    refs.recentList.replaceChildren(...filtered.map(runCard));
+    const nodes = filtered.map((run) => {
+      const signature = JSON.stringify(run);
+      const previous = runNodes.get(run.id);
+      if (previous?.signature === signature) return previous.node;
+      const node = runCard(run);
+      if (previous?.node.querySelector('details').open) {
+        node.querySelector('details').open = true;
+        node.dataset.expanded = 'true';
+        node.querySelector('.cc-run__toggle').setAttribute('aria-expanded', 'true');
+      }
+      runNodes.set(run.id, { signature, node });
+      return node;
+    });
+    // Do not detach unchanged rows: keyboard focus and disclosure state survive.
+    const wanted = new Set(nodes);
+    [...refs.recentList.children].forEach((node) => { if (!wanted.has(node)) node.remove(); });
+    nodes.forEach((node, index) => { if (refs.recentList.children[index] !== node) refs.recentList.insertBefore(node, refs.recentList.children[index] || null); });
     if (history.loading) refs.historyMessage.textContent = history.runs.length ? 'Loading earlier work…' : 'Loading recent public work…';
     else if (history.error) refs.historyMessage.textContent = history.runs.length ? `Earlier work unavailable: ${history.error}` : `Recent work unavailable: ${history.error}`;
     else if (!history.runs.length) refs.historyMessage.textContent = 'No public work has been recorded yet.';
@@ -422,15 +485,102 @@ async function initCommandCenter() {
 
   const world = byId('cc-world');
   const fullscreenButton = byId('cc-fullscreen');
+  const scrollToSection = (node) => {
+    node.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+  listen(byId('cc-focus-machine'), 'click', () => {
+    if (!selectedAreaId) return;
+    scene?.highlightArea(selectedAreaId, true);
+    scrollToSection(world);
+    byId('cc-full-facility').focus({ preventScroll: true });
+  });
+  listen(byId('cc-full-facility'), 'click', () => {
+    closePanel({ restore: false });
+    fullscreenButton.focus({ preventScroll: true });
+  });
+  listen(byId('cc-machine-work'), 'click', async () => {
+    const machine = machineForArea(selectedAreaId);
+    if (!machine) return;
+    if (viewportExpanded) setViewportExpanded(false);
+    else if (fullscreenElement() === world) {
+      try { await exitFullscreen.call(document); } catch { return; }
+    }
+    refs.historyMachine.value = machine.id;
+    refs.historyStatus.value = 'all';
+    renderHistory();
+    scrollToSection(byId('cc-recent-work'));
+    byId('cc-filter-toggle').focus({ preventScroll: true });
+  });
   const requestFullscreen = world && (world.requestFullscreen || world.webkitRequestFullscreen);
   const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
-  if (world && fullscreenButton && requestFullscreen && exitFullscreen && (document.fullscreenEnabled || document.webkitFullscreenEnabled)) {
-    const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
-    const syncFullscreen = () => { const active = fullscreenElement() === world; world.dataset.fullscreen = String(active); fullscreenButton.textContent = active ? 'Exit fullscreen' : 'Fullscreen'; scheduleLayout(); };
-    listen(fullscreenButton, 'click', () => Promise.resolve(fullscreenElement() === world ? exitFullscreen.call(document) : requestFullscreen.call(world)).catch(syncFullscreen));
-    listen(document, 'fullscreenchange', syncFullscreen); listen(document, 'webkitfullscreenchange', syncFullscreen);
-    fullscreenButton.hidden = false; syncFullscreen();
+  const nativeFullscreen = Boolean(requestFullscreen && exitFullscreen && (document.fullscreenEnabled || document.webkitFullscreenEnabled));
+  const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  let viewportExpanded = false;
+  let expandedScroll = 0;
+  let inertNodes = [];
+  function updateFullscreenButton() {
+    const active = viewportExpanded || fullscreenElement() === world;
+    fullscreenButton.hidden = !nativeFullscreen && !mobile.active && !active;
+    fullscreenButton.textContent = mobile.active ? (active ? '×' : '⛶') : (active ? 'Exit fullscreen' : 'Fullscreen');
+    fullscreenButton.setAttribute('aria-label', active ? 'Exit expanded room' : 'Expand room');
+    fullscreenButton.setAttribute('aria-pressed', String(active));
+    fullscreenButton.title = active ? 'Exit expanded room' : 'Expand room';
   }
+  function syncFullscreen() {
+    const native = fullscreenElement() === world;
+    world.dataset.fullscreen = String(native);
+    world.dataset.expanded = String(viewportExpanded);
+    mobile.expand(native || viewportExpanded);
+    updateFullscreenButton();
+    scheduleLayout();
+  }
+  function setViewportExpanded(active) {
+    viewportExpanded = active;
+    if (active) {
+      expandedScroll = scrollY;
+      document.body.classList.add('cc-room-expanded');
+      world.setAttribute('role', 'dialog');
+      world.setAttribute('aria-modal', 'true');
+      world.setAttribute('aria-label', 'Command Center facility');
+    } else {
+      inertNodes.forEach((node) => { node.inert = false; });
+      inertNodes = [];
+      document.body.classList.remove('cc-room-expanded');
+      world.removeAttribute('role'); world.removeAttribute('aria-modal'); world.removeAttribute('aria-label');
+    }
+    syncFullscreen();
+    if (active) {
+      for (let branch = world; branch.parentElement; branch = branch.parentElement) {
+        [...branch.parentElement.children].forEach((node) => {
+          if (node !== branch && !node.inert && !['SCRIPT', 'STYLE', 'LINK', 'HEAD'].includes(node.tagName)) { node.inert = true; inertNodes.push(node); }
+        });
+        if (branch.parentElement === document.body) break;
+      }
+    } else window.scrollTo({ top: expandedScroll, behavior: 'instant' });
+    fullscreenButton.focus({ preventScroll: true });
+  }
+  listen(fullscreenButton, 'click', async () => {
+    if (viewportExpanded) { setViewportExpanded(false); return; }
+    if (fullscreenElement() === world) { try { await exitFullscreen.call(document); } catch { syncFullscreen(); } return; }
+    if (mobile.active) closePanel({ restore: false });
+    if (nativeFullscreen) {
+      try { await requestFullscreen.call(world); } catch { if (mobile.active) setViewportExpanded(true); else syncFullscreen(); }
+    } else if (mobile.active) setViewportExpanded(true);
+  });
+  listen(document, 'keydown', (event) => {
+    if (!viewportExpanded) return;
+    if (event.key === 'Escape') { event.preventDefault(); setViewportExpanded(false); }
+    if (event.key === 'Tab') {
+      const controls = [...world.querySelectorAll('button, a, select, summary, [tabindex="0"]')].filter((node) => !node.disabled && node.getClientRects().length);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+  });
+  listen(document, 'fullscreenchange', syncFullscreen);
+  listen(document, 'webkitfullscreenchange', syncFullscreen);
+  mobile.connect(() => { updateFullscreenButton(); scheduleLayout(); });
+  syncFullscreen();
 
   function scheduleLayout() {
     cancelAnimationFrame(layoutFrame);
@@ -438,21 +588,26 @@ async function initCommandCenter() {
       if (destroyed || !scene) return;
       scene.configureViewport();
       const width = scene.scale.width; const height = scene.scale.height;
-      const fullscreen = world?.dataset.fullscreen === 'true';
-      const availableWidth = frame.clientWidth;
-      const availableHeight = fullscreen ? frame.clientHeight : Math.min(availableWidth * height / width, scene.phoneViewport ? Math.max(300, innerHeight * .6) : Infinity);
-      canvasHost.style.height = fullscreen ? '100%' : `${availableHeight}px`;
+      const fullscreen = world?.dataset.fullscreen === 'true' || viewportExpanded;
+      const frameStyle = mobile.active ? getComputedStyle(frame) : null;
+      const availableWidth = frameStyle ? parseFloat(frameStyle.width) : frame.clientWidth;
+      const availableHeight = fullscreen ? (frameStyle ? parseFloat(frameStyle.height) : frame.clientHeight) : availableWidth * height / width;
+      const hostHeight = fullscreen ? '100%' : `${availableHeight}px`;
+      if (canvasHost.style.height !== hostHeight) canvasHost.style.height = hostHeight;
       const scale = Math.min(availableWidth / width, availableHeight / height);
-      canvasHost.style.setProperty('--canvas-width', `${width * scale}px`); canvasHost.style.setProperty('--canvas-height', `${height * scale}px`);
+      for (const [property, value] of [['--canvas-width', `${width * scale}px`], ['--canvas-height', `${height * scale}px`]]) {
+        if (canvasHost.style.getPropertyValue(property) !== value) canvasHost.style.setProperty(property, value);
+      }
       cancelAnimationFrame(boundsFrame); boundsFrame = requestAnimationFrame(() => { if (!destroyed) game.scale.refresh(); });
     });
   }
   const observer = new ResizeObserver(scheduleLayout); observer.observe(frame);
   listen(window, 'resize', scheduleLayout);
+  if (window.visualViewport) listen(window.visualViewport, 'resize', scheduleLayout);
   listen(window, 'pagehide', (event) => {
     client.stop(); cancelAnimationFrame(layoutFrame); cancelAnimationFrame(boundsFrame);
     if (event.persisted) { game.loop.sleep(); return; }
-    destroyed = true; observer.disconnect(); lifecycle.abort(); client.destroy(); game.destroy(true);
+    destroyed = true; observer.disconnect(); lifecycle.abort(); mobile.destroy(); client.destroy(); game.destroy(true);
   });
   listen(window, 'pageshow', (event) => { if (event.persisted && !destroyed) { game.loop.wake(); client.start(); scheduleLayout(); } });
   scheduleLayout();

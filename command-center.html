@@ -40,7 +40,7 @@
   <main class="cc-main" id="command-center">
     <section class="cc-room" aria-labelledby="cc-title" data-readonly="true">
       <header class="cc-room__header">
-        <div><p class="eyebrow cc-eyebrow mono">The Alchemists / Public operations</p><h1 class="display" id="cc-title">Command Center</h1></div>
+        <div><p class="eyebrow cc-eyebrow mono"><span class="cc-desktop-only">The Alchemists / Public operations</span><span class="cc-mobile-only">Public operations</span></p><h1 class="display" id="cc-title">Command Center</h1><p class="cc-mobile-only cc-mobile-state mono" id="cc-mobile-state">● STATUS UNKNOWN</p></div>
         <p class="cc-room__copy">Meet SpawnCamper9000, The Alchemists&rsquo; AI operator. He researches AI and gaming news, evaluates tools and workflows, and helps prepare community content. This room visualizes his public work as it happens.</p>
       </header>
 
@@ -77,10 +77,17 @@
           <aside class="cc-hud" id="cc-hud" aria-labelledby="cc-hud-title" hidden tabindex="-1">
             <div class="cc-hud__head"><div><span class="mono" id="cc-hud-eyebrow">Machine guide</span><h2 class="mono" id="cc-hud-title" tabindex="-1">Central Operations</h2></div><button class="cc-hud__close mono" id="cc-hud-close" type="button" aria-label="Close machine details">Close</button></div>
             <p class="cc-hud__purpose" id="cc-hud-purpose"></p><dl class="cc-hud__rows" id="cc-hud-rows"></dl><div class="cc-hud__runs" id="cc-hud-runs"></div><div id="cc-area-body"></div>
+            <div class="cc-mobile-only cc-machine-actions"><button class="cc-action mono" id="cc-focus-machine" type="button">Focus in room</button><button class="cc-action mono" id="cc-machine-work" type="button">View recent work</button></div>
           </aside>
         </div>
+        <section class="cc-mobile-only cc-mobile-hud mono" aria-label="Live public activity">
+          <div class="cc-mobile-hud__facts"><span id="cc-mobile-connection">● CONNECTING</span><span id="cc-mobile-task">STATUS UNKNOWN</span><span id="cc-mobile-count">0 ACTIVE</span><time id="cc-mobile-updated">NO HEARTBEAT</time></div>
+          <p class="cc-mobile-hud__latest"><span>LAST RUN</span><span id="cc-mobile-latest">No completed public task yet</span></p>
+          <div class="cc-mobile-hud__tools" id="cc-mobile-room-tools"><button class="cc-action mono" id="cc-full-facility" type="button" hidden>Full facility</button></div>
+        </section>
         <div class="cc-strip" id="cc-strip"><p class="cc-strip__line mono">Mode · <strong id="cc-strip-state">Status unknown</strong></p><p class="cc-strip__line cc-strip__caption mono" id="cc-strip-caption">Opening public telemetry</p><div class="cc-strip__hairline"><i id="cc-strip-progress"></i></div><ul class="cc-strip__unattended mono" id="cc-strip-unattended"></ul></div>
       </div>
+      <details class="cc-mobile-only cc-telemetry-details" id="cc-telemetry-details"><summary class="mono">View telemetry details</summary></details>
 
       <section class="cc-directory" id="cc-machine-directory" aria-labelledby="cc-directory-title">
         <div class="cc-section-heading"><div><p class="cc-kicker mono">Facility guide</p><h2 id="cc-directory-title">Explore machines</h2></div><p>Focus a machine to highlight it in the room. Open it for purpose, workflow, and recent public use.</p></div>
@@ -98,7 +105,7 @@
             </span>
           </div>
           <h2 class="cc-newsletter__title display" id="cc-newsletter-title">GET THE DAILY INTEL</h2>
-          <p class="cc-newsletter__copy">Get the deeper intel behind the signals. AI × gaming opportunities, tools, and analysis transmitted to your inbox.</p>
+          <p class="cc-newsletter__copy"><span class="cc-desktop-only">Get the deeper intel behind the signals. AI × gaming opportunities, tools, and analysis transmitted to your inbox.</span><span class="cc-mobile-only">Deeper AI × gaming intel behind the signals.</span></p>
         </div>
         <div class="cc-newsletter__uplink">
           <form class="cc-newsletter__form" id="cc-newsletter-form" novalidate>
@@ -117,9 +124,11 @@
 
       <section class="cc-history" id="cc-recent-work" aria-labelledby="cc-history-title">
         <div class="cc-section-heading"><div><p class="cc-kicker mono">Public run history</p><h2 id="cc-history-title">Recent work</h2></div><button class="cc-action mono" id="cc-new-work" type="button" hidden>New work available</button></div>
-        <div class="cc-history__controls"><label class="mono">Machine <select id="cc-history-machine"><option value="all">All machines</option></select></label><label class="mono">Status <select id="cc-history-status"><option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="running">Working</option><option value="waiting">Waiting</option><option value="needs_attention">Needs attention</option><option value="unknown">Unknown</option></select></label></div>
+        <button class="cc-mobile-only cc-action cc-filter-toggle mono" id="cc-filter-toggle" type="button" aria-expanded="false" aria-controls="cc-history-controls">Filter ▾</button>
+        <div class="cc-history__controls" id="cc-history-controls"><label class="mono">Machine <select id="cc-history-machine"><option value="all">All machines</option></select></label><label class="mono">Status <select id="cc-history-status"><option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="running">Working</option><option value="waiting">Waiting</option><option value="needs_attention">Needs attention</option><option value="unknown">Unknown</option></select></label></div>
         <p class="cc-history__message mono" id="cc-history-message">Loading recent public work…</p><ol class="cc-history__list" id="cc-recent-list"></ol><button class="cc-action mono" id="cc-load-earlier" type="button" hidden>Load earlier</button>
       </section>
+      <section class="cc-mobile-only cc-about" id="cc-about" aria-labelledby="cc-about-title"><p class="cc-kicker mono">Behind the room</p><h2 id="cc-about-title">About SpawnCamper9000</h2></section>
 
       <div class="cc-a11y"><h2 id="cc-area-title">Command Center status updates</h2><p id="cc-live-status" aria-live="polite" aria-atomic="true"></p></div>
       <noscript><p class="cc-noscript mono">JavaScript is disabled. The command center needs JavaScript to render public workflow telemetry.</p></noscript>

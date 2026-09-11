@@ -44,9 +44,13 @@ Event persistence and public latest-state advancement are one PostgreSQL stateme
 
 ## Viewport and lifecycle
 
-One host-size calculation sets canvas dimensions and centered letterboxing in ordinary, portrait and fullscreen modes. Phaser pointer bounds refresh after the canvas layout settles. Resize/fullscreen does not replace movement state. Portrait camera focus passes through one hold policy and cancels obsolete pans when viewport mode changes.
+One host-size calculation sets canvas dimensions and centered letterboxing in ordinary, portrait and fullscreen modes. The camera always shows the full logical 960×528 facility at zoom 1; mobile does not crop or automatically follow the operator. Phaser pointer bounds refresh after the canvas layout settles. Resize/fullscreen does not replace movement state.
 
 Machine clicks and the semantic machine directory open a persistent inspector beside the scene on desktop and beneath it on narrow screens. Close, Escape, or another selection dismisses/replaces it; empty-floor and outside clicks do not. Focus moves to Close and returns to the originating machine button. The character and Central Operations remain inspectable. Physical station names remain fixed when another workflow uses them. The activity strip is an activity indicator, not a progress estimate.
+
+The mobile presentation applies at ≤760px and to touch-only landscape viewports ≤1000px wide and ≤500px tall. It moves existing nodes into reading order: compact header/state, full room, 112px telemetry HUD and verbose disclosure, two-column machine directory with an inline inspector, compact expandable run history, newsletter, and About. `mobilePresentation.mjs` owns these reversible placements; telemetry and history remain shared. Focus in Room highlights without zooming, and Full Facility clears inspection. The expand control uses native fullscreen where available and otherwise expands the same room into the viewport with focus containment and scroll restoration. Browser chrome remains outside the fallback view.
+
+`npm run command-center:verify:mobile` runs local-only fixtures across phone, landscape, breakpoint, and tablet/desktop sizes; checks the fold, full camera bounds, pointer-safe contain dimensions, disclosures, filters/pagination, truthful state changes, and native/unsupported/rejected fullscreen. Screenshots and measurements are written to `/tmp/cc-mobile-evidence` by default. Use `CC_CHROMIUM_PATH` when an explicit installed browser path is needed.
 
 Manifest requests time out after five seconds; individual assets have bounded loading and loaded-texture/procedural fallbacks. Page exit removes polling, resize/fullscreen/visibility handlers, observers, animation frames, tweens and timers. Persisted pagehide suspends the existing game; pageshow wakes it and refreshes without destroying or duplicating the canvas.
 

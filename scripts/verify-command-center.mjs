@@ -277,7 +277,8 @@ try {
       };
     });
     assert.ok(newsletterLayout.order[0] <= newsletterLayout.order[1] + 1, JSON.stringify(newsletterLayout));
-    assert.ok(newsletterLayout.order[2] <= newsletterLayout.order[3] + 1, JSON.stringify(newsletterLayout));
+    if (width > 760) assert.ok(newsletterLayout.order[2] <= newsletterLayout.order[3] + 1, JSON.stringify(newsletterLayout));
+    else assert.ok(newsletterLayout.order[3] < newsletterLayout.order[1], JSON.stringify(newsletterLayout));
     assert.ok(newsletterLayout.overflow <= 0, JSON.stringify(newsletterLayout));
     assert.ok(newsletterLayout.fieldHeight >= 44 && newsletterLayout.submitHeight >= 44, JSON.stringify(newsletterLayout));
     if (width > 760) assert.equal(newsletterLayout.columns, true, JSON.stringify(newsletterLayout));

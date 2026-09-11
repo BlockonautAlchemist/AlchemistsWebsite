@@ -48,18 +48,9 @@ export const COMMAND_CENTER_CANVAS = Object.freeze({
   idlePoint: Object.freeze({ x: 480, y: 228 })
 });
 
-// Section 10 mobile reframing.
+// The complete facility is contained at every display size.
 export const COMMAND_CENTER_CAMERA = Object.freeze({
-  desktopWideMinWidth: 1280,
-  desktopZoom: 2,
-  baseZoom: 1,
-  phoneZoom: 2,
-  phoneMaxWidth: 760,
-  minLogicalWidth: 340,
-  focusWindow: Object.freeze({ width: 384, height: 336 }),
-  focusLerpMs: 600,
-  focusHoldMs: 8000,
-  idleFocus: Object.freeze({ x: 480, y: 300 })
+  baseZoom: 1
 });
 
 export const COMMAND_CENTER_COMPLETE_ACK_MS = 30000;
